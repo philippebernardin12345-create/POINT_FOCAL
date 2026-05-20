@@ -1,0 +1,78 @@
+const form = document.getElementById('registerForm');
+
+form.addEventListener('submit', async (e) => {
+
+    e.preventDefault();
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    const params = new URLSearchParams(window.location.search);
+
+    const sponsor = params.get('ref');
+
+    const response = await fetch(
+        'http://localhost:5000/api/auth/register',
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email,
+                password,
+                confirmPassword,
+                sponsor_code: sponsor
+            })
+        }
+    );
+
+    const data = await response.json();
+
+    if (data.success) {
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        openPopup();
+    }
+});
+
+function openPopup() {
+
+    const popup = document.getElementById('importantPopup');
+
+    popup.classList.remove('hidden');
+
+    let count = 10;
+
+    const countdown = document.getElementById('countdown');
+
+    const button = document.getElementById('watchVideoBtn');
+
+    const interval = setInterval(() => {
+
+        count--;
+
+        countdown.innerText = count;
+
+        if (count <= 0) {
+
+            clearInterval(interval);
+
+            button.disabled = false;
+        }
+
+    }, 1000);
+
+    button.addEventListener('click', () => {
+
+        window.open(
+            'https://youtube.com',
+            '_blank'
+        );
+
+        window.location.href = 'dashboard.html';
+    });
+}
