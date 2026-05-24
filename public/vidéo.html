@@ -1,0 +1,292 @@
+cat > public/video.html << 'EOF'
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Point Focal - Visionnez la vidéo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #000;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: #111;
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+
+        /* Vidéo */
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .video-wrapper iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Timer */
+        .timer-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .timer-circle {
+            display: inline-block;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #1a1a2e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            border: 3px solid #e63946;
+        }
+
+        .timer-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #e63946;
+        }
+
+        .timer-label {
+            color: #fff;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        /* Messages d'accompagnement */
+        .message-box {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            border-left: 4px solid #e63946;
+        }
+
+        .message-text {
+            color: #ffd700;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        /* Bouton */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            background: #1a1a2e;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #e63946;
+            color: white;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+            background: #c1121f;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            transform: none;
+            cursor: not-allowed;
+        }
+
+        /* État de chargement */
+        .loading {
+            text-align: center;
+            color: #ffd700;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="video-wrapper">
+            <iframe id="youtubePlayer" 
+                    src="https://www.youtube.com/embed/9uPybhkqYw4?enablejsapi=1&origin=http://localhost:3000"
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen>
+            </iframe>
+        </div>
+
+        <div class="timer-section">
+            <div class="timer-circle">
+                <span class="timer-value" id="timerDisplay">180</span>
+            </div>
+            <div class="timer-label">secondes restantes</div>
+        </div>
+
+        <div class="message-box">
+            <div class="message-text" id="motivationMessage">
+                Regardez attentivement le début. L'algorithme YouTube détecte l'attention dès les premières secondes.
+            </div>
+        </div>
+
+        <button class="btn" id="getLinkBtn" disabled>
+            ⏳ Regardez la vidéo jusqu'au bout...
+        </button>
+    </div>
+
+    <script>
+        // Configuration
+        const TOTAL_SECONDS = 180;
+        let timeLeft = TOTAL_SECONDS;
+        let timerInterval = null;
+        let videoStarted = false;
+
+        // Messages d'accompagnement (toutes les 30 secondes)
+        const messages = [
+            { time: 180, text: "🎬 Regardez attentivement le début. L'algorithme YouTube détecte l'attention dès les premières secondes." },
+            { time: 150, text: "👍 Pensez à LIKER la vidéo. Un like augmente sa visibilité de 30 %." },
+            { time: 120, text: "📺 Vous êtes à la moitié. Continuez. Le visionnage complet est ce que YouTube récompense le plus." },
+            { time: 90, text: "💬 Préparez un COMMENTAIRE AUTHENTIQUE. Pas 'nice video'. Donnez votre avis. YouTube valorise les vrais commentaires." },
+            { time: 60, text: "⏰ Encore une minute. Chaque seconde regardée augmente la portée de la vidéo... et donc de VOTRE futur lien." },
+            { time: 30, text: "🏁 Dernières secondes. Après cette étape, vous obtiendrez votre lien Victory Automatic. Merci pour votre engagement !" },
+            { time: 0, text: "✅ Félicitations ! Vous avez regardé jusqu'au bout. Vous venez de booster la vidéo. Cliquez sur le bouton ci-dessous." }
+        ];
+
+        // Éléments DOM
+        const timerDisplay = document.getElementById('timerDisplay');
+        const motivationMessage = document.getElementById('motivationMessage');
+        const getLinkBtn = document.getElementById('getLinkBtn');
+
+        // Mise à jour du message en fonction du temps restant
+        function updateMessage(secondsLeft) {
+            for (let i = 0; i < messages.length; i++) {
+                if (secondsLeft >= messages[i].time) {
+                    motivationMessage.textContent = messages[i].text;
+                    break;
+                }
+            }
+        }
+
+        // Mise à jour du timer
+        function updateTimer() {
+            timerDisplay.textContent = timeLeft;
+            updateMessage(timeLeft);
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                timerDisplay.textContent = "0";
+                getLinkBtn.disabled = false;
+                getLinkBtn.textContent = "🎯 J'obtiens le lien Victory Automatic";
+                getLinkBtn.classList.add('btn-primary');
+                motivationMessage.textContent = "✅ Visionnage terminé ! Vous pouvez maintenant obtenir votre lien.";
+            }
+            timeLeft--;
+        }
+
+        // Démarrage du timer (appelé quand la vidéo commence à jouer)
+        function startTimer() {
+            if (timerInterval) return;
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        // Initialisation du player YouTube
+        let player;
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('youtubePlayer', {
+                events: {
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerStateChange(event) {
+            // État 1 = lecture en cours
+            if (event.data === 1 && !videoStarted) {
+                videoStarted = true;
+                startTimer();
+            }
+        }
+
+        // Attendre que l'API YouTube soit chargée
+        function loadYouTubeAPI() {
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        }
+
+        // Gestionnaire du bouton (récupération du lien)
+        getLinkBtn.addEventListener('click', async () => {
+            if (timeLeft > 0) return;
+
+            getLinkBtn.disabled = true;
+            getLinkBtn.textContent = "⏳ Chargement...";
+
+            try {
+                // Récupération du lien Victory Automatic (parrain ou racine)
+                const response = await fetch('/api/get-victory-link');
+                const data = await response.json();
+
+                if (data.link) {
+                    // Ouvrir dans un nouvel onglet
+                    window.open(data.link, '_blank');
+                    
+                    // Marquer l'étape vidéo comme complétée
+                    await fetch('/api/video-completed', { method: 'POST' });
+                    
+                    // Redirection après quelques secondes
+                    setTimeout(() => {
+                        window.location.href = '/dashboard.html';
+                    }, 2000);
+                } else {
+                    motivationMessage.textContent = "❌ Erreur : impossible de récupérer votre lien. Rechargez la page.";
+                    getLinkBtn.disabled = false;
+                    getLinkBtn.textContent = "🎯 Réessayer";
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                motivationMessage.textContent = "❌ Erreur technique. Veuillez réessayer.";
+                getLinkBtn.disabled = false;
+                getLinkBtn.textContent = "🎯 Réessayer";
+            }
+        });
+
+        // Chargement de l'API YouTube
+        loadYouTubeAPI();
+        window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+    </script>
+</body>
+</html>
+EOF
