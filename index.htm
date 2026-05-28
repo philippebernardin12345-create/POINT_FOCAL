@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POINT FOCAL</title>
+    <style>
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 450px;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .auth-box {
+            background: #111111;
+            border: 1px solid #333333;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        #bloc-langue h2 { margin-bottom: 20px; font-size: 20px; }
+        .btn-langue {
+            width: 100%;
+            padding: 12px;
+            margin: 6px 0;
+            background: #222222;
+            border: 1px solid #444444;
+            color: white;
+            font-size: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn-langue:hover { background: #333333; border-color: #FF0000; }
+        .champ-saisie {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: #222222;
+            border: 1px solid #444444;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .champ-saisie:focus {
+            border-color: #FF0000;
+            outline: none;
+        }
+        .options-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #888888;
+            margin: 10px 0;
+        }
+        .liens-bascule {
+            color: #FF0000;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 15px;
+            display: inline-block;
+        }
+        .erreur-texte {
+            color: #FF0000;
+            font-size: 14px;
+            margin: 5px 0;
+            display: none;
+            text-align: left;
+        }
+        .succes-texte {
+            color: #00FF00;
+            font-size: 14px;
+            margin: 8px 0;
+            display: none;
+            text-align: center;
+            background: rgba(0, 255, 0, 0.1);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #00FF00;
+        }
+        .popup-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            z-index: 9999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .cadre-blanc {
+            border: 3px solid #ffffff;
+            width: 100%;
+            max-width: 420px;
+            height: 80vh;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        .cadre-blanc h1 {
+            color: #FF0000;
+            font-size: 26px;
+            font-weight: 900;
+            text-align: center;
+            margin: 0 0 15px 0;
+        }
+        .zone-defilement {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+            color: #FFFF00;
+            font-size: 14px;
+            line-height: 1.6;
+            text-align: left;
+            border-bottom: 1px solid #333333;
+            margin-bottom: 15px;
+        }
+        .zone-defilement ul { padding-left: 15px; }
+        .alerte-destruction {
+            background-color: #1a0000;
+            border: 2px solid #FF0000;
+            color: #FF3333;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+        .preview-youtube {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%;
+            background-color: #151515;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 2px dashed #444444;
+            cursor: pointer;
+        }
+        .play-btn-custom {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 68px;
+            height: 48px;
+            background-color: #FF0000;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .play-btn-custom::after {
+            content: '';
+            display: block;
+            width: 0; height: 0;
+            border-style: solid;
+            border-width: 10px 0 10px 20px;
+            border-color: transparent transparent transparent #ffffff;
+            margin-left: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .btn-action { background-color: #FF0000; color: white; margin-top: 10px; }
+        .btn-action:hover { background-color: #cc0000; }
+        button:disabled { background-color: #222222; color: #555555; cursor: not-allowed; }
+        #zone-workflow, #zone-liaison-mlm, #zone-paiement, #zone-succes {
+            display: none;
+            background: #111111;
+            border: 1px solid #333333;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .timer-visuel { font-size: 36px; color: #FFFF00; font-weight: bold; margin: 20px 0; }
+        .message-dynamique { color: #FFFF00; font-style: italic; min-height: 60px; font-size: 15px; }
+        
+        .btn-secondaire {
+            background-color: #222222;
+            color: #888888;
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 14px;
+        }
+        .radio-container {
+            display: flex;
+            justify-content: space-around;
+            background: #1a1a1a;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0 15px 0;
+            border: 1px dashed #444;
+        }
+        .radio-label { font-size: 14px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 5px;}
+        .box-lien-genere {
+            background: #000000;
+            border: 2px solid #00FF00;
+            padding: 15px;
+            border-radius: 8px;
+            color: #00FF00;
+            font-weight: bold;
+            font-size: 15px;
+            word-break: break-all;
+            margin: 20px 0;
+        }
+        /* Style spécifique pour le tunnel des opportunités suivantes */
+        .bloc-opportunite {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .bloc-opportunite h3 { margin-top: 0; color: #FFFF00; font-size: 16px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <!-- ÉTAPE 0 : CHOIX DE LA LANGUE -->
+        <div id="bloc-langue" class="auth-box">
+            <h2>POINT FOCAL</h2>
+            <p style="color: #888888; margin-bottom: 20px;">Select your language / Choisissez votre langue</p>
+            <button class="btn-langue" data-lang="fr">Français 🇫🇷</button>
+            <button class="btn-langue" data-lang="en">English 🇬🇧</button>
+            <button class="btn-langue" data-lang="pt">Português 🇵🇹</button>
+            <button class="btn-langue" data-lang="es">Español 🇪🇸</button>
+        </div>
+
+        <!-- ÉTAPE 1 : INSCRIPTION -->
+        <div id="bloc-inscription" class="auth-box" style="display: none;">
+            <h2 id="t-ins-titre">Créer un compte Point Focal</h2>
+            <p style="color: #888888; font-size: 14px; margin-bottom: 20px;"><span id="t-ins-sponsor">Sponsor actuel :</span> <span id="nom-sponsor" style="color: #FFFF00; font-weight: bold;">...</span></p>
+            
+            <input type="text" id="ins-code" class="champ-saisie" style="border-color: #FFFF00; font-weight: bold; color: #FFFF00; text-align: center;">
+            <input type="email" id="ins-email" class="champ-saisie" placeholder="">
+            <input type="password" id="ins-pass" class="champ-saisie pass-field" placeholder="">
+            <input type="password" id="ins-conf" class="champ-saisie pass-field" placeholder="">
+            
+            <div class="radio-container">
+                <label class="radio-label"><input type="radio" name="deja_va" value="non" checked> <span id="t-radio-non">Non, nouveau</span></label>
+                <label class="radio-label"><input type="radio" name="deja_va" value="oui"> <span id="t-radio-oui">Oui, déjà inscrit</span></label>
+            </div>
+            <div class="options-option"><label><input type="checkbox" class="chk-afficher"> <span id="t-afficher-pass">Afficher les mots de passe</span></label></div>
+            <div id="erreur-inscription" class="erreur-texte"></div>
+            <button id="btn-inscription" class="btn-action">S'inscrire</button>
+            <div class="liens-bascule" id="vers-connexion"></div>
+        </div>
+
+        <!-- ÉTAPE 1BIS : CONNEXION -->
+        <div id="bloc-connexion" class="auth-box" style="display: none;">
+            <h2 id="t-con-titre">Connexion</h2>
+            <input type="email" id="con-email" class="champ-saisie" placeholder="">
+            <input type="password" id="con-pass" class="champ-saisie pass-field" placeholder="">
+            <div class="options-option">
+                <label><input type="checkbox" class="chk-afficher"> <span id="t-afficher-pass2">Afficher le mot de passe</span></label>
+                <span id="vers-oublie" style="color: #FF0000; cursor: pointer; font-size: 14px;"></span>
+            </div>
+            <div id="erreur-connexion" class="erreur-texte"></div>
+            <button id="btn-connexion" class="btn-action">Se connecter</button>
+            <div class="liens-bascule" id="vers-inscription"></div>
+        </div>
+
+        <!-- ÉTAPE 1TER : RÉCUPÉRATION MDP -->
+        <div id="bloc-oublie" class="auth-box" style="display: none;">
+            <h2 id="t-oub-titre">Récupération de compte</h2>
+            <p id="t-oub-desc" style="color: #888888; font-size: 14px; margin-bottom: 20px;"></p>
+            <input type="email" id="oub-email" class="champ-saisie" placeholder="">
+            <div id="erreur-oublie" class="erreur-texte"></div>
+            <div id="succes-oublie" class="succes-texte"></div>
+            <button id="btn-recuperer" class="btn-action">Récupérer mon mot de passe</button>
+            <div class="liens-bascule" id="oublie-retour">Retour à la connexion</div>
+        </div>
+
+        <!-- POPUP REGLES ENGAGEMENT 1 -->
+        <div id="popup-regles-1" class="popup-modal">
+            <div class="cadre-blanc">
+                <div id="scroller-1" class="zone-defilement"></div>
+                <button id="btn-continuer-p1" class="btn-action" disabled>Veuillez lire tout le message...</button>
+            </div>
+        </div>
+
+        <!-- POPUP REGLES BLOCKCHAIN 2 -->
+        <div id="popup-regles-2" class="popup-modal">
+            <div class="cadre-blanc">
+                <div id="scroller-2" class="zone-defilement"></div>
+                <button id="btn-continuer-p2" class="btn-action" disabled>Veuillez lire tout le message...</button>
+            </div>
+        </div>
+
+        <!-- ÉTAPE 2 : VISIONNAGE DE LA VIDÉO OPPORTUNITÉ -->
+        <div id="zone-workflow">
+            <h2 id="t-wf-titre">Regardez la vidéo pour débloquer la suite</h2>
+            <div class="preview-youtube" id="fausse-video-yt">
+                <div class="play-btn-custom"></div>
+            </div>
+            <div id="t-wf-click" style="color: #FF0000; font-weight: bold; font-size: 13px; margin-bottom: 10px; cursor: pointer;">CLIQUEZ ICI POUR OUVRIR YOUTUBE</div>
+            <div class="timer-visuel" id="timer-visuel">10s</div>
+            <div class="message-dynamique" id="message-dynamique"></div>
+            <button id="btn-obtenir-lien" class="btn-action" disabled>J'obtiens le lien Victory Automatic</button>
+            <button class="btn-secondaire btn-deco-global">Déconnexion</button>
+        </div>
+
+        <!-- ÉTAPE 3 : LIAISON DU LIEN VICTORY AUTOMATIC INITIAL -->
+        <div id="zone-liaison-mlm">
+            <div class="alerte-destruction" id="t-mlm-alerte"></div>
+            <h2 id="t-mlm-titre">Liaison de votre lien d'affiliation</h2>
+            <p id="t-mlm-desc" style="color: #888888; font-size: 14px; margin-bottom: 15px;"></p>
+            <input type="text" id="mlm-adresse-cible" class="champ-saisie" placeholder="https://victoryautomatic.com/user/register/votrepseudo">
+            <div id="erreur-mlm" class="erreur-texte"></div>
+            <button id="btn-valider-adresse" class="btn-action">Enregistrer et passer à l'activation</button>
+            <button class="btn-secondaire btn-deco-global">Déconnexion</button>
+        </div>
+
+        <!-- ÉTAPE 4 : ACTIVATION MATRICE BLOCKCHAIN (2.03$) -->
+        <div id="zone-paiement">
+            <h2 id="t-pay-titre">Frais d'activation de la matrice</h2>
+            <p id="t-pay-desc" style="color: #888888; font-size: 14px;"></p>
+            <button id="btn-ouvrir-opportunite2" class="btn-action" style="margin-bottom: 20px; background-color: #0088cc;">S'inscrire sur Victory World (5$)</button>
+            
+            <p id="t-pay-addr-label" style="text-align: left; font-size: 14px; font-weight: bold; margin-bottom: 5px;"></p>
+            <input type="text" id="crypto-adresse-cible" class="champ-saisie" placeholder="0x...">
+            
+            <p id="t-pay-tx-label" style="text-align: left; font-size: 14px; font-weight: bold; margin-bottom: 5px; margin-top: 15px;"></p>
+            <input type="text" id="crypto-txid" class="champ-saisie" placeholder="0x...">
+            
+            <div id="erreur-paiement" class="erreur-texte"></div>
+            <button id="btn-verifier-paiement" class="btn-action" style="margin-top: 15px;">Activer mon compte définitivement</button>
+            <button class="btn-secondaire btn-deco-global">Déconnexion</button>
+        </div>
+
+        <!-- ÉTAPE 5 : SUCCÈS - GÉNÉRATION + TUNNEL DES OPPORTUNITÉS SUIVANTES (FOLLOW-ME) -->
+        <div id="zone-succes">
+            <h2 id="t-sc-titre">Votre système est actif !</h2>
+            <p id="t-sc-desc" style="color: #888888; font-size: 14px;"></p>
+            
+            <div class="box-lien-genere" id="box-lien-pf">...</div>
+            <button id="btn-copier-lien" class="btn-action" style="background-color: #00FF00; color: black;">Copier le lien d'invitation</button>
+            
+            <hr style="border: 0; border-top: 1px solid #333; margin: 30px 0;">
+
+            <!-- BLOC DYNAMIQUE DU TUNNEL "FOLLOW-ME" -->
+            <div id="tunnel-opportunites">
+                <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 5px;">Tunnel de Duplication Solidaire</h2>
+                <p style="color: #888888; font-size: 12px; margin-top: 0; margin-bottom: 15px;">Inscrivez-vous sur chaque opportunité sous votre parrain initial, puis alimentez le réseau.</p>
+
+                <!-- Zone d'affichage de l'opportunité en cours -->
+                <div class="bloc-opportunite" id="bloc-op-en-cours">
+                    <h3 id="titre-op-titre">Opportunité Récurrente</h3>
+                    <p style="color: #aaa; font-size: 13px; margin-bottom: 15px;">
+                        Cliquez sur le bouton ci-dessous pour rejoindre l'opportunité avec le lien officiel de votre parrain <span id="op-pseudo-parrain" style="color:#FFFF00; font-weight:bold;"></span>.
+                    </p>
+                    <button id="btn-rejoindre-opportunite-externe" class="btn-action" style="background-color: #FF0000; margin-bottom: 15px;">Je rejoins l'opportunité</button>
+                    
+                    <p style="color: #fff; font-size: 13px; margin-bottom: 5px; font-weight: bold;">Une fois inscrit, collez VOTRE lien d'affiliation ci-dessous :</p>
+                    <input type="text" id="input-lien-opportunite-perso" class="champ-saisie" style="border-color: #FFFF00;" placeholder="https://...">
+                    <div id="erreur-tunnel-op" class="erreur-texte"></div>
+                    <div id="succes-tunnel-op" class="succes-texte"></div>
+                    <button id="btn-valider-lien-opportunite" class="btn-action" style="background-color: #00FF00; color: black; margin-top: 10px;">Valider et alimenter le système Follow-Me</button>
+                </div>
+            </div>
+
+            <button class="btn-secondaire btn-deco-global" style="margin-top: 30px;">Déconnexion</button>
+        </div>
+
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
