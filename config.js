@@ -1,0 +1,9 @@
+module.exports = {
+  RPC_URL: "https://bsc-dataseed.binance.org/",
+  USDT_CONTRACT: "0x55d398326f99059ff775485246999027b3197955",
+  RECEIVER_WALLET: "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae",
+  PAYMENT_AMOUNT: 2.03,
+  VIDEO_TIME: 200,
+  VIDEO_POPUP: 10,
+  EXPIRE_48H: 172800
+};
