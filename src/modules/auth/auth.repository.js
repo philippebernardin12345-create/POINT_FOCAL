@@ -8,6 +8,14 @@ async function findUserByEmail(email) {
   return result.rows[0];
 }
 
+async function findUserById(id) {
+  const result = await db.query(
+    "SELECT * FROM users WHERE id = $1 LIMIT 1",
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
 async function findUserByInvitationCode(code) {
   const result = await db.query(
     `SELECT * FROM users
@@ -75,6 +83,7 @@ async function confirmEmail(userId) {
 
 module.exports = {
   findUserByEmail,
+  findUserById,
   findUserByInvitationCode,
   getActiveCampaign,
   createUser,
