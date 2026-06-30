@@ -140,8 +140,36 @@ async function confirmEmail(userId) {
   return user;
 }
 
+async function me(userId) {
+  if (!userId) {
+    throw new Error("Utilisateur non authentifié.");
+  }
+
+  const user = await authRepository.findUserById(userId);
+
+  if (!user) {
+    throw new Error("Utilisateur introuvable.");
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    whatsapp: user.whatsapp,
+    language: user.language,
+    status: user.status,
+    campaignId: user.campaign_id,
+    invitationCodeSeries1: user.invitation_code_series_1,
+    invitationCodeSeries2: user.invitation_code_series_2,
+    isRoot: user.is_root,
+    isLeader: user.is_leader,
+    linkActive: user.link_active,
+    emailConfirmed: user.email_confirmed
+  };
+}
+
 module.exports = {
   register,
   login,
-  confirmEmail
+  confirmEmail,
+  me
 };
