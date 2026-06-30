@@ -28,8 +28,18 @@ async function confirmEmail(req, res) {
   }
 }
 
+// Utilisateur connecté
+async function me(req, res) {
+  try {
+    return response.success(res, req.user, "Utilisateur connecté", 200);
+  } catch (err) {
+    return response.error(res, err.message, 401);
+  }
+}
+
 module.exports = {
   register,
   login,
-  confirmEmail
+  confirmEmail,
+  me
 };
