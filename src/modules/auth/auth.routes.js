@@ -7,8 +7,6 @@ const router = express.Router();
 router.post("/register", authController.register);
 router.post("/login", authController.login);
 router.get("/confirm-email/:userId", authController.confirmEmail);
-
-// Utilisateur connecté (protégé par JWT)
 router.get("/me", authMiddleware, authController.me);
 
 module.exports = router;
