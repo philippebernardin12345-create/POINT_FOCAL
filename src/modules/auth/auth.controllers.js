@@ -36,6 +36,17 @@ async function login(req, res) {
     console.error("========== LOGIN ERROR ==========");
     console.error(err);
 
+    if (err.errors && Array.isArray(err.errors)) {
+      console.error("AggregateError details:");
+      err.errors.forEach((e, i) => {
+        console.error(`Error ${i + 1}:`, e);
+      });
+    }
+
+    console.error("Message:", err.message);
+    console.error("Stack:", err.stack);
+    console.error("=================================");
+
     return response.error(
       res,
       err.message || String(err),
