@@ -26,7 +26,7 @@ async function register(payload) {
   language = "fr"
 } = payload;
 
-  if (!email || !whatsapp || !password || !confirmPassword || !invitationCode) {
+  if (!email || !whatsapp || !password || !confirmPassword || (!invitationCode && !sponsorCode)) {
     throw new Error("Tous les champs obligatoires doivent être renseignés.");
   }
 
