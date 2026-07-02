@@ -17,13 +17,14 @@ function generateSeries1Code() {
 
 async function register(payload) {
   const {
-    email,
-    whatsapp,
-    password,
-    confirmPassword,
-    invitationCode,
-    language = "fr"
-  } = payload;
+  email,
+  whatsapp,
+  password,
+  confirmPassword,
+  invitationCode,
+  sponsorCode,
+  language = "fr"
+} = payload;
 
   if (!email || !whatsapp || !password || !confirmPassword || !invitationCode) {
     throw new Error("Tous les champs obligatoires doivent être renseignés.");
