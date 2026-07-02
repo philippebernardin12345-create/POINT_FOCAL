@@ -38,8 +38,8 @@ async function register(payload) {
   if (existingUser) {
     throw new Error("Cet email est déjà utilisé.");
   }
-
-  const sponsor = await authRepository.findUserByInvitationCode(invitationCode);
+const sponsor = await authRepository.findUserByInvitationCode(invitationCode || sponsorCode);
+  
   if (!sponsor) {
     throw new Error("Code d'invitation invalide.");
   }
