@@ -12,20 +12,19 @@ function generateSeries1Code() {
   }
 
   const numbers = Math.floor(1000 + Math.random() * 9000);
-
   return `${partLetters}${numbers}`;
 }
 
 async function register(payload) {
   const {
-  email,
-  whatsapp,
-  password,
-  confirmPassword,
-  invitationCode,
-  sponsorCode,
-  language = "fr"
-} = payload;
+    email,
+    whatsapp,
+    password,
+    confirmPassword,
+    invitationCode,
+    sponsorCode,
+    language = "fr"
+  } = payload;
 
   if (!email || !whatsapp || !password || !confirmPassword || (!invitationCode && !sponsorCode)) {
     throw new Error("Tous les champs obligatoires doivent être renseignés.");
@@ -39,8 +38,8 @@ async function register(payload) {
   if (existingUser) {
     throw new Error("Cet email est déjà utilisé.");
   }
-const sponsor = await authRepository.findUserByInvitationCode(invitationCode || sponsorCode);
-  
+
+  const sponsor = await authRepository.findUserByInvitationCode(invitationCode || sponsorCode);
   if (!sponsor) {
     throw new Error("Code d'invitation invalide.");
   }
@@ -57,9 +56,7 @@ const sponsor = await authRepository.findUserByInvitationCode(invitationCode || 
 
   while (exists) {
     invitationCodeSeries1 = generateSeries1Code();
-    const userWithCode = await authRepository.findUserByInvitationCode(
-      invitationCodeSeries1
-    );
+    const userWithCode = await authRepository.findUserByInvitationCode(invitationCodeSeries1);
     exists = !!userWithCode;
   }
 
@@ -74,10 +71,21 @@ const sponsor = await authRepository.findUserByInvitationCode(invitationCode || 
     invitationCodeSeries1
   });
 
+  const confirmLink = `https://point-focal.onrender.com/api/auth/confirm-email/${user.id}`;
+
+  await sendEmail({
+    to: user.email,
+    subject: "Confirmation de votre compte Point Focal",
+    html: `
+      <h2>Bienvenue sur Point Focal</h2>
+      <p>Veuillez confirmer votre adresse e-mail en cliquant sur le lien ci-dessous :</p>
+      <p><a href="${confirmLink}">Confirmer mon e-mail</a></p>
+    `
+  });
+
   return {
     user,
-    message:
-      "Inscription réussie. Veuillez confirmer votre email avant de vous connecter."
+    message: "Inscription réussie. Veuillez confirmer votre email avant de vous connecter."
   };
 }
 
