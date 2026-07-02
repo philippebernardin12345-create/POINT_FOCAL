@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const authRepository = require("./auth.repository");
 const { signToken } = require("../../config/jwt");
+const { sendEmail } = require("../../config/email");
 
 function generateSeries1Code() {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
