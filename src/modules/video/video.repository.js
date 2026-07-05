@@ -1,4 +1,4 @@
-const db = require("../../config/database");
+const db = require("../../config/db");
 
 async function findVideoStateByUserId(userId) {
   const result = await db.query(
