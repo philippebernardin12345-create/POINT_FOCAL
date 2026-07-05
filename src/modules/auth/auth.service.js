@@ -100,8 +100,8 @@ async function login(payload) {
   if (!user) {
     throw new Error("Identifiants invalides.");
   }
-
-  const validPassword = await bcrypt.compare(password, user.password_hash);
+const validPassword = await bcrypt.compare(password, user.encrypted_password);
+  
   if (!validPassword) {
     throw new Error("Identifiants invalides.");
   }
