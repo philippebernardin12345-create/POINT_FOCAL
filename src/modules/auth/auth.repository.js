@@ -39,7 +39,7 @@ async function createUser(user) {
     `INSERT INTO users (
       email,
       whatsapp,
-      encrypted_password,
+      password_hash,
       language,
       status,
       sponsor_id,
