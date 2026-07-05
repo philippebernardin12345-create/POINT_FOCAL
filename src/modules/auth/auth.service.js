@@ -3,6 +3,8 @@ const authRepository = require("./auth.repository");
 const { signToken } = require("../../config/jwt");
 const { sendEmail } = require("../../config/email");
 
+const ROOT_INVITATION_CODE = "ABCD1000";
+
 function generateSeries1Code() {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   let partLetters = "";
@@ -26,7 +28,9 @@ async function register(payload) {
     language = "fr"
   } = payload;
 
-  if (!email || !whatsapp || !password || !confirmPassword || (!invitationCode && !sponsorCode)) {
+  const usedSponsorCode = invitationCode || sponsorCode;
+
+  if (!email || !whatsapp || !password || !confirmPassword || !usedSponsorCode) {
     throw new Error("Tous les champs obligatoires doivent être renseignés.");
   }
 
@@ -39,7 +43,15 @@ async function register(payload) {
     throw new Error("Cet email est déjà utilisé.");
   }
 
-  const sponsor = await authRepository.findUserByInvitationCode(invitationCode || sponsorCode);
+  let sponsor = await authRepository.findUserByInvitationCode(usedSponsorCode);
+
+  if (!sponsor && usedSponsorCode === ROOT_INVITATION_CODE) {
+    sponsor = {
+      id: null,
+      is_root: true
+    };
+  }
+
   if (!sponsor) {
     throw new Error("Code d'invitation invalide.");
   }
@@ -100,8 +112,9 @@ async function login(payload) {
   if (!user) {
     throw new Error("Identifiants invalides.");
   }
-const validPassword = await bcrypt.compare(password, user.password_hash);
-  
+
+  const validPassword = await bcrypt.compare(password, user.password_hash);
+
   if (!validPassword) {
     throw new Error("Identifiants invalides.");
   }
