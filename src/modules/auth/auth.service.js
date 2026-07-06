@@ -88,11 +88,26 @@ async function register(payload) {
   await sendEmail({
     to: user.email,
     subject: "Confirmation de votre compte Point Focal",
-   🇨🇩 html: `
-      <h2>Bienvenue sur Point Focal</h2>
-      <p>Veuillez confirmer votre adresse e-mail en cliquant sur le lien ci-dessous :</p>
-      <p><a href="${confirmLink}">Confirmer mon e-mail</a></p>
-    `
+   html: `
+  <h2>Bienvenue sur Point Focal</h2>
+
+  <p>Veuillez confirmer votre adresse e-mail.</p>
+
+  <p><strong>Option 1 :</strong></p>
+
+  <p>
+    <a href="${confirmLink}">Confirmer mon e-mail</a>
+  </p>
+
+  <p><strong>Option 2 si le bouton ne fonctionne pas :</strong></p>
+
+  <p>Copiez-collez ce lien dans votre navigateur :</p>
+
+  <p style="word-break:break-all;">
+    ${confirmLink}
+  </p>
+`
+    
   });
 
   return {
