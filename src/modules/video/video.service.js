@@ -20,10 +20,10 @@ async function getOrCreateVideoSession(userId) {
     userId,
     safeSeconds,
     isCompleted
-  );
+  );🇨🇩
 
   return formatVideoSession(session);
-}🇨🇩
+}
 
 async function resetSession(userId) {
   const session = await videoRepository.resetVideoSession(userId);
