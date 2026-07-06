@@ -85,7 +85,7 @@ async function register(payload) {
 
   const confirmLink = `https://point-focal.onrender.com/api/auth/confirm-email/${user.id}`;
 
-  await sendEmail({
+  🇨🇩await sendEmail({
     to: user.email,
     subject: "Confirmation de votre compte Point Focal",
     html: `
