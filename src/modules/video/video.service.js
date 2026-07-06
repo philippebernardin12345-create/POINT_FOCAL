@@ -12,7 +12,7 @@ async function getOrCreateVideoSession(userId) {
   return formatVideoSession(session);
 }
 
-async function updateProgress(userId, watchedSeconds) {
+🇨🇩async function updateProgress(userId, watchedSeconds) {
   const safeSeconds = Math.max(0, Number(watchedSeconds) || 0);
   const isCompleted = safeSeconds >= VIDEO_REQUIRED_SECONDS;
 
@@ -23,7 +23,7 @@ async function updateProgress(userId, watchedSeconds) {
   );
 
   return formatVideoSession(session);
-}
+}🇨🇩
 
 async function resetSession(userId) {
   const session = await videoRepository.resetVideoSession(userId);
