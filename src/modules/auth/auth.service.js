@@ -17,8 +17,40 @@ function generateSeries1Code() {
   return `${partLetters}${numbers}`;
 }
 
+function generateSeries3Code(email) {
+  return email
+    .split("@")[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 20);
+}
+
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function generateUniqueCode(generator, seed) {
+  let code;
+  let exists = true;
+
+  while (exists) {
+    code = generator(seed);
+
+    if (!code || code.length < 4) {
+      code = generateSeries1Code().toLowerCase();
+    }
+
+    const userWithCode = await authRepository.findUserByInvitationCode(code);
+    exists = !!userWithCode;
+
+    if (exists) {
+      code = `${code}${Math.floor(100 + Math.random() * 900)}`;
+      const retryUser = await authRepository.findUserByInvitationCode(code);
+      exists = !!retryUser;
+    }
+  }
+
+  return code;
 }
 
 async function register(payload) {
@@ -64,14 +96,8 @@ async function register(payload) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  let invitationCodeSeries1;
-  let exists = true;
-
-  while (exists) {
-    invitationCodeSeries1 = generateSeries1Code();
-    const userWithCode = await authRepository.findUserByInvitationCode(invitationCodeSeries1);
-    exists = !!userWithCode;
-  }
+  const invitationCodeSeries1 = await generateUniqueCode(generateSeries1Code);
+  const invitationCodeSeries3 = await generateUniqueCode(generateSeries3Code, email);
 
   const user = await authRepository.createUser({
     email,
@@ -81,7 +107,8 @@ async function register(payload) {
     status: "pending",
     sponsorId: sponsor.id,
     campaignId: campaign.id,
-    invitationCodeSeries1
+    invitationCodeSeries1,
+    invitationCodeSeries3
   });
 
   const otp = generateOtp();
@@ -147,6 +174,7 @@ async function login(payload) {
       campaignId: user.campaign_id,
       invitationCodeSeries1: user.invitation_code_series_1,
       invitationCodeSeries2: user.invitation_code_series_2,
+      invitationCodeSeries3: user.invitation_code_series_3,
       isRoot: user.is_root,
       isLeader: user.is_leader,
       linkActive: user.link_active
@@ -175,7 +203,6 @@ async function confirmOtp(payload) {
   }
 
   const user = await authRepository.confirmEmailByOtp(email.trim(), otp.trim());
-
   if (!user) {
     throw new Error("Code OTP invalide ou expiré.");
   }
@@ -202,6 +229,7 @@ async function me(userId) {
     campaignId: user.campaign_id,
     invitationCodeSeries1: user.invitation_code_series_1,
     invitationCodeSeries2: user.invitation_code_series_2,
+    invitationCodeSeries3: user.invitation_code_series_3,
     isRoot: user.is_root,
     isLeader: user.is_leader,
     linkActive: user.link_active,
