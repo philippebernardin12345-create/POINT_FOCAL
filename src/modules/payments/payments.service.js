@@ -22,7 +22,7 @@ async function autoTrigger(userId, payload) {
   }
 
   return {
-    publicLink: "https://point-focal.onrender.com/register.html?ref=TESTUSER"
+    publicLink: "https://pointfocalapp.com/register.html?ref=TESTUSER"
   };
 }
 
