@@ -8,23 +8,7 @@ async function register(req, res) {
   } catch (err) {
     console.error("========== REGISTER ERROR ==========");
     console.error(err);
-
-    if (err.errors && Array.isArray(err.errors)) {
-      console.error("AggregateError details:");
-      err.errors.forEach((e, i) => {
-        console.error(`Error ${i + 1}:`, e);
-      });
-    }
-
-    console.error("Message:", err.message);
-    console.error("Stack:", err.stack);
-    console.error("====================================");
-
-    return response.error(
-      res,
-      err.message || String(err),
-      400
-    );
+    return response.error(res, err.message || String(err), 400);
   }
 }
 
@@ -35,23 +19,7 @@ async function login(req, res) {
   } catch (err) {
     console.error("========== LOGIN ERROR ==========");
     console.error(err);
-
-    if (err.errors && Array.isArray(err.errors)) {
-      console.error("AggregateError details:");
-      err.errors.forEach((e, i) => {
-        console.error(`Error ${i + 1}:`, e);
-      });
-    }
-
-    console.error("Message:", err.message);
-    console.error("Stack:", err.stack);
-    console.error("=================================");
-
-    return response.error(
-      res,
-      err.message || String(err),
-      401
-    );
+    return response.error(res, err.message || String(err), 401);
   }
 }
 
@@ -62,12 +30,18 @@ async function confirmEmail(req, res) {
   } catch (err) {
     console.error("========== CONFIRM EMAIL ERROR ==========");
     console.error(err);
+    return response.error(res, err.message || String(err), 400);
+  }
+}
 
-    return response.error(
-      res,
-      err.message || String(err),
-      400
-    );
+async function confirmOtp(req, res) {
+  try {
+    const result = await authService.confirmOtp(req.body);
+    return response.success(res, result, "Email confirmé avec succès", 200);
+  } catch (err) {
+    console.error("========== CONFIRM OTP ERROR ==========");
+    console.error(err);
+    return response.error(res, err.message || String(err), 400);
   }
 }
 
@@ -78,12 +52,7 @@ async function me(req, res) {
   } catch (err) {
     console.error("========== ME ERROR ==========");
     console.error(err);
-
-    return response.error(
-      res,
-      err.message || String(err),
-      401
-    );
+    return response.error(res, err.message || String(err), 401);
   }
 }
 
@@ -91,5 +60,6 @@ module.exports = {
   register,
   login,
   confirmEmail,
+  confirmOtp,
   me
 };
