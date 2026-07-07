@@ -69,13 +69,46 @@ async function createUser(user) {
   return result.rows[0];
 }
 
+async function saveEmailOtp(userId, otp, expiresAt) {
+  const result = await db.query(
+    `UPDATE users
+     SET email_otp = $1,
+         email_otp_expires_at = $2
+     WHERE id = $3
+     RETURNING id, email, email_otp, email_otp_expires_at`,
+    [otp, expiresAt, userId]
+  );
+
+  return result.rows[0];
+}
+
 async function confirmEmail(userId) {
   const result = await db.query(
     `UPDATE users
-     SET email_confirmed = true, status = 'active'
+     SET email_confirmed = true,
+         status = 'active',
+         email_otp = NULL,
+         email_otp_expires_at = NULL
      WHERE id = $1
      RETURNING id, email, status, email_confirmed`,
     [userId]
+  );
+
+  return result.rows[0];
+}
+
+async function confirmEmailByOtp(email, otp) {
+  const result = await db.query(
+    `UPDATE users
+     SET email_confirmed = true,
+         status = 'active',
+         email_otp = NULL,
+         email_otp_expires_at = NULL
+     WHERE email = $1
+       AND email_otp = $2
+       AND email_otp_expires_at > NOW()
+     RETURNING id, email, status, email_confirmed`,
+    [email, otp]
   );
 
   return result.rows[0];
@@ -87,5 +120,7 @@ module.exports = {
   findUserByInvitationCode,
   getActiveCampaign,
   createUser,
-  confirmEmail
+  saveEmailOtp,
+  confirmEmail,
+  confirmEmailByOtp
 };
