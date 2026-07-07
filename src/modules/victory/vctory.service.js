@@ -13,3 +13,4 @@ async function assignVictoryLink(userId) {
 module.exports = {
   assignVictoryLink
 };
+
