@@ -5,7 +5,7 @@ const { sendEmail } = require("../../config/email");
 
 const ROOT_INVITATION_CODE = "ABCD1000";
 
-function generateSeries1Code() {
+function generateSeries1Code()🇨🇩 {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   let partLetters = "";
 
