@@ -5,7 +5,7 @@ const { sendEmail } = require("../../config/email");
 
 const ROOT_INVITATION_CODE = "ABCD1000";
 
-function generateSeries1Code()🇨🇩 {
+function generateSeries1Code() {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   let partLetters = "";
 
@@ -15,6 +15,18 @@ function generateSeries1Code()🇨🇩 {
 
   const numbers = Math.floor(1000 + Math.random() * 9000);
   return `${partLetters}${numbers}`;
+}
+
+function generateSeries2Code() {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let partLetters = "";
+
+  for (let i = 0; i < 4; i++) {
+    partLetters += letters[Math.floor(Math.random() * letters.length)];
+  }
+
+  const numbers = Math.floor(1000 + Math.random() * 9000);
+  return `${numbers}${partLetters}`;
 }
 
 function generateSeries3Code(email) {
@@ -97,6 +109,7 @@ async function register(payload) {
   const passwordHash = await bcrypt.hash(password, 10);
 
   const invitationCodeSeries1 = await generateUniqueCode(generateSeries1Code);
+  const invitationCodeSeries2 = await generateUniqueCode(generateSeries2Code);
   const invitationCodeSeries3 = await generateUniqueCode(generateSeries3Code, email);
 
   const user = await authRepository.createUser({
@@ -108,6 +121,7 @@ async function register(payload) {
     sponsorId: sponsor.id,
     campaignId: campaign.id,
     invitationCodeSeries1,
+    invitationCodeSeries2,
     invitationCodeSeries3
   });
 
