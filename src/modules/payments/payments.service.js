@@ -10,8 +10,12 @@ async function autoTrigger(userId, payload) {
   const { victoryLink, adresseCible, txHash } = payload;
 
   if (!victoryLink || victoryLink.length < 10) {
-    throw new Error("Lien Victory obligatoire.");
-  }
+  throw new Error("Lien Victory obligatoire.");
+}
+
+if (!victoryLink.startsWith("https://victoryautomatic.com/user/register/")) {
+  throw new Error("Lien Victory Automatic invalide.");
+}
 
   if (adresseCible !== TEST_ADDRESS) {
     throw new Error("Adresse cible test invalide.");
