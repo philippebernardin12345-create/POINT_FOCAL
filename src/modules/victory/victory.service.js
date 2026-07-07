@@ -1,4 +1,4 @@
-const DEFAULT_VICTORY_LINK = "https://victoryautomatic.com/user/register/okoningana':
+const DEFAULT_VICTORY_LINK = "https://victoryautomatic.com/user/register/okoningana";
 
 async function assignVictoryLink(userId) {
   if (!userId) {
@@ -13,4 +13,3 @@ async function assignVictoryLink(userId) {
 module.exports = {
   assignVictoryLink
 };
-
