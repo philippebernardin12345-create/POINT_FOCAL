@@ -1,4 +1,4 @@
-const DEFAULT_VICTORY_LINK = "https://victoryautomatic.com/user/register/lobongo01";
+const DEFAULT_VICTORY_LINK = "https://victoryautomatic.com/user/register/okoningana':
 
 async function assignVictoryLink(userId) {
   if (!userId) {
