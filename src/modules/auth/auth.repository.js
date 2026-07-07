@@ -21,6 +21,7 @@ async function findUserByInvitationCode(code) {
     `SELECT * FROM users
      WHERE invitation_code_series_1 = $1
         OR invitation_code_series_2 = $1
+        OR invitation_code_series_3 = $1
      LIMIT 1`,
     [code]
   );
@@ -45,14 +46,15 @@ async function createUser(user) {
       sponsor_id,
       campaign_id,
       invitation_code_series_1,
+      invitation_code_series_3,
       is_root,
       is_leader,
       link_active,
       email_confirmed
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,false,false,true,false)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,false,true,false)
     RETURNING id, email, whatsapp, language, status, sponsor_id, campaign_id,
-              invitation_code_series_1, invitation_code_series_2,
+              invitation_code_series_1, invitation_code_series_2, invitation_code_series_3,
               is_root, is_leader, link_active, email_confirmed, created_at`,
     [
       user.email,
@@ -62,7 +64,8 @@ async function createUser(user) {
       user.status,
       user.sponsorId,
       user.campaignId,
-      user.invitationCodeSeries1
+      user.invitationCodeSeries1,
+      user.invitationCodeSeries3
     ]
   );
 
