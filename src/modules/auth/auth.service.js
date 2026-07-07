@@ -17,6 +17,10 @@ function generateSeries1Code() {
   return `${partLetters}${numbers}`;
 }
 
+function generateOtp() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 async function register(payload) {
   const {
     email,
@@ -46,10 +50,7 @@ async function register(payload) {
   let sponsor = await authRepository.findUserByInvitationCode(usedSponsorCode);
 
   if (!sponsor && usedSponsorCode === ROOT_INVITATION_CODE) {
-    sponsor = {
-      id: null,
-      is_root: true
-    };
+    sponsor = { id: null, is_root: true };
   }
 
   if (!sponsor) {
@@ -83,36 +84,26 @@ async function register(payload) {
     invitationCodeSeries1
   });
 
-  const confirmLink = `https://point-focal.onrender.com/api/auth/confirm-email/${user.id}`;
+  const otp = generateOtp();
+  const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+  await authRepository.saveEmailOtp(user.id, otp, otpExpiresAt);
 
   await sendEmail({
     to: user.email,
-    subject: "Confirmation de votre compte Point Focal",
-   html: `
-  <h2>Bienvenue sur Point Focal</h2>
-
-  <p>Veuillez confirmer votre adresse e-mail.</p>
-
-  <p><strong>Option 1 :</strong></p>
-
-  <p>
-    <a href="${confirmLink}">Confirmer mon e-mail</a>
-  </p>
-
-  <p><strong>Option 2 si le bouton ne fonctionne pas :</strong></p>
-
-  <p>Copiez-collez ce lien dans votre navigateur :</p>
-
-  <p style="word-break:break-all;">
-    ${confirmLink}
-  </p>
-`
-    
+    subject: "Code de confirmation Point Focal",
+    html: `
+      <h2>Bienvenue sur Point Focal</h2>
+      <p>Votre code de confirmation est :</p>
+      <h1 style="letter-spacing:4px;">${otp}</h1>
+      <p>Ce code expire dans 15 minutes.</p>
+      <p>Retournez sur Point Focal et saisissez ce code pour activer votre compte.</p>
+    `
   });
 
   return {
     user,
-    message: "Inscription réussie. Veuillez confirmer votre email avant de vous connecter."
+    message: "Inscription réussie. Un code OTP a été envoyé à votre email."
   };
 }
 
@@ -129,13 +120,12 @@ async function login(payload) {
   }
 
   const validPassword = await bcrypt.compare(password, user.password_hash);
-
   if (!validPassword) {
     throw new Error("Identifiants invalides.");
   }
 
   if (!user.email_confirmed) {
-    throw new Error("Veuillez confirmer votre email avant de vous connecter.");
+    throw new Error("Veuillez confirmer votre email avec le code OTP avant de vous connecter.");
   }
 
   const token = signToken({
@@ -170,9 +160,24 @@ async function confirmEmail(userId) {
   }
 
   const user = await authRepository.confirmEmail(userId);
-
   if (!user) {
     throw new Error("Utilisateur introuvable.");
+  }
+
+  return user;
+}
+
+async function confirmOtp(payload) {
+  const { email, otp } = payload;
+
+  if (!email || !otp) {
+    throw new Error("Email et code OTP obligatoires.");
+  }
+
+  const user = await authRepository.confirmEmailByOtp(email.trim(), otp.trim());
+
+  if (!user) {
+    throw new Error("Code OTP invalide ou expiré.");
   }
 
   return user;
@@ -184,7 +189,6 @@ async function me(userId) {
   }
 
   const user = await authRepository.findUserById(userId);
-
   if (!user) {
     throw new Error("Utilisateur introuvable.");
   }
@@ -209,5 +213,6 @@ module.exports = {
   register,
   login,
   confirmEmail,
+  confirmOtp,
   me
 };
