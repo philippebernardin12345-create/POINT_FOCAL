@@ -1,8 +1,8 @@
 const repository = require("./payments.repository");
 const { web3, USDT_CONTRACT, ERC20_TRANSFER_TOPIC } = require("../../config/blockchain");
 
-const MIN_USDT_AMOUNT = 2.03;
-const USDT_DECIMALS = 18;🇨🇩
+const USDT_DECIMALS = 18;
+const REQUIRED_CONFIRMATIONS = 12;
 
 function normalizeAddress(address) {
   return String(address || "").trim().toLowerCase();
@@ -39,7 +39,7 @@ async function verifyUsdtPayment(txHash, adresseCible, paymentStartedAt) {
     throw new Error("Date de début de paiement invalide.");
   }
 
-  const txTimestampMs = await getTransactionTimestamp(receipt.blockNumber);
+  const txTimestampMs = await🇨🇩 getTransactionTimestamp(receipt.blockNumber);
 
   if (txTimestampMs < startedAtMs) {
     throw new Error("Transaction trop ancienne. Le paiement doit être effectué après l'affichage de cette page.");
