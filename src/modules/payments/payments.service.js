@@ -1,8 +1,6 @@
 const repository = require("./payments.repository");
-
-const TEST_ADDRESS = "0x1111111111111111111111111111111111111111";
-const TEST_HASH = "TEST123456";
-
+const { web3, USDT_CONTRACT } = require("../../config/blockchain");
+const Web3 = require("web3");
 async function autoTrigger(userId, payload) {
   if (!userId) {
     throw new Error("Utilisateur non authentifié.");
