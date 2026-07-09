@@ -17,7 +17,12 @@ function decodeTransferLog(log) {
   return { from, to, amount };
 }
 
-async function verifyUsdtPayment(txHash, adresseCible) {
+async function getTransactionTimestamp(blockNumber) {
+  const block = await web3.eth.getBlock(blockNumber);
+  return Number(block.timestamp) * 1000;
+}
+
+async function verifyUsdtPayment(txHash, adresseCible, paymentStartedAt) {
   const receipt = await web3.eth.getTransactionReceipt(txHash);
 
   if (!receipt) {
@@ -26,6 +31,18 @@ async function verifyUsdtPayment(txHash, adresseCible) {
 
   if (!receipt.status) {
     throw new Error("Transaction échouée ou non confirmée.");
+  }
+
+  const startedAtMs = new Date(paymentStartedAt).getTime();
+
+  if (!startedAtMs || Number.isNaN(startedAtMs)) {
+    throw new Error("Date de début de paiement invalide.");
+  }
+
+  const txTimestampMs = await getTransactionTimestamp(receipt.blockNumber);
+
+  if (txTimestampMs < startedAtMs) {
+    throw new Error("Transaction trop ancienne. Le paiement doit être effectué après l'affichage de cette page.");
   }
 
   const targetAddress = normalizeAddress(adresseCible);
@@ -58,7 +75,7 @@ async function autoTrigger(userId, payload) {
     throw new Error("Utilisateur non authentifié.");
   }
 
-  const { victoryLink, adresseCible, txHash } = payload;
+  const { victoryLink, adresseCible, txHash, paymentStartedAt } = payload;
 
   if (!victoryLink) {
     throw new Error("Lien Victory obligatoire.");
@@ -70,6 +87,10 @@ async function autoTrigger(userId, payload) {
 
   if (!txHash) {
     throw new Error("Hash de transaction obligatoire.");
+  }
+
+  if (!paymentStartedAt) {
+    throw new Error("Date de début de paiement obligatoire.");
   }
 
   if (!victoryLink.startsWith("https://victoryautomatic.com/user/register/")) {
@@ -90,7 +111,7 @@ async function autoTrigger(userId, payload) {
     throw new Error("Ce lien Victory appartient à un parrain non enregistré dans Point Focal.");
   }
 
-  const payment = await verifyUsdtPayment(txHash, adresseCible);
+  const payment = await verifyUsdtPayment(txHash, adresseCible, paymentStartedAt);
 
   await repository.savePayment(
     userId,
