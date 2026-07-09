@@ -1,5 +1,6 @@
 const repository = require("./payments.repository");
 const { web3, USDT_CONTRACT, ERC20_TRANSFER_TOPIC } = require("../../config/blockchain");
+
 const MIN_USDT_AMOUNT = 2.03;
 const USDT_DECIMALS = 18;
 const REQUIRED_CONFIRMATIONS = 12;
@@ -33,24 +34,24 @@ async function verifyUsdtPayment(txHash, adresseCible, paymentStartedAt) {
     throw new Error("Transaction échouée ou non confirmée.");
   }
 
+  const latestBlockNumber = await web3.eth.getBlockNumber();
+  const confirmations = Number(latestBlockNumber) - Number(receipt.blockNumber);
+
+  if (confirmations < REQUIRED_CONFIRMATIONS) {
+    throw new Error(`Transaction trop récente. Attendez au moins ${REQUIRED_CONFIRMATIONS} confirmations.`);
+  }
+
   const startedAtMs = new Date(paymentStartedAt).getTime();
 
   if (!startedAtMs || Number.isNaN(startedAtMs)) {
     throw new Error("Date de début de paiement invalide.");
   }
 
-const latestBlockNumber = await web3.eth.getBlockNumber();
-const confirmations = Number(latestBlockNumber) - Number(receipt.blockNumber);
+  const txTimestampMs = await getTransactionTimestamp(receipt.blockNumber);
 
-if (confirmations < REQUIRED_CONFIRMATIONS) {
-    throw new Error(`Transaction trop récente. Attendez au moins ${REQUIRED_CONFIRMATIONS} confirmations.`);
-}
-
-const txTimestampMs = await getTransactionTimestamp(receipt.blockNumber);
-
-if (txTimestampMs < startedAtMs) {
+  if (txTimestampMs < startedAtMs) {
     throw new Error("Transaction trop ancienne. Le paiement doit être effectué après l'affichage de cette page.");
-}
+  }
 
   const targetAddress = normalizeAddress(adresseCible);
 
@@ -94,6 +95,10 @@ async function autoTrigger(userId, payload) {
 
   if (!txHash) {
     throw new Error("Hash de transaction obligatoire.");
+  }
+
+  if (!web3.utils.isHexStrict(txHash) || txHash.length !== 66) {
+    throw new Error("Format du hash de transaction invalide.");
   }
 
   if (!paymentStartedAt) {
