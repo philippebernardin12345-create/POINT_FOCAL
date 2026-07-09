@@ -1,6 +1,6 @@
 const repository = require("./payments.repository");
 const { web3, USDT_CONTRACT, ERC20_TRANSFER_TOPIC } = require("../../config/blockchain");
-
+const MIN_USDT_AMOUNT = 2.03;
 const USDT_DECIMALS = 18;
 const REQUIRED_CONFIRMATIONS = 12;
 
