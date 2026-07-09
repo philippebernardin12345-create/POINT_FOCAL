@@ -12,6 +12,41 @@ async function findUserBySeries3Code(code) {
   return result.rows[0] || null;
 }
 
+async function findPaymentByHash(txHash) {
+  const result = await db.query(
+    `SELECT id
+     FROM payments
+     WHERE tx_hash = $1
+     LIMIT 1`,
+    [txHash]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function savePayment(userId, txHash, targetAddress, amount) {
+  const result = await db.query(
+    `INSERT INTO payments (
+      user_id,
+      tx_hash,
+      target_address,
+      amount
+    )
+    VALUES ($1, $2, $3, $4)
+    RETURNING *`,
+    [
+      userId,
+      txHash,
+      targetAddress,
+      amount
+    ]
+  );
+
+  return result.rows[0];
+}
+
 module.exports = {
-  findUserBySeries3Code
+  findUserBySeries3Code,
+  findPaymentByHash,
+  savePayment
 };
