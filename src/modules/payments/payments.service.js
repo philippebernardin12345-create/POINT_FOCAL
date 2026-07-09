@@ -39,11 +39,18 @@ async function verifyUsdtPayment(txHash, adresseCible, paymentStartedAt) {
     throw new Error("Date de début de paiement invalide.");
   }
 
-  const txTimestampMs = await🇨🇩 getTransactionTimestamp(receipt.blockNumber);
+const latestBlockNumber = await web3.eth.getBlockNumber();
+const confirmations = Number(latestBlockNumber) - Number(receipt.blockNumber);
 
-  if (txTimestampMs < startedAtMs) {
+if (confirmations < REQUIRED_CONFIRMATIONS) {
+    throw new Error(`Transaction trop récente. Attendez au moins ${REQUIRED_CONFIRMATIONS} confirmations.`);
+}
+
+const txTimestampMs = await getTransactionTimestamp(receipt.blockNumber);
+
+if (txTimestampMs < startedAtMs) {
     throw new Error("Transaction trop ancienne. Le paiement doit être effectué après l'affichage de cette page.");
-  }
+}
 
   const targetAddress = normalizeAddress(adresseCible);
 
