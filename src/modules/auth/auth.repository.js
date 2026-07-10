@@ -5,7 +5,8 @@ async function findUserByEmail(email) {
     "SELECT * FROM users WHERE email = $1 LIMIT 1",
     [email]
   );
-  return result.rows[0];
+
+  return result.rows[0] || null;
 }
 
 async function findUserById(id) {
@@ -13,26 +14,30 @@ async function findUserById(id) {
     "SELECT * FROM users WHERE id = $1 LIMIT 1",
     [id]
   );
+
   return result.rows[0] || null;
 }
 
 async function findUserByInvitationCode(code) {
   const result = await db.query(
-    `SELECT * FROM users
+    `SELECT *
+     FROM users
      WHERE invitation_code_series_1 = $1
         OR invitation_code_series_2 = $1
         OR invitation_code_series_3 = $1
      LIMIT 1`,
     [code]
   );
-  return result.rows[0];
+
+  return result.rows[0] || null;
 }
 
 async function getActiveCampaign() {
   const result = await db.query(
     "SELECT * FROM campaigns WHERE status = 'active' LIMIT 1"
   );
-  return result.rows[0];
+
+  return result.rows[0] || null;
 }
 
 async function createUser(user) {
@@ -53,10 +58,38 @@ async function createUser(user) {
       link_active,
       email_confirmed
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,false,false,true,false)
-    RETURNING id, email, whatsapp, language, status, sponsor_id, campaign_id,
-              invitation_code_series_1, invitation_code_series_2, invitation_code_series_3,
-              is_root, is_leader, link_active, email_confirmed, created_at`,
+    VALUES (
+      $1,
+      $2,
+      $3,
+      $4,
+      $5,
+      $6,
+      $7,
+      NULL,
+      NULL,
+      NULL,
+      false,
+      false,
+      false,
+      false
+    )
+    RETURNING
+      id,
+      email,
+      whatsapp,
+      language,
+      status,
+      sponsor_id,
+      campaign_id,
+      invitation_code_series_1,
+      invitation_code_series_2,
+      invitation_code_series_3,
+      is_root,
+      is_leader,
+      link_active,
+      email_confirmed,
+      created_at`,
     [
       user.email,
       user.whatsapp,
@@ -64,10 +97,7 @@ async function createUser(user) {
       user.language,
       user.status,
       user.sponsorId,
-      user.campaignId,
-      user.invitationCodeSeries1,
-      user.invitationCodeSeries2,
-      user.invitationCodeSeries3
+      user.campaignId
     ]
   );
 
@@ -84,7 +114,7 @@ async function saveEmailOtp(userId, otp, expiresAt) {
     [otp, expiresAt, userId]
   );
 
-  return result.rows[0];
+  return result.rows[0] || null;
 }
 
 async function confirmEmail(userId) {
@@ -99,7 +129,7 @@ async function confirmEmail(userId) {
     [userId]
   );
 
-  return result.rows[0];
+  return result.rows[0] || null;
 }
 
 async function confirmEmailByOtp(email, otp) {
@@ -116,7 +146,7 @@ async function confirmEmailByOtp(email, otp) {
     [email, otp]
   );
 
-  return result.rows[0];
+  return result.rows[0] || null;
 }
 
 module.exports = {
