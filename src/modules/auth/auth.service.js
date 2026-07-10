@@ -5,64 +5,8 @@ const { sendEmail } = require("../../config/email");
 
 const ROOT_INVITATION_CODE = "ABCD1000";
 
-function generateSeries1Code() {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  let partLetters = "";
-
-  for (let i = 0; i < 4; i++) {
-    partLetters += letters[Math.floor(Math.random() * letters.length)];
-  }
-
-  const numbers = Math.floor(1000 + Math.random() * 9000);
-  return `${partLetters}${numbers}`;
-}
-
-function generateSeries2Code() {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  let partLetters = "";
-
-  for (let i = 0; i < 4; i++) {
-    partLetters += letters[Math.floor(Math.random() * letters.length)];
-  }
-
-  const numbers = Math.floor(1000 + Math.random() * 9000);
-  return `${numbers}${partLetters}`;
-}
-
-function generateSeries3Code(email) {
-  return email
-    .split("@")[0]
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .slice(0, 20);
-}
-
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-async function generateUniqueCode(generator, seed) {
-  let code;
-  let exists = true;
-
-  while (exists) {
-    code = generator(seed);
-
-    if (!code || code.length < 4) {
-      code = generateSeries1Code().toLowerCase();
-    }
-
-    const userWithCode = await authRepository.findUserByInvitationCode(code);
-    exists = !!userWithCode;
-
-    if (exists) {
-      code = `${code}${Math.floor(100 + Math.random() * 900)}`;
-      const retryUser = await authRepository.findUserByInvitationCode(code);
-      exists = !!retryUser;
-    }
-  }
-
-  return code;
 }
 
 async function register(payload) {
@@ -78,57 +22,87 @@ async function register(payload) {
 
   const usedSponsorCode = invitationCode || sponsorCode;
 
-  if (!email || !whatsapp || !password || !confirmPassword || !usedSponsorCode) {
-    throw new Error("Tous les champs obligatoires doivent être renseignés.");
+  if (
+    !email ||
+    !whatsapp ||
+    !password ||
+    !confirmPassword ||
+    !usedSponsorCode
+  ) {
+    throw new Error(
+      "Tous les champs obligatoires doivent être renseignés."
+    );
   }
 
   if (password !== confirmPassword) {
-    throw new Error("Les mots de passe ne correspondent pas.");
+    throw new Error(
+      "Les mots de passe ne correspondent pas."
+    );
   }
 
-  const existingUser = await authRepository.findUserByEmail(email);
+  const existingUser =
+    await authRepository.findUserByEmail(email);
+
   if (existingUser) {
-    throw new Error("Cet email est déjà utilisé.");
+    throw new Error(
+      "Cet email est déjà utilisé."
+    );
   }
 
-  let sponsor = await authRepository.findUserByInvitationCode(usedSponsorCode);
+  let sponsor =
+    await authRepository.findUserByInvitationCode(
+      usedSponsorCode
+    );
 
-  if (!sponsor && usedSponsorCode === ROOT_INVITATION_CODE) {
-    sponsor = { id: null, is_root: true };
+  if (
+    !sponsor &&
+    usedSponsorCode === ROOT_INVITATION_CODE
+  ) {
+    sponsor = {
+      id: null,
+      is_root: true
+    };
   }
 
   if (!sponsor) {
-    throw new Error("Code d'invitation invalide.");
+    throw new Error(
+      "Code d'invitation invalide."
+    );
   }
 
-  const campaign = await authRepository.getActiveCampaign();
+  const campaign =
+    await authRepository.getActiveCampaign();
+
   if (!campaign) {
-    throw new Error("Aucune campagne active disponible.");
+    throw new Error(
+      "Aucune campagne active disponible."
+    );
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash =
+    await bcrypt.hash(password, 10);
 
-  const invitationCodeSeries1 = await generateUniqueCode(generateSeries1Code);
-  const invitationCodeSeries2 = await generateUniqueCode(generateSeries2Code);
-  const invitationCodeSeries3 = await generateUniqueCode(generateSeries3Code, email);
-
-  const user = await authRepository.createUser({
-    email,
-    whatsapp,
-    passwordHash,
-    language,
-    status: "pending",
-    sponsorId: sponsor.id,
-    campaignId: campaign.id,
-    invitationCodeSeries1,
-    invitationCodeSeries2,
-    invitationCodeSeries3
-  });
+  const user =
+    await authRepository.createUser({
+      email,
+      whatsapp,
+      passwordHash,
+      language,
+      status: "pending",
+      sponsorId: sponsor.id,
+      campaignId: campaign.id
+    });
 
   const otp = generateOtp();
-  const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-  await authRepository.saveEmailOtp(user.id, otp, otpExpiresAt);
+  const otpExpiresAt =
+    new Date(Date.now() + 15 * 60 * 1000);
+
+  await authRepository.saveEmailOtp(
+    user.id,
+    otp,
+    otpExpiresAt
+  );
 
   await sendEmail({
     to: user.email,
@@ -144,7 +118,8 @@ async function register(payload) {
 
   return {
     user,
-    message: "Inscription réussie. Un code OTP a été envoyé à votre email."
+    message:
+      "Inscription réussie. Un code OTP a été envoyé à votre email."
   };
 }
 
@@ -152,21 +127,36 @@ async function login(payload) {
   const { email, password } = payload;
 
   if (!email || !password) {
-    throw new Error("Email et mot de passe obligatoires.");
+    throw new Error(
+      "Email et mot de passe obligatoires."
+    );
   }
 
-  const user = await authRepository.findUserByEmail(email);
+  const user =
+    await authRepository.findUserByEmail(email);
+
   if (!user) {
-    throw new Error("Identifiants invalides.");
+    throw new Error(
+      "Identifiants invalides."
+    );
   }
 
-  const validPassword = await bcrypt.compare(password, user.password_hash);
+  const validPassword =
+    await bcrypt.compare(
+      password,
+      user.password_hash
+    );
+
   if (!validPassword) {
-    throw new Error("Identifiants invalides.");
+    throw new Error(
+      "Identifiants invalides."
+    );
   }
 
   if (!user.email_confirmed) {
-    throw new Error("Veuillez confirmer votre email avec le code OTP avant de vous connecter.");
+    throw new Error(
+      "Veuillez confirmer votre email avec le code OTP avant de vous connecter."
+    );
   }
 
   const token = signToken({
@@ -186,9 +176,12 @@ async function login(payload) {
       language: user.language,
       status: user.status,
       campaignId: user.campaign_id,
-      invitationCodeSeries1: user.invitation_code_series_1,
-      invitationCodeSeries2: user.invitation_code_series_2,
-      invitationCodeSeries3: user.invitation_code_series_3,
+      invitationCodeSeries1:
+        user.invitation_code_series_1,
+      invitationCodeSeries2:
+        user.invitation_code_series_2,
+      invitationCodeSeries3:
+        user.invitation_code_series_3,
       isRoot: user.is_root,
       isLeader: user.is_leader,
       linkActive: user.link_active
@@ -198,12 +191,18 @@ async function login(payload) {
 
 async function confirmEmail(userId) {
   if (!userId) {
-    throw new Error("Identifiant utilisateur manquant.");
+    throw new Error(
+      "Identifiant utilisateur manquant."
+    );
   }
 
-  const user = await authRepository.confirmEmail(userId);
+  const user =
+    await authRepository.confirmEmail(userId);
+
   if (!user) {
-    throw new Error("Utilisateur introuvable.");
+    throw new Error(
+      "Utilisateur introuvable."
+    );
   }
 
   return user;
@@ -213,12 +212,21 @@ async function confirmOtp(payload) {
   const { email, otp } = payload;
 
   if (!email || !otp) {
-    throw new Error("Email et code OTP obligatoires.");
+    throw new Error(
+      "Email et code OTP obligatoires."
+    );
   }
 
-  const user = await authRepository.confirmEmailByOtp(email.trim(), otp.trim());
+  const user =
+    await authRepository.confirmEmailByOtp(
+      email.trim(),
+      otp.trim()
+    );
+
   if (!user) {
-    throw new Error("Code OTP invalide ou expiré.");
+    throw new Error(
+      "Code OTP invalide ou expiré."
+    );
   }
 
   return user;
@@ -226,12 +234,18 @@ async function confirmOtp(payload) {
 
 async function me(userId) {
   if (!userId) {
-    throw new Error("Utilisateur non authentifié.");
+    throw new Error(
+      "Utilisateur non authentifié."
+    );
   }
 
-  const user = await authRepository.findUserById(userId);
+  const user =
+    await authRepository.findUserById(userId);
+
   if (!user) {
-    throw new Error("Utilisateur introuvable.");
+    throw new Error(
+      "Utilisateur introuvable."
+    );
   }
 
   return {
@@ -241,9 +255,12 @@ async function me(userId) {
     language: user.language,
     status: user.status,
     campaignId: user.campaign_id,
-    invitationCodeSeries1: user.invitation_code_series_1,
-    invitationCodeSeries2: user.invitation_code_series_2,
-    invitationCodeSeries3: user.invitation_code_series_3,
+    invitationCodeSeries1:
+      user.invitation_code_series_1,
+    invitationCodeSeries2:
+      user.invitation_code_series_2,
+    invitationCodeSeries3:
+      user.invitation_code_series_3,
     isRoot: user.is_root,
     isLeader: user.is_leader,
     linkActive: user.link_active,
