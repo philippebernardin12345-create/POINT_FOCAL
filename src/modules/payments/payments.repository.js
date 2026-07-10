@@ -40,6 +40,7 @@ async function findUserPaymentStart(userId) {
       id,
       email,
       victory_assigned_at,
+      victory_personal_link,
       invitation_code_series_1,
       invitation_code_series_2,
       invitation_code_series_3,
@@ -96,7 +97,29 @@ async function savePayment(
     ]
   );
 
-  return result.rows[0];
+  return result.rows[0] || null;
+}
+
+async function saveVictoryPersonalLink(
+  userId,
+  victoryLink
+) {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET victory_personal_link = $2
+    WHERE id = $1
+    RETURNING
+      id,
+      victory_personal_link
+    `,
+    [
+      userId,
+      victoryLink
+    ]
+  );
+
+  return result.rows[0] || null;
 }
 
 async function activatePointFocalLink(
@@ -129,6 +152,7 @@ async function activatePointFocalLink(
     RETURNING
       id,
       email,
+      victory_personal_link,
       invitation_code_series_1,
       invitation_code_series_2,
       invitation_code_series_3,
@@ -151,5 +175,6 @@ module.exports = {
   findUserPaymentStart,
   findPaymentByHash,
   savePayment,
+  saveVictoryPersonalLink,
   activatePointFocalLink
 };
