@@ -422,16 +422,16 @@ async function autoTrigger(
   if (!activatedUser) {
     throw new Error(
       "Impossible d’activer le lien Point Focal."
-    );
-  }
+);
+}
 
-  /*
-    Le lien Point Focal utilise la série 3 :
-    exemple 12AB34CD
-  */
-  const publicLink =
-    `https://pointfocalapp.com/register.html?ref=${activatedUser.invitation_code_series_3}`;
+/*
+  Le lien Point Focal utilise la série 1 :
+  exemple ABCD1234
+*/
 
+const publicLink =
+  `https://pointfocalapp.com/register.html?ref=${activatedUser.invitation_code_series_1}`;
   return {
     success: true,
     message:
