@@ -12,6 +12,18 @@ async function findUserBySeries3Code(code) {
   return result.rows[0] || null;
 }
 
+async function findUserPaymentStart(userId) {
+  const result = await db.query(
+    `SELECT victory_assigned_at
+     FROM users
+     WHERE id = $1
+     LIMIT 1`,
+    [userId]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function findPaymentByHash(txHash) {
   const result = await db.query(
     `SELECT id
@@ -34,12 +46,7 @@ async function savePayment(userId, txHash, targetAddress, amount) {
     )
     VALUES ($1, $2, $3, $4)
     RETURNING *`,
-    [
-      userId,
-      txHash,
-      targetAddress,
-      amount
-    ]
+    [userId, txHash, targetAddress, amount]
   );
 
   return result.rows[0];
@@ -47,6 +54,7 @@ async function savePayment(userId, txHash, targetAddress, amount) {
 
 module.exports = {
   findUserBySeries3Code,
+  findUserPaymentStart,
   findPaymentByHash,
   savePayment
 };
