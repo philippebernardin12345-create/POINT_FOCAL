@@ -17,11 +17,33 @@ async function findUserBySeries3Code(code) {
   return result.rows[0] || null;
 }
 
+async function findUserByInvitationCode(code) {
+  const result = await db.query(
+    `
+    SELECT id
+    FROM users
+    WHERE invitation_code_series_1 = $1
+       OR invitation_code_series_2 = $1
+       OR invitation_code_series_3 = $1
+    LIMIT 1
+    `,
+    [code]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function findUserPaymentStart(userId) {
   const result = await db.query(
     `
     SELECT
-      victory_assigned_at
+      id,
+      email,
+      victory_assigned_at,
+      invitation_code_series_1,
+      invitation_code_series_2,
+      invitation_code_series_3,
+      link_active
     FROM users
     WHERE id = $1
     LIMIT 1
@@ -36,7 +58,9 @@ async function findPaymentByHash(txHash) {
   const result = await db.query(
     `
     SELECT
-      id
+      id,
+      user_id,
+      tx_hash
     FROM payments
     WHERE tx_hash = $1
     LIMIT 1
@@ -47,7 +71,12 @@ async function findPaymentByHash(txHash) {
   return result.rows[0] || null;
 }
 
-async function savePayment(userId, txHash, targetAddress, amount) {
+async function savePayment(
+  userId,
+  txHash,
+  targetAddress,
+  amount
+) {
   const result = await db.query(
     `
     INSERT INTO payments (
@@ -70,9 +99,57 @@ async function savePayment(userId, txHash, targetAddress, amount) {
   return result.rows[0];
 }
 
+async function activatePointFocalLink(
+  userId,
+  invitationCodeSeries1,
+  invitationCodeSeries2,
+  invitationCodeSeries3
+) {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET
+      invitation_code_series_1 =
+        COALESCE(
+          invitation_code_series_1,
+          $2
+        ),
+      invitation_code_series_2 =
+        COALESCE(
+          invitation_code_series_2,
+          $3
+        ),
+      invitation_code_series_3 =
+        COALESCE(
+          invitation_code_series_3,
+          $4
+        ),
+      link_active = true
+    WHERE id = $1
+    RETURNING
+      id,
+      email,
+      invitation_code_series_1,
+      invitation_code_series_2,
+      invitation_code_series_3,
+      link_active
+    `,
+    [
+      userId,
+      invitationCodeSeries1,
+      invitationCodeSeries2,
+      invitationCodeSeries3
+    ]
+  );
+
+  return result.rows[0] || null;
+}
+
 module.exports = {
   findUserBySeries3Code,
+  findUserByInvitationCode,
   findUserPaymentStart,
   findPaymentByHash,
-  savePayment
+  savePayment,
+  activatePointFocalLink
 };
