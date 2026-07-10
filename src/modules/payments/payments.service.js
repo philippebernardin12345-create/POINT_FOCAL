@@ -16,52 +16,55 @@ function normalizeAddress(address) {
     .toLowerCase();
 }
 
-function generateSeries1Code() {
+function generateLetters(length) {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  let lettersPart = "";
+  let result = "";
 
-  for (let i = 0; i < 4; i++) {
-    lettersPart +=
-      letters[Math.floor(Math.random() * letters.length)];
+  for (let i = 0; i < length; i++) {
+    result += letters[
+      Math.floor(Math.random() * letters.length)
+    ];
   }
 
-  const numbersPart =
-    Math.floor(1000 + Math.random() * 9000);
+  return result;
+}
+
+function generateTwoDigits() {
+  return Math.floor(10 + Math.random() * 90)
+    .toString();
+}
+
+function generateFourDigits() {
+  return Math.floor(1000 + Math.random() * 9000)
+    .toString();
+}
+
+function generateSeries1Code() {
+  const lettersPart = generateLetters(4);
+  const numbersPart = generateFourDigits();
 
   return `${lettersPart}${numbersPart}`;
 }
 
 function generateSeries2Code() {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  let lettersPart = "";
-
-  for (let i = 0; i < 4; i++) {
-    lettersPart +=
-      letters[Math.floor(Math.random() * letters.length)];
-  }
-
-  const numbersPart =
-    Math.floor(1000 + Math.random() * 9000);
+  const numbersPart = generateFourDigits();
+  const lettersPart = generateLetters(4);
 
   return `${numbersPart}${lettersPart}`;
 }
 
-function generateSeries3Code(email) {
-  const emailPrefix = String(email || "")
-    .split("@")[0]
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .slice(0, 16);
+function generateSeries3Code() {
+  const numbersPart1 = generateTwoDigits();
+  const lettersPart1 = generateLetters(2);
+  const numbersPart2 = generateTwoDigits();
+  const lettersPart2 = generateLetters(2);
 
-  const randomSuffix =
-    Math.floor(1000 + Math.random() * 9000);
-
-  return `${emailPrefix}${randomSuffix}`;
+  return `${numbersPart1}${lettersPart1}${numbersPart2}${lettersPart2}`;
 }
 
-async function generateUniqueCode(generator, seed) {
+async function generateUniqueCode(generator) {
   for (let attempt = 0; attempt < 30; attempt++) {
-    const code = generator(seed);
+    const code = generator();
 
     const existingUser =
       await repository.findUserByInvitationCode(code);
@@ -283,15 +286,25 @@ async function autoTrigger(
     );
   }
 
+  const victoryIdentifier =
+    parsedVictoryUrl.pathname
+      .split("/")
+      .filter(Boolean)
+      .pop();
+
+  if (!victoryIdentifier) {
+    throw new Error(
+      "Identifiant du lien Victory Automatic introuvable."
+    );
+  }
+
   if (!adresseCible) {
     throw new Error(
       "Adresse cible obligatoire."
     );
   }
 
-  if (
-    !web3.utils.isAddress(adresseCible)
-  ) {
+  if (!web3.utils.isAddress(adresseCible)) {
     throw new Error(
       "Format de l’adresse cible invalide."
     );
@@ -378,8 +391,7 @@ async function autoTrigger(
   if (!codeSeries3) {
     codeSeries3 =
       await generateUniqueCode(
-        generateSeries3Code,
-        user.email
+        generateSeries3Code
       );
   }
 
@@ -405,13 +417,14 @@ async function autoTrigger(
   }
 
   const publicLink =
-    `https://pointfocalapp.com/register.html?ref=${activatedUser.invitation_code_series_1}`;
+    `https://pointfocalapp.com/register.html?ref=${activatedUser.invitation_code_series_3}`;
 
   return {
     success: true,
     message:
       "Paiement validé et lien Point Focal activé.",
     publicLink,
+    victoryIdentifier,
     invitationCodes: {
       series1:
         activatedUser.invitation_code_series_1,
