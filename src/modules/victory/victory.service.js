@@ -7,10 +7,22 @@ async function assignVictoryLink(userId) {
     throw new Error("Utilisateur non authentifié.");
   }
 
-  await repository.markVictoryAssigned(userId);
+  const now = new Date();
+
+  const expiresAt = new Date(
+    now.getTime() + 24 * 60 * 60 * 1000
+  );
+
+  await repository.markVictoryAssigned(
+    userId,
+    now,
+    expiresAt
+  );
 
   return {
-    url: DEFAULT_VICTORY_LINK
+    url: DEFAULT_VICTORY_LINK,
+    startedAt: now,
+    expiresAt
   };
 }
 
