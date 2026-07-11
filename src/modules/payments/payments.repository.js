@@ -122,11 +122,9 @@ async function saveVictoryPersonalLink(
   return result.rows[0] || null;
 }
 
-async function activatePointFocalLink(
+async function activateSeries1PointFocalLink(
   userId,
-  invitationCodeSeries1,
-  invitationCodeSeries2,
-  invitationCodeSeries3
+  invitationCodeSeries1
 ) {
   const result = await db.query(
     `
@@ -136,16 +134,6 @@ async function activatePointFocalLink(
         COALESCE(
           invitation_code_series_1,
           $2
-        ),
-      invitation_code_series_2 =
-        COALESCE(
-          invitation_code_series_2,
-          $3
-        ),
-      invitation_code_series_3 =
-        COALESCE(
-          invitation_code_series_3,
-          $4
         ),
       link_active = true
     WHERE id = $1
@@ -160,9 +148,7 @@ async function activatePointFocalLink(
     `,
     [
       userId,
-      invitationCodeSeries1,
-      invitationCodeSeries2,
-      invitationCodeSeries3
+      invitationCodeSeries1
     ]
   );
 
@@ -176,5 +162,5 @@ module.exports = {
   findPaymentByHash,
   savePayment,
   saveVictoryPersonalLink,
-  activatePointFocalLink
+  activateSeries1PointFocalLink
 };
