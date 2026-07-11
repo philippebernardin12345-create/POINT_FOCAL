@@ -449,3 +449,4 @@ if (
 module.exports = {
   autoTrigger
 };
+
