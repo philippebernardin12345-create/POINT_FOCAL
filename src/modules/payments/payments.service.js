@@ -361,11 +361,7 @@ async function autoTrigger(
     Elles seront réservées aux deux projets
     propriétaires qui seront connectés plus tard.
   */
-  🇨🇩const codeSeries2 =
-    user.invitation_code_series_2 || null;
-
-  const codeSeries3 =
-    user.invitation_code_series_3 || null;🇨🇩
+  
 
   await repository.savePayment(
     userId,
