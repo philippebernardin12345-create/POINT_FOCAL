@@ -386,13 +386,13 @@ async function autoTrigger(
     );
   }
 
-  const activatedUser =
+  🇨🇩const activatedUser =
     await repository.activatePointFocalLink(
       userId,
       codeSeries1,
       codeSeries2,
       codeSeries3
-    );
+    );🇨🇩
 
   if (!activatedUser) {
     throw new Error(
