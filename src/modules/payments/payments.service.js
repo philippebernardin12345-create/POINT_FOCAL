@@ -29,43 +29,25 @@ function generateLetters(length) {
   return result;
 }
 
-function generateTwoDigits() {
-  return Math.floor(10 + Math.random() * 90).toString();
-}
-
 function generateFourDigits() {
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  return Math.floor(
+    1000 + Math.random() * 9000
+  ).toString();
 }
 
 /*
   Série 1 : ABCD1234
+
+  Cette série est réservée aux utilisateurs
+  qui commencent directement par Point Focal.
 */
 function generateSeries1Code() {
   return `${generateLetters(4)}${generateFourDigits()}`;
 }
 
-/*
-  Série 2 : 1234ABCD
-*/
-function generateSeries2Code() {
-  return `${generateFourDigits()}${generateLetters(4)}`;
-}
-
-/*
-  Série 3 : 12AB34CD
-*/
-function generateSeries3Code() {
-  return (
-    `${generateTwoDigits()}` +
-    `${generateLetters(2)}` +
-    `${generateTwoDigits()}` +
-    `${generateLetters(2)}`
-  );
-}
-
-async function generateUniqueCode(generator) {
+async function generateUniqueSeries1Code() {
   for (let attempt = 0; attempt < 30; attempt++) {
-    const code = generator();
+    const code = generateSeries1Code();
 
     const existingUser =
       await repository.findUserByInvitationCode(code);
@@ -76,7 +58,7 @@ async function generateUniqueCode(generator) {
   }
 
   throw new Error(
-    "Impossible de générer un code d’invitation unique."
+    "Impossible de générer un code d’invitation série 1 unique."
   );
 }
 
@@ -90,7 +72,8 @@ function decodeTransferLog(log) {
   const amountRaw = BigInt(log.data);
 
   const amount =
-    Number(amountRaw) / Math.pow(10, USDT_DECIMALS);
+    Number(amountRaw) /
+    Math.pow(10, USDT_DECIMALS);
 
   return {
     from: normalizeAddress(from),
@@ -100,7 +83,8 @@ function decodeTransferLog(log) {
 }
 
 async function getTransactionTimestamp(blockNumber) {
-  const block = await web3.eth.getBlock(blockNumber);
+  const block =
+    await web3.eth.getBlock(blockNumber);
 
   if (!block) {
     throw new Error(
@@ -183,32 +167,37 @@ async function verifyUsdtPayment(
     );
   }
 
-  const transferLog = receipt.logs.find((log) => {
-    if (
-      !log.topics ||
-      log.topics.length < 3
-    ) {
-      return false;
-    }
+  const transferLog =
+    receipt.logs.find((log) => {
+      if (
+        !log.topics ||
+        log.topics.length < 3
+      ) {
+        return false;
+      }
 
-    const logContract =
-      normalizeAddress(log.address);
+      const logContract =
+        normalizeAddress(log.address);
 
-    const transferTopic =
-      String(log.topics[0]).toLowerCase();
+      const transferTopic =
+        String(log.topics[0]).toLowerCase();
 
-    const logTargetAddress =
-      normalizeAddress(
-        "0x" + String(log.topics[2]).slice(26)
+      const logTargetAddress =
+        normalizeAddress(
+          "0x" +
+          String(log.topics[2]).slice(26)
+        );
+
+      return (
+        logContract ===
+          normalizeAddress(USDT_CONTRACT) &&
+        transferTopic ===
+          String(
+            ERC20_TRANSFER_TOPIC
+          ).toLowerCase() &&
+        logTargetAddress === targetAddress
       );
-
-    return (
-      logContract === normalizeAddress(USDT_CONTRACT) &&
-      transferTopic ===
-        String(ERC20_TRANSFER_TOPIC).toLowerCase() &&
-      logTargetAddress === targetAddress
-    );
-  });
+    });
 
   if (!transferLog) {
     throw new Error(
@@ -228,7 +217,8 @@ async function verifyUsdtPayment(
   return {
     ...payment,
     confirmations,
-    blockNumber: Number(receipt.blockNumber),
+    blockNumber:
+      Number(receipt.blockNumber),
     transactionTimestamp
   };
 }
@@ -312,7 +302,9 @@ async function autoTrigger(
     txHash.trim().toLowerCase();
 
   if (
-    !web3.utils.isHexStrict(normalizedTxHash) ||
+    !web3.utils.isHexStrict(
+      normalizedTxHash
+    ) ||
     normalizedTxHash.length !== 66
   ) {
     throw new Error(
@@ -321,7 +313,9 @@ async function autoTrigger(
   }
 
   const user =
-    await repository.findUserPaymentStart(userId);
+    await repository.findUserPaymentStart(
+      userId
+    );
 
   if (!user) {
     throw new Error(
@@ -356,36 +350,23 @@ async function autoTrigger(
   let codeSeries1 =
     user.invitation_code_series_1;
 
-  let codeSeries2 =
-    user.invitation_code_series_2;
-
-  let codeSeries3 =
-    user.invitation_code_series_3;
-
   if (!codeSeries1) {
     codeSeries1 =
-      await generateUniqueCode(
-        generateSeries1Code
-      );
-  }
-
-  if (!codeSeries2) {
-    codeSeries2 =
-      await generateUniqueCode(
-        generateSeries2Code
-      );
-  }
-
-  if (!codeSeries3) {
-    codeSeries3 =
-      await generateUniqueCode(
-        generateSeries3Code
-      );
+      await generateUniqueSeries1Code();
   }
 
   /*
-    Enregistrement du paiement validé
+    Les séries 2 et 3 ne sont pas générées ici.
+
+    Elles seront réservées aux deux projets
+    propriétaires qui seront connectés plus tard.
   */
+  const codeSeries2 =
+    user.invitation_code_series_2 || null;
+
+  const codeSeries3 =
+    user.invitation_code_series_3 || null;
+
   await repository.savePayment(
     userId,
     normalizedTxHash,
@@ -393,9 +374,6 @@ async function autoTrigger(
     payment.amount
   );
 
-  /*
-    Enregistrement du lien Victory Automatic personnel
-  */
   const savedVictoryLink =
     await repository.saveVictoryPersonalLink(
       userId,
@@ -408,9 +386,6 @@ async function autoTrigger(
     );
   }
 
-  /*
-    Génération des codes et activation du lien Point Focal
-  */
   const activatedUser =
     await repository.activatePointFocalLink(
       userId,
@@ -422,16 +397,16 @@ async function autoTrigger(
   if (!activatedUser) {
     throw new Error(
       "Impossible d’activer le lien Point Focal."
-);
-}
+    );
+  }
 
-/*
-  Le lien Point Focal utilise la série 1 :
-  exemple ABCD1234
-*/
+  /*
+    Le lien public Point Focal utilise la série 1.
+    Exemple : ABCD1234
+  */
+  const publicLink =
+    `https://pointfocalapp.com/register.html?ref=${activatedUser.invitation_code_series_1}`;
 
-const publicLink =
-  `https://pointfocalapp.com/register.html?ref=${activatedUser.invitation_code_series_1}`;
   return {
     success: true,
     message:
