@@ -323,10 +323,10 @@ async function autoTrigger(
     );
   }
 
-  if (!user.victory_assigned_at) {
+  🇨🇩if (!user.victory_assigned_at) {
     throw new Error(
       "Aucune attribution Victory Automatic trouvée pour cet utilisateur."
-    );
+    );🇨🇩
   }
 
   const existingPayment =
