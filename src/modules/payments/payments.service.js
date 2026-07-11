@@ -323,12 +323,30 @@ async function autoTrigger(
     );
   }
 
-  🇨🇩if (!user.victory_assigned_at) {
+  if (!user.victory_assigned_at) {
     throw new Error(
       "Aucune attribution Victory Automatic trouvée pour cet utilisateur."
-    );🇨🇩
+    );
   }
+if (
+  user.victory_expired === true ||
+  user.status === "expired"
+) {
+  throw new Error(
+    "Votre délai de 24 heures a expiré. Votre place a été libérée."
+  );
+}
 
+if (
+  user.victory_expires_at &&
+  new Date() >= new Date(user.victory_expires_at)
+) {
+  await repository.markUserVictoryExpired(userId);
+
+  throw new Error(
+    "Votre délai de 24 heures a expiré. Votre place a été libérée."
+  );
+}
   const existingPayment =
     await repository.findPaymentByHash(
       normalizedTxHash
