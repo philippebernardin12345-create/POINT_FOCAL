@@ -55,6 +55,7 @@ async function createUser(user) {
       invitation_code_series_3,
       is_root,
       is_leader,
+      is_prelaunch_leader,
       link_active,
       email_confirmed
     )
@@ -69,6 +70,7 @@ async function createUser(user) {
       NULL,
       NULL,
       NULL,
+      false,
       false,
       false,
       false,
@@ -87,6 +89,7 @@ async function createUser(user) {
       invitation_code_series_3,
       is_root,
       is_leader,
+      is_prelaunch_leader,
       link_active,
       email_confirmed,
       created_at`,
@@ -160,6 +163,7 @@ async function countPrelaunchLeaders() {
 
   return result.rows[0]?.total || 0;
 }
+
 module.exports = {
   findUserByEmail,
   findUserById,
