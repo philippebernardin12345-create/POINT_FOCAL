@@ -149,6 +149,17 @@ async function confirmEmailByOtp(email, otp) {
   return result.rows[0] || null;
 }
 
+async function countPrelaunchLeaders() {
+  const result = await db.query(
+    `
+    SELECT COUNT(*)::int AS total
+    FROM users
+    WHERE is_prelaunch_leader = true
+    `
+  );
+
+  return result.rows[0]?.total || 0;
+}
 module.exports = {
   findUserByEmail,
   findUserById,
@@ -157,5 +168,6 @@ module.exports = {
   createUser,
   saveEmailOtp,
   confirmEmail,
-  confirmEmailByOtp
+  confirmEmailByOtp,
+  countPrelaunchLeaders
 };
