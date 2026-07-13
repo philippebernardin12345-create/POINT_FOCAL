@@ -2,14 +2,11 @@ const repository = require("./followme.repository");
 
 function generateLetters(length) {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
   let result = "";
 
   for (let i = 0; i < length; i++) {
     result += letters[
-      Math.floor(
-        Math.random() * letters.length
-      )
+      Math.floor(Math.random() * letters.length)
     ];
   }
 
@@ -51,10 +48,17 @@ async function getSponsorLinkForOpportunity(
     );
   }
 
-  const opportunity =
-    await repository.findOpportunityByPosition(
-      Number(position)
+  const opportunityPosition =
+    Number(position);
+
+  if (
+    !Number.isInteger(opportunityPosition) ||
+    opportunityPosition < 1
+  ) {
+    throw new Error(
+      "Position d’opportunité invalide."
     );
+  }
 
   const user =
     await repository.findUserById(userId);
@@ -64,6 +68,11 @@ async function getSponsorLinkForOpportunity(
       "Utilisateur introuvable."
     );
   }
+
+  const opportunity =
+    await repository.findOpportunityByPosition(
+      opportunityPosition
+    );
 
   if (!opportunity) {
     throw new Error(
@@ -120,6 +129,7 @@ async function getSponsorLinkForOpportunity(
         rootUser.id;
 
       source = "root";
+
     } else if (
       opportunity.root_sponsor_link
     ) {
@@ -135,12 +145,18 @@ async function getSponsorLinkForOpportunity(
 
   if (!sponsorLink) {
     throw new Error(
-      "Aucun lien disponible."
+      "Aucun lien disponible pour cette opportunité."
     );
   }
 
   return {
-    opportunity,
+    opportunity: {
+      id: opportunity.id,
+      name: opportunity.name,
+      slug: opportunity.slug,
+      position: opportunity.position,
+      type: opportunity.type
+    },
     sponsorUserId,
     sponsorLink,
     source
@@ -152,10 +168,54 @@ async function savePersonalOpportunityLink(
   position,
   referralLink
 ) {
-  const user =
-    await repository.findUserById(
-      userId
+  if (!userId) {
+    throw new Error(
+      "Utilisateur non authentifié."
     );
+  }
+
+  const opportunityPosition =
+    Number(position);
+
+  if (
+    !Number.isInteger(opportunityPosition) ||
+    opportunityPosition < 1
+  ) {
+    throw new Error(
+      "Position d’opportunité invalide."
+    );
+  }
+
+  const cleanReferralLink =
+    String(referralLink || "").trim();
+
+  if (!cleanReferralLink) {
+    throw new Error(
+      "Lien personnel obligatoire."
+    );
+  }
+
+  let parsedUrl;
+
+  try {
+    parsedUrl = new URL(cleanReferralLink);
+  } catch {
+    throw new Error(
+      "Format du lien personnel invalide."
+    );
+  }
+
+  if (
+    parsedUrl.protocol !== "https:" &&
+    parsedUrl.protocol !== "http:"
+  ) {
+    throw new Error(
+      "Le lien personnel doit commencer par http:// ou https://."
+    );
+  }
+
+  const user =
+    await repository.findUserById(userId);
 
   if (!user) {
     throw new Error(
@@ -165,7 +225,7 @@ async function savePersonalOpportunityLink(
 
   const opportunity =
     await repository.findOpportunityByPosition(
-      Number(position)
+      opportunityPosition
     );
 
   if (!opportunity) {
@@ -174,44 +234,88 @@ async function savePersonalOpportunityLink(
     );
   }
 
+  const previousCompleted =
+    await repository.findPreviousOpportunityCompleted(
+      userId,
+      opportunity.position
+    );
+
+  if (!previousCompleted) {
+    throw new Error(
+      "Vous devez terminer l’opportunité précédente avant de continuer."
+    );
+  }
+
+  let sponsorUserId =
+    user.sponsor_id || null;
+
+  if (!sponsorUserId) {
+    const rootUser =
+      await repository.findRootUser();
+
+    sponsorUserId =
+      rootUser ? rootUser.id : null;
+  }
+
   const saved =
     await repository.saveUserOpportunityLink(
       userId,
       opportunity.id,
-      user.sponsor_id,
-      referralLink
+      sponsorUserId,
+      cleanReferralLink
     );
 
   if (!saved) {
     throw new Error(
-      "Impossible d'enregistrer le lien."
+      "Impossible d’enregistrer le lien personnel."
     );
   }
 
+  let generatedSeries2 = null;
+  let generatedSeries3 = null;
+
   if (
-    opportunity.position === 3 &&
+    Number(opportunity.position) === 3 &&
     !user.invitation_code_series_2
   ) {
+    generatedSeries2 =
+      generateSeries2Code();
+
     await repository.saveSeries2Code(
       userId,
-      generateSeries2Code()
+      generatedSeries2
     );
   }
 
   if (
-    opportunity.position === 4 &&
+    Number(opportunity.position) === 4 &&
     !user.invitation_code_series_3
   ) {
+    generatedSeries3 =
+      generateSeries3Code();
+
     await repository.saveSeries3Code(
       userId,
-      generateSeries3Code()
+      generatedSeries3
     );
   }
 
   return {
     success: true,
-    opportunity: opportunity.name,
-    referralLink
+    message:
+      "Votre lien personnel a été enregistré avec succès.",
+    opportunity: {
+      id: opportunity.id,
+      name: opportunity.name,
+      slug: opportunity.slug,
+      position: opportunity.position
+    },
+    referralLink:
+      saved.referral_link,
+    generatedCodes: {
+      series2: generatedSeries2,
+      series3: generatedSeries3
+    }
   };
 }
 
