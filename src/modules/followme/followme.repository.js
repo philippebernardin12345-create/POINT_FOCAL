@@ -106,11 +106,45 @@ async function saveUserOpportunityLink(
   );
 
   return result.rows[0] || null;
+}async function saveSeries2Code(userId, code) {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET invitation_code_series_2 = $2
+    WHERE id = $1
+      AND invitation_code_series_2 IS NULL
+    RETURNING
+      id,
+      invitation_code_series_2
+    `,
+    [userId, code]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function saveSeries3Code(userId, code) {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET invitation_code_series_3 = $2
+    WHERE id = $1
+      AND invitation_code_series_3 IS NULL
+    RETURNING
+      id,
+      invitation_code_series_3
+    `,
+    [userId, code]
+  );
+
+  return result.rows[0] || null;
 }
 module.exports = {
   findUserById,
   findOpportunityByPosition,
   findUserOpportunity,
   findRootUser,
-  saveUserOpportunityLink
+  saveUserOpportunityLink,
+  saveSeries2Code,
+  saveSeries3Code
 };
