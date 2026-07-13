@@ -150,17 +150,18 @@ async function getSponsorLinkForOpportunity(
   }
 
   return {
-    opportunity: {
-      id: opportunity.id,
-      name: opportunity.name,
-      slug: opportunity.slug,
-      position: opportunity.position,
-      type: opportunity.type
-    },
-    sponsorUserId,
-    sponsorLink,
-    source
-  };
+  opportunity: {
+    id: opportunity.id,
+    name: opportunity.name,
+    slug: opportunity.slug,
+    position: opportunity.position,
+    type: opportunity.type,
+    entryMode: opportunity.entry_mode
+  },
+  sponsorUserId,
+  sponsorLink,
+  source
+};
 }
 
 async function savePersonalOpportunityLink(
