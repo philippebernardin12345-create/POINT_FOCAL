@@ -111,5 +111,6 @@ module.exports = {
   findUserById,
   findOpportunityByPosition,
   findUserOpportunity,
-  findRootUser
+  findRootUser,
+  saveUserOpportunityLink
 };
