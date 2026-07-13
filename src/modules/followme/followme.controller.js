@@ -1,111 +1,66 @@
-const repository = require("./followme.repository");
+const followmeService = require("./followme.service");
 
-async function getSponsorLinkForOpportunity(userId, position) {
-  if (!userId) {
-    throw new Error("Utilisateur non authentifié.");
-  }
+async function getSponsorLink(req, res) {
+  try {
+    const position = Number(req.params.position);
 
-  if (!position || Number(position) < 1) {
-    throw new Error("Position d’opportunité invalide.");
-  }
-
-  const user = await repository.findUserById(userId);
-
-  if (!user) {
-    throw new Error("Utilisateur introuvable.");
-  }
-
-  const opportunity =
-    await repository.findOpportunityByPosition(
-      Number(position)
-    );
-
-  if (!opportunity) {
-    throw new Error(
-      "Aucune opportunité active trouvée à cette position."
-    );
-  }
-
-  let sponsorLink = null;
-  let sponsorUserId = user.sponsor_id || null;
-  let source = "sponsor";
-
-  if (sponsorUserId) {
-    const sponsorOpportunity =
-      await repository.findUserOpportunity(
-        sponsorUserId,
-        opportunity.id
+    const result =
+      await followmeService.getSponsorLinkForOpportunity(
+        req.user.id,
+        position
       );
 
-    if (
-      sponsorOpportunity &&
-      sponsorOpportunity.referral_link
-    ) {
-      sponsorLink =
-        sponsorOpportunity.referral_link;
-    }
-  }
-
-  if (!sponsorLink) {
-    const rootUser =
-      await repository.findRootUser();
-
-    if (!rootUser) {
-      throw new Error(
-        "Aucun sponsor disponible et compte racine introuvable."
-      );
-    }
-
-    const rootOpportunity =
-      await repository.findUserOpportunity(
-        rootUser.id,
-        opportunity.id
-      );
-
-    if (
-      rootOpportunity &&
-      rootOpportunity.referral_link
-    ) {
-      sponsorLink =
-        rootOpportunity.referral_link;
-
-      sponsorUserId =
-        rootUser.id;
-
-      source =
-        "root";
-    } else if (opportunity.root_sponsor_link) {
-      sponsorLink =
-        opportunity.root_sponsor_link;
-
-      sponsorUserId =
-        rootUser.id;
-
-      source =
-        "root";
-    }
-  }
-
-  if (!sponsorLink) {
-    throw new Error(
-      "Aucun lien de sponsor disponible pour cette opportunité."
+    return res.status(200).json({
+      success: true,
+      ...result
+    });
+  } catch (err) {
+    console.error(
+      "========== FOLLOW ME ERROR =========="
     );
-  }
+    console.error(err);
 
-  return {
-    opportunity: {
-      id: opportunity.id,
-      name: opportunity.name,
-      slug: opportunity.slug,
-      position: opportunity.position,
-      type: opportunity.type
-    },
-    sponsorUserId,
-    sponsorLink,
-    source
-  };
+    return res.status(400).json({
+      success: false,
+      message:
+        err.message ||
+        "Erreur moteur Follow Me."
+    });
+  }
+}
+
+async function savePersonalLink(req, res) {
+  try {
+    const position = Number(req.params.position);
+    const { referralLink } = req.body;
+
+    const result =
+      await followmeService.savePersonalOpportunityLink(
+        req.user.id,
+        position,
+        referralLink
+      );
+
+    return res.status(200).json({
+      success: true,
+      ...result
+    });
+  } catch (err) {
+    console.error(
+      "========== FOLLOW ME SAVE ERROR =========="
+    );
+    console.error(err);
+
+    return res.status(400).json({
+      success: false,
+      message:
+        err.message ||
+        "Impossible d’enregistrer le lien personnel."
+    });
+  }
 }
 
 module.exports = {
-  getSponsorLinkForOpportunity
+  getSponsorLink,
+  savePersonalLink
 };
