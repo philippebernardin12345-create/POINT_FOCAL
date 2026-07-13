@@ -138,6 +138,32 @@ async function saveSeries3Code(userId, code) {
   );
 
   return result.rows[0] || null;
+}async function findPreviousOpportunityCompleted(
+  userId,
+  position
+) {
+  if (position <= 1) {
+    return true;
+  }
+
+  const result = await db.query(
+    `
+    SELECT uo.id
+    FROM user_opportunities uo
+    INNER JOIN opportunities o
+      ON o.id = uo.opportunity_id
+    WHERE uo.user_id = $1
+      AND o.position = $2
+      AND uo.status = 'completed'
+    LIMIT 1
+    `,
+    [
+      userId,
+      Number(position) - 1
+    ]
+  );
+
+  return result.rows.length > 0;
 }
 module.exports = {
   findUserById,
@@ -146,5 +172,6 @@ module.exports = {
   findRootUser,
   saveUserOpportunityLink,
   saveSeries2Code,
-  saveSeries3Code
+  saveSeries3Code,
+  findPreviousOpportunityCompleted
 };
