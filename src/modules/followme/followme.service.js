@@ -1,4 +1,3 @@
-
 const repository = require("./followme.repository");
 
 async function getSponsorLinkForOpportunity(userId, position) {
