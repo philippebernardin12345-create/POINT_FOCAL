@@ -59,7 +59,54 @@ async function findRootUser() {
 
   return result.rows[0] || null;
 }
+async function saveUserOpportunityLink(
+  userId,
+  opportunityId,
+  sponsorUserId,
+  referralLink
+) {
+  const result = await db.query(
+    `
+    INSERT INTO user_opportunities (
+      user_id,
+      opportunity_id,
+      sponsor_user_id,
+      referral_link,
+      status,
+      joined_at,
+      updated_at
+    )
+    VALUES (
+      $1,
+      $2,
+      $3,
+      $4,
+      'completed',
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (user_id, opportunity_id)
+    DO UPDATE SET
+      sponsor_user_id = EXCLUDED.sponsor_user_id,
+      referral_link = EXCLUDED.referral_link,
+      status = 'completed',
+      joined_at = COALESCE(
+        user_opportunities.joined_at,
+        NOW()
+      ),
+      updated_at = NOW()
+    RETURNING *
+    `,
+    [
+      userId,
+      opportunityId,
+      sponsorUserId,
+      referralLink
+    ]
+  );
 
+  return result.rows[0] || null;
+}
 module.exports = {
   findUserById,
   findOpportunityByPosition,
