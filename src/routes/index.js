@@ -5,6 +5,7 @@ const videoRoutes = require("../modules/video/video.routes");
 const victoryRoutes = require("../modules/victory/victory.routes");
 const victoryWorldRoutes = require("../modules/victory-world/victoryWorld.routes");
 const paymentsRoutes = require("../modules/payments/payments.routes");
+const followmeRoutes = require("../modules/followme/followme.routes");
 
 const router = express.Router();
 
@@ -20,5 +21,6 @@ router.use("/video", videoRoutes);
 router.use("/victory-link", victoryRoutes);
 router.use("/victory-world", victoryWorldRoutes);
 router.use("/payment", paymentsRoutes);
+router.use("/followme", followmeRoutes);
 
 module.exports = router;
