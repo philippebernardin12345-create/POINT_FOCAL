@@ -1,15 +1,77 @@
 const repository = require("./victory.repository");
 
+function extractVictoryIdentifier(victoryLink) {
+  let parsedUrl;
+
+  try {
+    parsedUrl = new URL(
+      String(victoryLink || "").trim()
+    );
+  } catch {
+    throw new Error(
+      "Lien Victory Automatic attribué invalide."
+    );
+  }
+
+  if (
+    parsedUrl.protocol !== "https:" ||
+    parsedUrl.hostname.toLowerCase() !==
+      "victoryautomatic.com"
+  ) {
+    throw new Error(
+      "Le lien Victory Automatic attribué utilise un domaine invalide."
+    );
+  }
+
+  const parts =
+    parsedUrl.pathname
+      .split("/")
+      .filter(Boolean);
+
+  if (
+    parts.length !== 3 ||
+    parts[0] !== "user" ||
+    parts[1] !== "register"
+  ) {
+    throw new Error(
+      "Le lien Victory Automatic attribué ne respecte pas le format attendu."
+    );
+  }
+
+  const identifier =
+    decodeURIComponent(parts[2]).trim();
+
+  if (!identifier) {
+    throw new Error(
+      "Identifiant Victory du parrain introuvable."
+    );
+  }
+
+  if (!/^[a-zA-Z0-9._-]+$/.test(identifier)) {
+    throw new Error(
+      "Identifiant Victory du parrain invalide."
+    );
+  }
+
+  return identifier;
+}
+
 async function assignVictoryLink(userId) {
   if (!userId) {
-    throw new Error("Utilisateur non authentifié.");
+    throw new Error(
+      "Utilisateur non authentifié."
+    );
   }
 
   const userWithSponsor =
-    await repository.findUserWithSponsor(userId);
+    await repository.findUserWithSponsor(
+      userId
+    );
 
   if (!userWithSponsor) {
-    throw new Error("Utilisateur introuvable.");
+    throw new Error(
+      "Utilisateur introuvable."
+    );
   }
 
   if (
@@ -27,8 +89,7 @@ async function assignVictoryLink(userId) {
 
   /*
     Priorité 1 :
-    lien Victory Automatic du parrain réel
-    enregistré dans sponsor_id.
+    lien Victory Automatic du parrain réel.
   */
   if (
     userWithSponsor.sponsor_user_id &&
@@ -45,7 +106,7 @@ async function assignVictoryLink(userId) {
 
   /*
     Priorité 2 :
-    lien Victory Automatic du compte racine.
+    lien Victory du compte racine.
   */
   if (!assignedVictoryLink) {
     const rootUser =
@@ -58,18 +119,22 @@ async function assignVictoryLink(userId) {
       assignedVictoryLink =
         rootUser.victory_personal_link;
 
+      assignedSponsorUserId =
+        rootUser.id || null;
+
       source = "root-user";
     }
   }
 
   /*
     Priorité 3 :
-    lien racine enregistré dans opportunities
-    pour Victory Automatic, position 1.
+    lien racine enregistré dans l’opportunité
+    Victory Automatic.
   */
   if (!assignedVictoryLink) {
     const rootOpportunity =
-      await repository.findVictoryOpportunityRootLink();
+      await repository
+        .findVictoryOpportunityRootLink();
 
     if (
       rootOpportunity &&
@@ -88,10 +153,29 @@ async function assignVictoryLink(userId) {
     );
   }
 
+  const victoryParentIdentifier =
+    extractVictoryIdentifier(
+      assignedVictoryLink
+    );
+
+  const savedParentIdentifier =
+    await repository
+      .saveVictoryParentIdentifier(
+        userId,
+        victoryParentIdentifier
+      );
+
+  if (!savedParentIdentifier) {
+    throw new Error(
+      "Impossible d’enregistrer l’identifiant Victory du parrain."
+    );
+  }
+
   const now = new Date();
 
   const expiresAt = new Date(
-    now.getTime() + 24 * 60 * 60 * 1000
+    now.getTime() +
+    24 * 60 * 60 * 1000
   );
 
   const assignedUser =
@@ -110,7 +194,9 @@ async function assignVictoryLink(userId) {
   return {
     url: assignedVictoryLink,
     source,
-    sponsorUserId: assignedSponsorUserId,
+    sponsorUserId:
+      assignedSponsorUserId,
+    victoryParentIdentifier,
     startedAt:
       assignedUser.victory_started_at,
     expiresAt:
@@ -139,7 +225,8 @@ async function reactivateVictory(userId) {
   return {
     message:
       "Votre compte a été réactivé avec succès. Un nouveau délai de 24 heures commence maintenant.",
-    status: user.status,
+    status:
+      user.status,
     startedAt:
       user.victory_started_at,
     expiresAt:
