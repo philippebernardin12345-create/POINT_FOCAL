@@ -80,6 +80,7 @@ async function findUserByVictoryIdentifier(victoryIdentifier) {
 
 async function savePayment(
   userId,
+  campaignId,
   txHash,
   targetAddress,
   amount
@@ -88,15 +89,17 @@ async function savePayment(
     `
     INSERT INTO payments (
       user_id,
+      campaign_id,
       tx_hash,
       target_address,
       amount
     )
-    VALUES ($1, $2, $3, $4)
+    VALUES ($1, $2, $3, $4, $5)
     RETURNING *
     `,
     [
       userId,
+      campaignId,
       txHash,
       targetAddress,
       amount
