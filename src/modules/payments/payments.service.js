@@ -37,9 +37,6 @@ function generateFourDigits() {
 
 /*
   Série 1 : ABCD1234
-
-  Cette série est réservée aux utilisateurs
-  qui commencent directement par Point Focal.
 */
 function generateSeries1Code() {
   return `${generateLetters(4)}${generateFourDigits()}`;
@@ -63,6 +60,16 @@ async function generateUniqueSeries1Code() {
 }
 
 function decodeTransferLog(log) {
+  if (
+    !log ||
+    !log.topics ||
+    log.topics.length < 3
+  ) {
+    throw new Error(
+      "Journal de transfert blockchain invalide."
+    );
+  }
+
   const from =
     "0x" + String(log.topics[1]).slice(26);
 
@@ -95,13 +102,130 @@ async function getTransactionTimestamp(blockNumber) {
   return Number(block.timestamp);
 }
 
+function validateVictoryLink(victoryLink) {
+  let parsedVictoryUrl;
+
+  try {
+    parsedVictoryUrl = new URL(
+      String(victoryLink || "").trim()
+    );
+  } catch {
+    throw new Error(
+      "Format du lien Victory Automatic invalide."
+    );
+  }
+
+  if (
+    parsedVictoryUrl.protocol !== "https:" ||
+    parsedVictoryUrl.hostname.toLowerCase() !==
+      "victoryautomatic.com"
+  ) {
+    throw new Error(
+      "Le lien doit commencer par https://victoryautomatic.com/user/register/."
+    );
+  }
+
+  const pathParts =
+    parsedVictoryUrl.pathname
+      .split("/")
+      .filter(Boolean);
+
+  if (
+    pathParts.length !== 3 ||
+    pathParts[0] !== "user" ||
+    pathParts[1] !== "register"
+  ) {
+    throw new Error(
+      "Le lien Victory Automatic doit respecter le format https://victoryautomatic.com/user/register/identifiant."
+    );
+  }
+
+  const victoryIdentifier =
+    decodeURIComponent(pathParts[2]).trim();
+
+  if (!victoryIdentifier) {
+    throw new Error(
+      "Identifiant Victory Automatic introuvable."
+    );
+  }
+
+  /*
+    Refus des caractères dangereux ou inhabituels.
+    L’identifiant accepte lettres, chiffres,
+    tirets, points et underscores.
+  */
+  if (
+    !/^[a-zA-Z0-9._-]+$/.test(
+      victoryIdentifier
+    )
+  ) {
+    throw new Error(
+      "Identifiant Victory Automatic invalide."
+    );
+  }
+
+  return {
+    victoryIdentifier,
+    normalizedVictoryLink:
+      `https://victoryautomatic.com/user/register/${victoryIdentifier}`
+  };
+}
+
+function validateTargetAddress(adresseCible) {
+  const normalizedAddress =
+    normalizeAddress(adresseCible);
+
+  if (
+    normalizedAddress.length !== 42 ||
+    !normalizedAddress.startsWith("0x") ||
+    !/^0x[a-f0-9]{40}$/.test(
+      normalizedAddress
+    ) ||
+    !web3.utils.isAddress(
+      normalizedAddress
+    )
+  ) {
+    throw new Error(
+      "L’adresse cible doit contenir exactement 42 caractères, commencer par 0x et être une adresse blockchain valide."
+    );
+  }
+
+  return normalizedAddress;
+}
+
+function validateTransactionHash(txHash) {
+  const normalizedTxHash =
+    String(txHash || "")
+      .trim()
+      .toLowerCase();
+
+  if (
+    normalizedTxHash.length !== 66 ||
+    !normalizedTxHash.startsWith("0x") ||
+    !/^0x[a-f0-9]{64}$/.test(
+      normalizedTxHash
+    ) ||
+    !web3.utils.isHexStrict(
+      normalizedTxHash
+    )
+  ) {
+    throw new Error(
+      "Le hash doit contenir exactement 66 caractères, commencer par 0x et contenir uniquement des caractères hexadécimaux."
+    );
+  }
+
+  return normalizedTxHash;
+}
+
 async function verifyUsdtPayment(
   txHash,
   adresseCible,
   victoryAssignedAt
 ) {
   const receipt =
-    await web3.eth.getTransactionReceipt(txHash);
+    await web3.eth.getTransactionReceipt(
+      txHash
+    );
 
   if (!receipt) {
     throw new Error(
@@ -123,18 +247,25 @@ async function verifyUsdtPayment(
     Number(receipt.blockNumber) +
     1;
 
-  if (confirmations < REQUIRED_CONFIRMATIONS) {
+  if (
+    confirmations <
+    REQUIRED_CONFIRMATIONS
+  ) {
     throw new Error(
       `Transaction trop récente. ${confirmations}/${REQUIRED_CONFIRMATIONS} confirmations.`
     );
   }
 
   const victoryAssignedAtMs =
-    new Date(victoryAssignedAt).getTime();
+    new Date(
+      victoryAssignedAt
+    ).getTime();
 
   if (
     !victoryAssignedAtMs ||
-    Number.isNaN(victoryAssignedAtMs)
+    Number.isNaN(
+      victoryAssignedAtMs
+    )
   ) {
     throw new Error(
       "Date d’attribution du lien Victory invalide."
@@ -142,7 +273,9 @@ async function verifyUsdtPayment(
   }
 
   const victoryAssignedAtSeconds =
-    Math.floor(victoryAssignedAtMs / 1000);
+    Math.floor(
+      victoryAssignedAtMs / 1000
+    );
 
   const transactionTimestamp =
     await getTransactionTimestamp(
@@ -155,15 +288,6 @@ async function verifyUsdtPayment(
   ) {
     throw new Error(
       "Transaction trop ancienne. Le don doit être effectué après l’attribution du lien Victory Automatic."
-    );
-  }
-
-  const targetAddress =
-    normalizeAddress(adresseCible);
-
-  if (!web3.utils.isAddress(targetAddress)) {
-    throw new Error(
-      "Adresse cible invalide."
     );
   }
 
@@ -180,22 +304,29 @@ async function verifyUsdtPayment(
         normalizeAddress(log.address);
 
       const transferTopic =
-        String(log.topics[0]).toLowerCase();
+        String(
+          log.topics[0]
+        ).toLowerCase();
 
       const logTargetAddress =
         normalizeAddress(
           "0x" +
-          String(log.topics[2]).slice(26)
+          String(
+            log.topics[2]
+          ).slice(26)
         );
 
       return (
         logContract ===
-          normalizeAddress(USDT_CONTRACT) &&
+          normalizeAddress(
+            USDT_CONTRACT
+          ) &&
         transferTopic ===
           String(
             ERC20_TRANSFER_TOPIC
           ).toLowerCase() &&
-        logTargetAddress === targetAddress
+        logTargetAddress ===
+          adresseCible
       );
     });
 
@@ -206,9 +337,14 @@ async function verifyUsdtPayment(
   }
 
   const payment =
-    decodeTransferLog(transferLog);
+    decodeTransferLog(
+      transferLog
+    );
 
-  if (payment.amount < MIN_USDT_AMOUNT) {
+  if (
+    payment.amount <
+    MIN_USDT_AMOUNT
+  ) {
     throw new Error(
       `Montant insuffisant. Minimum requis : ${MIN_USDT_AMOUNT} USDT.`
     );
@@ -245,72 +381,22 @@ async function autoTrigger(
     );
   }
 
-  let parsedVictoryUrl;
+  const {
+    victoryIdentifier,
+    normalizedVictoryLink
+  } = validateVictoryLink(
+    victoryLink
+  );
 
-  try {
-    parsedVictoryUrl = new URL(victoryLink);
-  } catch {
-    throw new Error(
-      "Format du lien Victory Automatic invalide."
+  const normalizedTargetAddress =
+    validateTargetAddress(
+      adresseCible
     );
-  }
-
-  if (
-    parsedVictoryUrl.protocol !== "https:" ||
-    parsedVictoryUrl.hostname !==
-      "victoryautomatic.com" ||
-    !parsedVictoryUrl.pathname.startsWith(
-      "/user/register/"
-    )
-  ) {
-    throw new Error(
-      "Lien Victory Automatic invalide."
-    );
-  }
-
-  const victoryIdentifier =
-    parsedVictoryUrl.pathname
-      .split("/")
-      .filter(Boolean)
-      .pop();
-
-  if (!victoryIdentifier) {
-    throw new Error(
-      "Identifiant Victory Automatic introuvable."
-    );
-  }
-
-  if (!adresseCible) {
-    throw new Error(
-      "Adresse cible obligatoire."
-    );
-  }
-
-  if (!web3.utils.isAddress(adresseCible)) {
-    throw new Error(
-      "Format de l’adresse cible invalide."
-    );
-  }
-
-  if (!txHash) {
-    throw new Error(
-      "Hash de transaction obligatoire."
-    );
-  }
 
   const normalizedTxHash =
-    txHash.trim().toLowerCase();
-
-  if (
-    !web3.utils.isHexStrict(
-      normalizedTxHash
-    ) ||
-    normalizedTxHash.length !== 66
-  ) {
-    throw new Error(
-      "Format du hash de transaction invalide."
+    validateTransactionHash(
+      txHash
     );
-  }
 
   const user =
     await repository.findUserPaymentStart(
@@ -323,30 +409,84 @@ async function autoTrigger(
     );
   }
 
-  if (!user.victory_assigned_at) {
+  if (
+    user.link_active === true &&
+    user.victory_personal_link
+  ) {
+    const existingPublicLink =
+      user.invitation_code_series_1
+        ? `https://pointfocalapp.com/register.html?ref=${user.invitation_code_series_1}`
+        : null;
+
+    return {
+      success: true,
+      alreadyValidated: true,
+      message:
+        "Votre paiement a déjà été validé.",
+      publicLink:
+        existingPublicLink,
+      victoryLink:
+        user.victory_personal_link,
+      victoryIdentifier:
+        user.victory_identifier
+    };
+  }
+
+  if (
+    !user.victory_assigned_at
+  ) {
     throw new Error(
       "Aucune attribution Victory Automatic trouvée pour cet utilisateur."
     );
   }
-if (
-  user.victory_expired === true ||
-  user.status === "expired"
-) {
-  throw new Error(
-    "Votre délai de 24 heures a expiré. Votre place a été libérée."
-  );
-}
 
-if (
-  user.victory_expires_at &&
-  new Date() >= new Date(user.victory_expires_at)
-) {
-  await repository.markUserVictoryExpired(userId);
+  if (
+    user.victory_expired === true ||
+    user.status === "expired"
+  ) {
+    throw new Error(
+      "Votre délai de 24 heures a expiré. Votre place a été libérée."
+    );
+  }
 
-  throw new Error(
-    "Votre délai de 24 heures a expiré. Votre place a été libérée."
-  );
-}
+  if (
+    user.victory_expires_at &&
+    new Date() >=
+      new Date(
+        user.victory_expires_at
+      )
+  ) {
+    await repository
+      .markUserVictoryExpired(
+        userId
+      );
+
+    throw new Error(
+      "Votre délai de 24 heures a expiré. Votre place a été libérée."
+    );
+  }
+
+  /*
+    L’identifiant personnel Victory doit être unique.
+    Un autre compte Point Focal ne peut pas utiliser
+    le même lien personnel.
+  */
+  const identifierOwner =
+    await repository
+      .findUserByVictoryIdentifier(
+        victoryIdentifier
+      );
+
+  if (
+    identifierOwner &&
+    String(identifierOwner.id) !==
+      String(userId)
+  ) {
+    throw new Error(
+      "Ce lien Victory Automatic appartient déjà à un autre utilisateur Point Focal."
+    );
+  }
+
   const existingPayment =
     await repository.findPaymentByHash(
       normalizedTxHash
@@ -361,7 +501,7 @@ if (
   const payment =
     await verifyUsdtPayment(
       normalizedTxHash,
-      adresseCible,
+      normalizedTargetAddress,
       user.victory_assigned_at
     );
 
@@ -373,26 +513,20 @@ if (
       await generateUniqueSeries1Code();
   }
 
-  /*
-    Les séries 2 et 3 ne sont pas générées ici.
-
-    Elles seront réservées aux deux projets
-    propriétaires qui seront connectés plus tard.
-  */
-  
-
   await repository.savePayment(
     userId,
     normalizedTxHash,
-    normalizeAddress(adresseCible),
+    normalizedTargetAddress,
     payment.amount
   );
 
   const savedVictoryLink =
-    await repository.saveVictoryPersonalLink(
-      userId,
-      victoryLink
-    );
+    await repository
+      .saveVictoryPersonalLink(
+        userId,
+        normalizedVictoryLink,
+        victoryIdentifier
+      );
 
   if (!savedVictoryLink) {
     throw new Error(
@@ -401,10 +535,11 @@ if (
   }
 
   const activatedUser =
-  await repository.activateSeries1PointFocalLink(
-    userId,
-    codeSeries1
-  );
+    await repository
+      .activateSeries1PointFocalLink(
+        userId,
+        codeSeries1
+      );
 
   if (!activatedUser) {
     throw new Error(
@@ -412,10 +547,6 @@ if (
     );
   }
 
-  /*
-    Le lien public Point Focal utilise la série 1.
-    Exemple : ABCD1234
-  */
   const publicLink =
     `https://pointfocalapp.com/register.html?ref=${activatedUser.invitation_code_series_1}`;
 
@@ -426,7 +557,8 @@ if (
     publicLink,
     victoryLink:
       savedVictoryLink.victory_personal_link,
-    victoryIdentifier,
+    victoryIdentifier:
+      savedVictoryLink.victory_identifier,
     invitationCodes: {
       series1:
         activatedUser.invitation_code_series_1,
@@ -436,8 +568,10 @@ if (
         activatedUser.invitation_code_series_3
     },
     payment: {
-      amount: payment.amount,
-      targetAddress: payment.to,
+      amount:
+        payment.amount,
+      targetAddress:
+        payment.to,
       confirmations:
         payment.confirmations,
       blockNumber:
@@ -449,4 +583,3 @@ if (
 module.exports = {
   autoTrigger
 };
-
