@@ -88,7 +88,7 @@ async function assignVictoryLink(userId) {
   let source = null;
 
   /*
-    Priorité 1 :
+    PRIORITÉ 1 :
     lien Victory Automatic du parrain réel.
   */
   if (
@@ -105,7 +105,32 @@ async function assignVictoryLink(userId) {
   }
 
   /*
-    Priorité 2 :
+    PRIORITÉ 2 :
+    rotation FIFO si le parrain réel
+    n'a aucun lien Victory disponible.
+  */
+  if (!assignedVictoryLink) {
+    const fifoSponsor =
+      await repository.findOldestAvailableVictorySponsor(
+        userWithSponsor.sponsor_user_id || null
+      );
+
+    if (
+      fifoSponsor &&
+      fifoSponsor.victory_personal_link
+    ) {
+      assignedVictoryLink =
+        fifoSponsor.victory_personal_link;
+
+      assignedSponsorUserId =
+        fifoSponsor.id;
+
+      source = "fifo";
+    }
+  }
+
+  /*
+    PRIORITÉ 3 :
     lien Victory du compte racine.
   */
   if (!assignedVictoryLink) {
@@ -127,9 +152,8 @@ async function assignVictoryLink(userId) {
   }
 
   /*
-    Priorité 3 :
-    lien racine enregistré dans l’opportunité
-    Victory Automatic.
+    PRIORITÉ 4 :
+    lien racine enregistré dans opportunities.
   */
   if (!assignedVictoryLink) {
     const rootOpportunity =
@@ -149,7 +173,7 @@ async function assignVictoryLink(userId) {
 
   if (!assignedVictoryLink) {
     throw new Error(
-      "Aucun lien Victory Automatic disponible pour votre parrain ni pour la racine."
+      "Aucun lien Victory Automatic disponible."
     );
   }
 
@@ -159,11 +183,10 @@ async function assignVictoryLink(userId) {
     );
 
   const savedParentIdentifier =
-    await repository
-      .saveVictoryParentIdentifier(
-        userId,
-        victoryParentIdentifier
-      );
+    await repository.saveVictoryParentIdentifier(
+      userId,
+      victoryParentIdentifier
+    );
 
   if (!savedParentIdentifier) {
     throw new Error(
