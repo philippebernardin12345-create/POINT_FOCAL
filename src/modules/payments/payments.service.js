@@ -582,4 +582,4 @@ await repository.savePayment(
 
 module.exports = {
   autoTrigger
-}; mm
+}; 
