@@ -163,7 +163,35 @@ async function countPrelaunchLeaders() {
 
   return result.rows[0]?.total || 0;
 }
+async function findOldestAvailableSponsorForFifo() {
+  const result = await db.query(
+    `
+    SELECT
+      u.id,
+      u.email,
+      u.invitation_code_series_1,
+      u.created_at,
+      COUNT(children.id)::int AS total_referrals
+    FROM users u
+    LEFT JOIN users children
+      ON children.sponsor_id = u.id
+    WHERE u.is_root = false
+      AND u.link_active = true
+      AND u.email_confirmed = true
+      AND u.status = 'active'
+    GROUP BY
+      u.id,
+      u.email,
+      u.invitation_code_series_1,
+      u.created_at
+    HAVING COUNT(children.id) < 2
+    ORDER BY u.created_at ASC
+    LIMIT 1
+    `
+  );
 
+  return result.rows[0] || null;
+}
 module.exports = {
   findUserByEmail,
   findUserById,
@@ -173,5 +201,6 @@ module.exports = {
   saveEmailOtp,
   confirmEmail,
   confirmEmailByOtp,
-  countPrelaunchLeaders
+  countPrelaunchLeaders,
+  findOldestAvailableSponsorForFifo
 };
