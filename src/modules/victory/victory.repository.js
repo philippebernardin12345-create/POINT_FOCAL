@@ -33,10 +33,59 @@ async function findUserWithSponsor(userId) {
   return result.rows[0] || null;
 }
 
+async function findOldestAvailableVictorySponsor(
+  excludedSponsorId = null
+) {
+  const result = await db.query(
+    `
+    SELECT
+      u.id,
+      u.email,
+      u.victory_personal_link,
+      u.created_at,
+      COUNT(children.id)::int AS total_referrals
+
+    FROM users u
+
+    LEFT JOIN users children
+      ON children.sponsor_id = u.id
+
+    WHERE u.is_root = false
+      AND u.status = 'active'
+      AND u.email_confirmed = true
+      AND u.link_active = true
+      AND u.victory_personal_link IS NOT NULL
+      AND u.victory_personal_link <> ''
+      AND (
+        $1::uuid IS NULL
+        OR u.id <> $1::uuid
+      )
+
+    GROUP BY
+      u.id,
+      u.email,
+      u.victory_personal_link,
+      u.created_at
+
+    HAVING COUNT(children.id) < 2
+
+    ORDER BY u.created_at ASC
+
+    LIMIT 1
+    `,
+    [excludedSponsorId]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function findRootVictoryLink() {
   const result = await db.query(
     `
-    SELECT victory_personal_link
+    SELECT
+      id,
+      email,
+      victory_personal_link
     FROM users
     WHERE is_root = true
       AND victory_personal_link IS NOT NULL
@@ -51,7 +100,10 @@ async function findRootVictoryLink() {
 async function findVictoryOpportunityRootLink() {
   const result = await db.query(
     `
-    SELECT root_sponsor_link
+    SELECT
+      id,
+      name,
+      root_sponsor_link
     FROM opportunities
     WHERE position = 1
       AND is_active = true
@@ -167,6 +219,7 @@ async function saveVictoryParentIdentifier(
 
 module.exports = {
   findUserWithSponsor,
+  findOldestAvailableVictorySponsor,
   findRootVictoryLink,
   findVictoryOpportunityRootLink,
   markVictoryAssigned,
