@@ -200,6 +200,7 @@ async function activateSeries1PointFocalLink(
 module.exports = {
   findUserByInvitationCode,
   findUserPaymentStart,
+  findPaymentByHash,
   findUserByVictoryIdentifier,
   savePayment,
   saveVictoryPersonalLink,
