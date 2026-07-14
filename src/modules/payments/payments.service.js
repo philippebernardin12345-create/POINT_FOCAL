@@ -513,13 +513,13 @@ async function autoTrigger(
       await generateUniqueSeries1Code();
   }
 
-  await repository.savePayment(
-    userId,
-    normalizedTxHash,
-    normalizedTargetAddress,
-    payment.amount
-  );
-
+await repository.savePayment(
+  userId,
+  user.campaign_id,
+  normalizedTxHash,
+  normalizedTargetAddress,
+  payment.amount
+);
   const savedVictoryLink =
     await repository
       .saveVictoryPersonalLink(
@@ -582,4 +582,4 @@ async function autoTrigger(
 
 module.exports = {
   autoTrigger
-};
+}; mm
