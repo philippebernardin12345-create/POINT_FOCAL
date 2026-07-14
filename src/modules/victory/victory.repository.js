@@ -143,10 +143,33 @@ async function reactivateVictoryUser(userId) {
   return result.rows[0] || null;
 }
 
+async function saveVictoryParentIdentifier(
+  userId,
+  victoryParentIdentifier
+) {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET victory_parent_identifier = $2
+    WHERE id = $1
+    RETURNING
+      id,
+      victory_parent_identifier
+    `,
+    [
+      userId,
+      victoryParentIdentifier
+    ]
+  );
+
+  return result.rows[0] || null;
+}
+
 module.exports = {
   findUserWithSponsor,
   findRootVictoryLink,
   findVictoryOpportunityRootLink,
   markVictoryAssigned,
-  reactivateVictoryUser
+  reactivateVictoryUser,
+  saveVictoryParentIdentifier
 };
