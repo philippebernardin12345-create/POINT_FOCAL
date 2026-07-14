@@ -6,7 +6,9 @@ const { sendEmail } = require("../../config/email");
 const ROOT_INVITATION_CODE = "ABCD1000";
 
 function generateOtp() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
 }
 
 async function register(payload) {
@@ -20,14 +22,30 @@ async function register(payload) {
     language = "fr"
   } = payload;
 
-  const usedSponsorCode = invitationCode || sponsorCode;
+  const normalizedEmail =
+    String(email || "").trim().toLowerCase();
 
+  const providedSponsorCode =
+    String(
+      invitationCode ||
+      sponsorCode ||
+      ""
+    )
+      .trim()
+      .toUpperCase();
+
+  /*
+    Le code d’invitation n’est plus obligatoire.
+
+    - Code présent : parrain réel.
+    - Code absent : attribution FIFO.
+    - Aucun candidat FIFO : racine.
+  */
   if (
-    !email ||
+    !normalizedEmail ||
     !whatsapp ||
     !password ||
-    !confirmPassword ||
-    !usedSponsorCode
+    !confirmPassword
   ) {
     throw new Error(
       "Tous les champs obligatoires doivent être renseignés."
@@ -41,7 +59,9 @@ async function register(payload) {
   }
 
   const existingUser =
-    await authRepository.findUserByEmail(email);
+    await authRepository.findUserByEmail(
+      normalizedEmail
+    );
 
   if (existingUser) {
     throw new Error(
@@ -49,25 +69,70 @@ async function register(payload) {
     );
   }
 
-  let sponsor =
-    await authRepository.findUserByInvitationCode(
-      usedSponsorCode
-    );
+  let sponsor = null;
+  let sponsorAssignment = "personal";
 
-  if (
-    !sponsor &&
-    usedSponsorCode === ROOT_INVITATION_CODE
-  ) {
-    sponsor = {
-      id: null,
-      is_root: true
-    };
-  }
+  /*
+    CAS 1 :
+    L’utilisateur possède déjà le code
+    d’invitation de son parrain.
+  */
+  if (providedSponsorCode) {
+    sponsor =
+      await authRepository.findUserByInvitationCode(
+        providedSponsorCode
+      );
 
-  if (!sponsor) {
-    throw new Error(
-      "Code d'invitation invalide."
-    );
+    /*
+      Le code racine peut être accepté même si
+      aucun compte racine correspondant n’est
+      encore enregistré dans users.
+    */
+    if (
+      !sponsor &&
+      providedSponsorCode === ROOT_INVITATION_CODE
+    ) {
+      sponsor = {
+        id: null,
+        is_root: true
+      };
+
+      sponsorAssignment = "root";
+    }
+
+    if (!sponsor) {
+      throw new Error(
+        "Code d'invitation invalide."
+      );
+    }
+  } else {
+    /*
+      CAS 2 :
+      Aucun code d’invitation.
+
+      Le FIFO recherche le plus ancien utilisateur
+      actif ayant moins de deux filleuls au total.
+    */
+    sponsor =
+      await authRepository
+        .findOldestAvailableSponsorForFifo();
+
+    if (sponsor) {
+      sponsorAssignment = "fifo";
+    } else {
+      /*
+        CAS 3 :
+        Aucun parrain FIFO disponible.
+
+        Le surplus est rattaché à la racine.
+      */
+      sponsor = {
+        id: null,
+        is_root: true
+      };
+
+      sponsorAssignment = "root";
+    }
   }
 
   const campaign =
@@ -84,7 +149,7 @@ async function register(payload) {
 
   const user =
     await authRepository.createUser({
-      email,
+      email: normalizedEmail,
       whatsapp,
       passwordHash,
       language,
@@ -93,10 +158,18 @@ async function register(payload) {
       campaignId: campaign.id
     });
 
+  if (!user) {
+    throw new Error(
+      "Impossible de créer le compte utilisateur."
+    );
+  }
+
   const otp = generateOtp();
 
   const otpExpiresAt =
-    new Date(Date.now() + 15 * 60 * 1000);
+    new Date(
+      Date.now() + 15 * 60 * 1000
+    );
 
   await authRepository.saveEmailOtp(
     user.id,
@@ -106,34 +179,66 @@ async function register(payload) {
 
   await sendEmail({
     to: user.email,
-    subject: "Code de confirmation Point Focal",
+    subject:
+      "Code de confirmation Point Focal",
     html: `
       <h2>Bienvenue sur Point Focal</h2>
+
       <p>Votre code de confirmation est :</p>
-      <h1 style="letter-spacing:4px;">${otp}</h1>
+
+      <h1 style="letter-spacing:4px;">
+        ${otp}
+      </h1>
+
       <p>Ce code expire dans 15 minutes.</p>
-      <p>Retournez sur Point Focal et saisissez ce code pour activer votre compte.</p>
+
+      <p>
+        Retournez sur Point Focal et saisissez
+        ce code pour activer votre compte.
+      </p>
     `
   });
 
+  let assignmentMessage =
+    "Votre parrain personnel a été enregistré.";
+
+  if (sponsorAssignment === "fifo") {
+    assignmentMessage =
+      "Un parrain disponible vous a été attribué automatiquement.";
+  }
+
+  if (sponsorAssignment === "root") {
+    assignmentMessage =
+      "Votre compte a été rattaché à la racine Point Focal.";
+  }
+
   return {
     user,
+    sponsorAssignment,
     message:
-      "Inscription réussie. Un code OTP a été envoyé à votre email."
+      `Inscription réussie. ${assignmentMessage} ` +
+      "Un code OTP a été envoyé à votre email."
   };
 }
 
 async function login(payload) {
-  const { email, password } = payload;
+  const normalizedEmail =
+    String(payload.email || "")
+      .trim()
+      .toLowerCase();
 
-  if (!email || !password) {
+  const password = payload.password;
+
+  if (!normalizedEmail || !password) {
     throw new Error(
       "Email et mot de passe obligatoires."
     );
   }
 
   const user =
-    await authRepository.findUserByEmail(email);
+    await authRepository.findUserByEmail(
+      normalizedEmail
+    );
 
   if (!user) {
     throw new Error(
@@ -175,16 +280,35 @@ async function login(payload) {
       whatsapp: user.whatsapp,
       language: user.language,
       status: user.status,
-      campaignId: user.campaign_id,
+      campaignId:
+        user.campaign_id,
+
       invitationCodeSeries1:
         user.invitation_code_series_1,
+
       invitationCodeSeries2:
         user.invitation_code_series_2,
+
       invitationCodeSeries3:
         user.invitation_code_series_3,
-      isRoot: user.is_root,
-      isLeader: user.is_leader,
-      linkActive: user.link_active
+
+      isRoot:
+        user.is_root,
+
+      isLeader:
+        user.is_leader,
+
+      isPrelaunchLeader:
+        user.is_prelaunch_leader,
+
+      linkActive:
+        user.link_active,
+
+      victoryPersonalLink:
+        user.victory_personal_link,
+
+      victoryExpired:
+        user.victory_expired
     }
   };
 }
@@ -197,7 +321,9 @@ async function confirmEmail(userId) {
   }
 
   const user =
-    await authRepository.confirmEmail(userId);
+    await authRepository.confirmEmail(
+      userId
+    );
 
   if (!user) {
     throw new Error(
@@ -209,9 +335,15 @@ async function confirmEmail(userId) {
 }
 
 async function confirmOtp(payload) {
-  const { email, otp } = payload;
+  const normalizedEmail =
+    String(payload.email || "")
+      .trim()
+      .toLowerCase();
 
-  if (!email || !otp) {
+  const otp =
+    String(payload.otp || "").trim();
+
+  if (!normalizedEmail || !otp) {
     throw new Error(
       "Email et code OTP obligatoires."
     );
@@ -219,8 +351,8 @@ async function confirmOtp(payload) {
 
   const user =
     await authRepository.confirmEmailByOtp(
-      email.trim(),
-      otp.trim()
+      normalizedEmail,
+      otp
     );
 
   if (!user) {
@@ -240,7 +372,9 @@ async function me(userId) {
   }
 
   const user =
-    await authRepository.findUserById(userId);
+    await authRepository.findUserById(
+      userId
+    );
 
   if (!user) {
     throw new Error(
@@ -254,17 +388,42 @@ async function me(userId) {
     whatsapp: user.whatsapp,
     language: user.language,
     status: user.status,
-    campaignId: user.campaign_id,
+
+    campaignId:
+      user.campaign_id,
+
+    sponsorId:
+      user.sponsor_id,
+
     invitationCodeSeries1:
       user.invitation_code_series_1,
+
     invitationCodeSeries2:
       user.invitation_code_series_2,
+
     invitationCodeSeries3:
       user.invitation_code_series_3,
-    isRoot: user.is_root,
-    isLeader: user.is_leader,
-    linkActive: user.link_active,
-    emailConfirmed: user.email_confirmed
+
+    isRoot:
+      user.is_root,
+
+    isLeader:
+      user.is_leader,
+
+    isPrelaunchLeader:
+      user.is_prelaunch_leader,
+
+    linkActive:
+      user.link_active,
+
+    emailConfirmed:
+      user.email_confirmed,
+
+    victoryPersonalLink:
+      user.victory_personal_link,
+
+    victoryExpired:
+      user.victory_expired
   };
 }
 
