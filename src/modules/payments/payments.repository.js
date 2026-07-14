@@ -22,7 +22,7 @@ async function findUserPaymentStart(userId) {
     SELECT
       id,
       email,
-      status,
+      status,campaign_id,
       victory_assigned_at,
       victory_started_at,
       victory_expires_at,
@@ -200,7 +200,6 @@ async function activateSeries1PointFocalLink(
 module.exports = {
   findUserByInvitationCode,
   findUserPaymentStart,
-  findPaymentByHash,
   findUserByVictoryIdentifier,
   savePayment,
   saveVictoryPersonalLink,
