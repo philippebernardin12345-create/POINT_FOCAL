@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const authRepository = require("./auth.repository");
 const { signToken } = require("../../config/jwt");
