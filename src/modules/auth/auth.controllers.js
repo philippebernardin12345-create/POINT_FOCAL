@@ -55,11 +55,55 @@ async function me(req, res) {
     return response.error(res, err.message || String(err), 401);
   }
 }
+async function forgotPassword(req, res) {
+  try {
+    const result = await authService.forgotPassword(req.body.email);
 
+    return response.success(
+      res,
+      result,
+      "Email de réinitialisation envoyé",
+      200
+    );
+  } catch (err) {
+    console.error("========== FORGOT PASSWORD ERROR ==========");
+    console.error(err);
+
+    return response.error(
+      res,
+      err.message || String(err),
+      400
+    );
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    const result = await authService.resetPassword(req.body);
+
+    return response.success(
+      res,
+      result,
+      "Mot de passe réinitialisé",
+      200
+    );
+  } catch (err) {
+    console.error("========== RESET PASSWORD ERROR ==========");
+    console.error(err);
+
+    return response.error(
+      res,
+      err.message || String(err),
+      400
+    );
+  }
+}
 module.exports = {
   register,
   login,
   confirmEmail,
   confirmOtp,
+  forgotPassword,
+  resetPassword,
   me
 };
