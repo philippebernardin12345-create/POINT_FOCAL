@@ -57,7 +57,19 @@ async function me(req, res) {
 }
 async function forgotPassword(req, res) {
   try {
-    const result = await authService.forgotPassword(req.body.email);
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+
+    if (!email) {
+      return response.error(
+        res,
+        "Adresse e-mail obligatoire",
+        400
+      );
+    }
+
+    const result = await authService.forgotPassword(email);
 
     return response.success(
       res,
@@ -76,7 +88,6 @@ async function forgotPassword(req, res) {
     );
   }
 }
-
 async function resetPassword(req, res) {
   try {
     const result = await authService.resetPassword(req.body);
