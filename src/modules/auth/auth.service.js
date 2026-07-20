@@ -427,11 +427,158 @@ async function me(userId) {
       user.victory_expired
   };
 }
+async function forgotPassword(email) {
+  const normalizedEmail = String(email || "")
+    .trim()
+    .toLowerCase();
+
+  if (!normalizedEmail) {
+    throw new Error("Adresse email obligatoire.");
+  }
+
+  const user = await authRepository.findUserByEmail(
+    normalizedEmail
+  );
+
+  if (!user) {
+    return {
+      message:
+        "Si cette adresse existe, un email de réinitialisation sera envoyé."
+    };
+  }
+
+  const resetToken = crypto
+    .randomBytes(32)
+    .toString("hex");
+
+  const resetTokenHash = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  const resetTokenExpiresAt = new Date(
+    Date.now() + 30 * 60 * 1000
+  );
+
+  await authRepository.savePasswordResetToken(
+    user.id,
+    resetTokenHash,
+    resetTokenExpiresAt
+  );
+
+  const frontendUrl =
+    process.env.FRONTEND_URL ||
+    "https://pointfocalapp.com";
+
+  const resetLink =
+    `${frontendUrl}/?token=${encodeURIComponent(resetToken)}`;
+
+  await sendEmail({
+    to: user.email,
+    subject: "Réinitialisation du mot de passe Point Focal",
+    html: `
+      <h2>Réinitialisation du mot de passe</h2>
+
+      <p>
+        Une demande de réinitialisation a été effectuée
+        pour votre compte Point Focal.
+      </p>
+
+      <p>
+        Cliquez sur le bouton ci-dessous pour choisir
+        un nouveau mot de passe :
+      </p>
+
+      <p style="margin:25px 0;">
+        <a
+          href="${resetLink}"
+          style="
+            display:inline-block;
+            background:#F0B90B;
+            color:#0B0E11;
+            padding:12px 20px;
+            text-decoration:none;
+            font-weight:bold;
+            border-radius:6px;
+          "
+        >
+          Réinitialiser mon mot de passe
+        </a>
+      </p>
+
+      <p>
+        Ce lien expire dans 30 minutes.
+      </p>
+    `
+  });
+
+  return {
+    message:
+      "Si cette adresse existe, un email de réinitialisation sera envoyé."
+  };
+}
+
+async function resetPassword(payload) {
+  const token = String(payload.token || "").trim();
+  const password = String(payload.password || "");
+
+  if (!token || !password) {
+    throw new Error(
+      "Token et nouveau mot de passe obligatoires."
+    );
+  }
+
+  if (password.length < 6) {
+    throw new Error(
+      "Le mot de passe doit contenir au moins 6 caractères."
+    );
+  }
+
+  const resetTokenHash = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  const user =
+    await authRepository.findUserByPasswordResetToken(
+      resetTokenHash
+    );
+
+  if (!user) {
+    throw new Error(
+      "Lien de réinitialisation invalide ou expiré."
+    );
+  }
+
+  const passwordHash = await bcrypt.hash(
+    password,
+    10
+  );
+
+  const updatedUser =
+    await authRepository.updatePasswordAndClearResetToken(
+      user.id,
+      passwordHash
+    );
+
+  if (!updatedUser) {
+    throw new Error(
+      "Impossible de modifier le mot de passe."
+    );
+  }
+
+  return {
+    message:
+      "Mot de passe réinitialisé avec succès."
+  };
+}
 
 module.exports = {
   register,
   login,
   confirmEmail,
   confirmOtp,
+  forgotPassword,
+  resetPassword,
   me
 };
