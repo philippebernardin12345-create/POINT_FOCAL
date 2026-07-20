@@ -470,9 +470,9 @@ async function forgotPassword(email) {
     process.env.FRONTEND_URL ||
     "https://pointfocalapp.com";
 
-  const resetLink =
-    `${frontendUrl}/?token=${encodeURIComponent(resetToken)}`;
-
+ 
+const resetLink =
+  `${frontendUrl}/reset-password.html?token=${encodeURIComponent(resetToken)}`;
   await sendEmail({
     to: user.email,
     subject: "Réinitialisation du mot de passe Point Focal",
