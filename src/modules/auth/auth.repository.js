@@ -192,6 +192,72 @@ async function findOldestAvailableSponsorForFifo() {
 
   return result.rows[0] || null;
 }
+async function savePasswordResetToken(
+  userId,
+  resetTokenHash,
+  expiresAt
+) {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET password_reset_token = $1,
+        password_reset_expires_at = $2
+    WHERE id = $3
+    RETURNING
+      id,
+      email,
+      password_reset_expires_at
+    `,
+    [
+      resetTokenHash,
+      expiresAt,
+      userId
+    ]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function findUserByPasswordResetToken(
+  resetTokenHash
+) {
+  const result = await db.query(
+    `
+    SELECT *
+    FROM users
+    WHERE password_reset_token = $1
+      AND password_reset_expires_at > NOW()
+    LIMIT 1
+    `,
+    [resetTokenHash]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function updatePasswordAndClearResetToken(
+  userId,
+  passwordHash
+) {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET password_hash = $1,
+        password_reset_token = NULL,
+        password_reset_expires_at = NULL
+    WHERE id = $2
+    RETURNING
+      id,
+      email
+    `,
+    [
+      passwordHash,
+      userId
+    ]
+  );
+
+  return result.rows[0] || null;
+}
 module.exports = {
   findUserByEmail,
   findUserById,
@@ -202,5 +268,8 @@ module.exports = {
   confirmEmail,
   confirmEmailByOtp,
   countPrelaunchLeaders,
-  findOldestAvailableSponsorForFifo
+  findOldestAvailableSponsorForFifo,
+  savePasswordResetToken,
+  findUserByPasswordResetToken,
+  updatePasswordAndClearResetToken
 };
