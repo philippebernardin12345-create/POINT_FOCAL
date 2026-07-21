@@ -51,7 +51,23 @@ async function users(
     req,
     res
 ) {
-    return res.json([]);
+    try {
+
+        const result =
+            await service.users();
+
+        return res.json(
+            result
+        );
+
+    } catch (error) {
+
+        return res.status(500).json({
+            message:
+                error.message
+        });
+
+    }
 }
 
 async function settings(
