@@ -1,3 +1,7 @@
+const adminRoutes =
+    require(
+        "../modules/admin/admin.routes"
+    );
 const express = require("express");
 
 const authRoutes = require("../modules/auth/auth.routes");
@@ -16,7 +20,10 @@ router.get("/", (req, res) => {
   });
 });
 
-router.use("/auth", authRoutes);
+router.use("/auth", authRoutes);router.use(
+    "/admin",
+    adminRoutes
+);
 router.use("/video", videoRoutes);
 router.use("/victory-link", victoryRoutes);
 router.use("/victory-world", victoryWorldRoutes);
