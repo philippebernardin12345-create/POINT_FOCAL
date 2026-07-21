@@ -1,6 +1,8 @@
-
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+
+const repository =
+  require("./admin.repository");
 
 
 // ============================================================
@@ -100,9 +102,19 @@ async function login(payload) {
 
 
 // ============================================================
+// STATISTIQUES DU DASHBOARD
+// ============================================================
+
+async function dashboard() {
+  return repository.getDashboardStats();
+}
+
+
+// ============================================================
 // EXPORTS
 // ============================================================
 
 module.exports = {
-  login
+  login,
+  dashboard
 };
