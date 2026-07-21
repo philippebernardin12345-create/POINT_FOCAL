@@ -45,13 +45,7 @@ async function dashboard(
 
     }
 }
-    return res.json({
-        users: 0,
-        leaders: 0,
-        payments: 0,
-        opportunities: 2
-    });
-}
+   
 
 async function users(
     req,
