@@ -27,6 +27,24 @@ async function dashboard(
     req,
     res
 ) {
+    try {
+
+        const result =
+            await service.dashboard();
+
+        return res.json(
+            result
+        );
+
+    } catch (error) {
+
+        return res.status(500).json({
+            message:
+                error.message
+        });
+
+    }
+}
     return res.json({
         users: 0,
         leaders: 0,
