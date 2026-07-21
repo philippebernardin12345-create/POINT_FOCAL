@@ -1,12 +1,57 @@
-function adminMiddleware(req, res, next) {
-  if (!req.user || !req.user.isRoot) {
-    return res.status(403).json({
-      success: false,
-      message: "Accès administrateur refusé."
-    });
-  }
+const jwt = require("jsonwebtoken");
 
-  next();
+function adminMiddleware(
+    req,
+    res,
+    next
+) {
+    try {
+
+        const authHeader =
+            req.headers.authorization;
+
+        if (!authHeader) {
+            return res.status(401).json({
+                message:
+                    "Accès refusé."
+            });
+        }
+
+        const token =
+            authHeader.replace(
+                "Bearer ",
+                ""
+            );
+
+        const payload =
+            jwt.verify(
+                token,
+                process.env.JWT_SECRET
+            );
+
+        if (
+            !payload.isAdmin
+        ) {
+            return res.status(403).json({
+                message:
+                    "Accès interdit."
+            });
+        }
+
+        req.admin =
+            payload;
+
+        next();
+
+    } catch (error) {
+
+        return res.status(401).json({
+            message:
+                "Session administrateur invalide."
+        });
+
+    }
 }
 
-module.exports = adminMiddleware;
+module.exports =
+    adminMiddleware;
