@@ -4,10 +4,12 @@
   "description": "Backend Point Focal V9 - Plateforme FOLLOW ME configurable",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "audit": "npm audit"
-  },
+  "start": "node src/server.js",
+  "dev": "nodemon src/server.js",
+  "audit": "npm audit",
+  "generate-admin-hash": "node generate-admin-hash.js"
+},
+  
   "dependencies": {
     "@supabase/supabase-js": "^2.43.0",
     "bcryptjs": "^2.4.3",
