@@ -113,8 +113,11 @@ async function dashboard() {
 // ============================================================
 // EXPORTS
 // ============================================================
-
+async function users() {
+  return repository.getUsers();
+}
 module.exports = {
   login,
-  dashboard
+  dashboard,
+  users
 };
