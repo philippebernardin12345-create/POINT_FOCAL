@@ -19,11 +19,13 @@ router.get("/", (req, res) => {
     message: "API Point Focal V9"
   });
 });
+router.use("/auth", authRoutes);
 
-router.use("/auth", authRoutes);router.use(
+router.use(
     "/admin",
     adminRoutes
 );
+
 router.use("/video", videoRoutes);
 router.use("/victory-link", victoryRoutes);
 router.use("/victory-world", victoryWorldRoutes);
