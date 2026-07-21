@@ -45,7 +45,23 @@ async function getDashboardStats() {
       opportunitiesResult.rows[0]?.total || 0
   };
 }
+async function getUsers() {
+  const result = await db.query(
+    `
+    SELECT
+      id,
+      email,
+      whatsapp,
+      is_leader,
+      created_at
+    FROM users
+    ORDER BY id DESC
+    `
+  );
 
+  return result.rows;
+}
 module.exports = {
-  getDashboardStats
+  getDashboardStats,
+  getUsers
 };
