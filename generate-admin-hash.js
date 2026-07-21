@@ -1,11 +1,10 @@
 const bcrypt = require("bcryptjs");
 
-const password =
-  process.argv[2];
+const password = process.argv[2];
 
 if (!password) {
   console.log(
-    "Utilisation : node generate-admin-hash.js TON_MOT_DE_PASSE"
+    "Ajoute ton mot de passe après la commande."
   );
 
   process.exit(1);
@@ -14,21 +13,8 @@ if (!password) {
 bcrypt
   .hash(password, 12)
   .then((hash) => {
-
-    console.log(
-      "\nADMIN_PASSWORD_HASH=\n"
-    );
-
     console.log(hash);
-
   })
   .catch((error) => {
-
-    console.error(
-      "Erreur :",
-      error.message
-    );
-
-    process.exit(1);
-
+    console.error(error.message);
   });
