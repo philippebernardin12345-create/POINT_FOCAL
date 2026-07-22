@@ -109,7 +109,7 @@ async function savePayment(
   return result.rows[0] || null;
 }
 
-✋✋✋✋async function saveVictoryPersonalLink(
+async function saveVictoryPersonalLink(
   userId,
   victoryLink,
   victoryIdentifier
