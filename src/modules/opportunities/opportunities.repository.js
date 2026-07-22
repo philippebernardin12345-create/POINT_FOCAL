@@ -124,5 +124,10 @@ async function createAssignment({
 module.exports = {
   findAllActive,
   findAll,
-  findById
+  findById,
+
+  findOpportunityBySlug,
+  findAssignmentByUser,
+  findAssignmentByPersonalLink,
+  createAssignment
 };
