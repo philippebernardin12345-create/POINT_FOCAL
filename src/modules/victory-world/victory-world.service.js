@@ -178,12 +178,155 @@ async function getTransactionTimestamp(
     block.timestamp
   );
 }
-
-✋✋✋async function verifyUsdtPayment(
+async function verifyUsdtPayment(
   txHash,
   targetAddress,
-  minimumAmount
+  minimumAmount,
+  victoryWorldStartedAt
 ) {
+  const receipt =
+    await web3.eth
+      .getTransactionReceipt(
+        txHash
+      );
+
+  if (!receipt) {
+    throw new Error(
+      "Transaction introuvable sur la BNB Chain."
+    );
+  }
+
+  if (!receipt.status) {
+    throw new Error(
+      "Transaction échouée."
+    );
+  }
+
+  const latestBlockNumber =
+    await web3.eth
+      .getBlockNumber();
+
+  const confirmations =
+    Number(latestBlockNumber) -
+    Number(receipt.blockNumber) +
+    1;
+
+  if (
+    confirmations <
+    REQUIRED_CONFIRMATIONS
+  ) {
+    throw new Error(
+      `Transaction trop récente. ${confirmations}/${REQUIRED_CONFIRMATIONS} confirmations.`
+    );
+  }
+
+  const transferLog =
+    receipt.logs.find((log) => {
+      if (
+        !log.topics ||
+        log.topics.length < 3
+      ) {
+        return false;
+      }
+
+      const logContract =
+        normalizeAddress(
+          log.address
+        );
+
+      const transferTopic =
+        String(
+          log.topics[0]
+        ).toLowerCase();
+
+      const logTargetAddress =
+        normalizeAddress(
+          "0x" +
+          String(
+            log.topics[2]
+          ).slice(26)
+        );
+
+      return (
+        logContract ===
+          normalizeAddress(
+            USDT_CONTRACT
+          ) &&
+        transferTopic ===
+          String(
+            ERC20_TRANSFER_TOPIC
+          ).toLowerCase() &&
+        logTargetAddress ===
+          targetAddress
+      );
+    });
+
+  if (!transferLog) {
+    throw new Error(
+      "Aucun transfert USDT BEP-20 vers l’adresse indiquée."
+    );
+  }
+
+  const payment =
+    decodeTransferLog(
+      transferLog
+    );
+
+  if (
+    payment.amount <
+    minimumAmount
+  ) {
+    throw new Error(
+      `Montant insuffisant. Minimum requis : ${minimumAmount} USDT.`
+    );
+  }
+
+  const transactionTimestamp =
+    await getTransactionTimestamp(
+      receipt.blockNumber
+    );
+
+  const startedAtMilliseconds =
+    new Date(
+      victoryWorldStartedAt
+    ).getTime();
+
+  if (
+    !startedAtMilliseconds ||
+    Number.isNaN(
+      startedAtMilliseconds
+    )
+  ) {
+    throw new Error(
+      "Date de démarrage Victory World invalide."
+    );
+  }
+
+  const startedAtSeconds =
+    Math.floor(
+      startedAtMilliseconds / 1000
+    );
+
+  if (
+    transactionTimestamp <
+    startedAtSeconds
+  ) {
+    throw new Error(
+      "Transaction trop ancienne. Le paiement doit être effectué après l’enregistrement du lien Victory World."
+    );
+  }
+
+  return {
+    ...payment,
+    confirmations,
+    blockNumber:
+      Number(
+        receipt.blockNumber
+      ),
+    transactionTimestamp
+  };
+}
+
   const receipt =
     await web3.eth
       .getTransactionReceipt(
