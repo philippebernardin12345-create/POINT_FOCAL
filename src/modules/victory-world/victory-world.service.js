@@ -179,7 +179,7 @@ async function getTransactionTimestamp(
   );
 }
 
-async function verifyUsdtPayment(
+✋✋✋async function verifyUsdtPayment(
   txHash,
   targetAddress,
   minimumAmount
