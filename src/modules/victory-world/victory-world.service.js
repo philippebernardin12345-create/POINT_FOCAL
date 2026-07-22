@@ -327,11 +327,7 @@ async function verifyUsdtPayment(
   };
 }
 
-  const receipt =
-    await web3.eth
-      .getTransactionReceipt(
-        txHash
-      );
+
 
   if (!receipt) {
     throw new Error(
