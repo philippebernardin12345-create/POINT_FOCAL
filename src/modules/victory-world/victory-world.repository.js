@@ -11,7 +11,9 @@ async function findUserById(userId) {
       victory_world_status,
       victory_world_tx_hash,
       victory_world_paid_at,
-      victory_world_started_at
+      victory_world_started_at,
+      victory_world_assigned_link,
+      victory_world_target_address
     FROM users
     WHERE id = $1
     LIMIT 1
@@ -39,6 +41,69 @@ async function findPaymentByHash(txHash) {
   return result.rows[0] || null;
 }
 
+async function findVictoryWorldSponsorLink() {
+  const result = await db.query(
+    `
+    SELECT
+      id,
+      victory_world_link
+    FROM users
+    WHERE
+      victory_world_link IS NOT NULL
+      AND victory_world_link <> ''
+      AND victory_world_status = 'validated'
+    ORDER BY
+      victory_world_paid_at ASC NULLS LAST,
+      id ASC
+    LIMIT 1
+    `
+  );
+
+  return result.rows[0] || null;
+}
+
+async function saveAssignedVictoryWorldLink(
+  userId,
+  assignedLink
+) {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET victory_world_assigned_link = $2
+    WHERE id = $1
+    RETURNING
+      id,
+      victory_world_assigned_link
+    `,
+    [
+      userId,
+      assignedLink
+    ]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function findUserByVictoryWorldLink(
+  victoryWorldLink
+) {
+  const result = await db.query(
+    `
+    SELECT
+      id,
+      email,
+      victory_world_link,
+      victory_world_status
+    FROM users
+    WHERE victory_world_link = $1
+    LIMIT 1
+    `,
+    [victoryWorldLink]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function saveVictoryWorldLink(
   userId,
   victoryWorldLink
@@ -57,7 +122,8 @@ async function saveVictoryWorldLink(
       id,
       victory_world_link,
       victory_world_status,
-      victory_world_started_at
+      victory_world_started_at,
+      victory_world_assigned_link
     `,
     [
       userId,
@@ -101,6 +167,28 @@ async function saveVictoryWorldPayment(
   return result.rows[0] || null;
 }
 
+async function saveVictoryWorldTargetAddress(
+  userId,
+  targetAddress
+) {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET victory_world_target_address = $2
+    WHERE id = $1
+    RETURNING
+      id,
+      victory_world_target_address
+    `,
+    [
+      userId,
+      targetAddress
+    ]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function validateVictoryWorld(
   userId,
   txHash
@@ -119,7 +207,9 @@ async function validateVictoryWorld(
       victory_world_status,
       victory_world_tx_hash,
       victory_world_paid_at,
-      victory_world_started_at
+      victory_world_started_at,
+      victory_world_assigned_link,
+      victory_world_target_address
     `,
     [
       userId,
@@ -129,6 +219,7 @@ async function validateVictoryWorld(
 
   return result.rows[0] || null;
 }
+
 async function findNextOpportunity(
   currentOrderPosition
 ) {
@@ -152,11 +243,16 @@ async function findNextOpportunity(
 
   return result.rows[0] || null;
 }
+
 module.exports = {
   findUserById,
   findPaymentByHash,
+  findVictoryWorldSponsorLink,
+  saveAssignedVictoryWorldLink,
+  findUserByVictoryWorldLink,
   saveVictoryWorldLink,
   saveVictoryWorldPayment,
+  saveVictoryWorldTargetAddress,
   validateVictoryWorld,
   findNextOpportunity
 };
