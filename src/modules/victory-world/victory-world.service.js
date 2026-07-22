@@ -11,19 +11,46 @@ const MIN_VICTORY_WORLD_USDT = 5;
 const USDT_DECIMALS = 18;
 const REQUIRED_CONFIRMATIONS = 12;
 
+/*
+============================================================
+OUTILS
+============================================================
+*/
+
 function normalizeAddress(address) {
   return String(address || "")
     .trim()
     .toLowerCase();
 }
 
+function validateBlockchainAddress(
+  address
+) {
+  const normalizedAddress =
+    normalizeAddress(address);
+
+  if (
+    !normalizedAddress ||
+    !web3.utils.isAddress(
+      normalizedAddress
+    )
+  ) {
+    throw new Error(
+      "Adresse cible BNB Chain invalide."
+    );
+  }
+
+  return normalizedAddress;
+}
+
 function validateVictoryWorldLink(link) {
   let parsedUrl;
 
   try {
-    parsedUrl = new URL(
-      String(link || "").trim()
-    );
+    parsedUrl =
+      new URL(
+        String(link || "").trim()
+      );
   } catch {
     throw new Error(
       "Format du lien Victory World invalide."
@@ -69,12 +96,15 @@ function validateVictoryWorldLink(link) {
 
   return {
     identifier,
+
     normalizedLink:
       `https://victoryworld.club/${identifier}`
   };
 }
 
-function validateTransactionHash(txHash) {
+function validateTransactionHash(
+  txHash
+) {
   const normalizedTxHash =
     String(txHash || "")
       .trim()
@@ -101,11 +131,15 @@ function validateTransactionHash(txHash) {
 function decodeTransferLog(log) {
   const from =
     "0x" +
-    String(log.topics[1]).slice(26);
+    String(
+      log.topics[1]
+    ).slice(26);
 
   const to =
     "0x" +
-    String(log.topics[2]).slice(26);
+    String(
+      log.topics[2]
+    ).slice(26);
 
   const amountRaw =
     BigInt(log.data);
@@ -138,7 +172,7 @@ async function getTransactionTimestamp(
 
   if (!block) {
     throw new Error(
-      "Bloc introuvable."
+      "Bloc de transaction introuvable."
     );
   }
 
@@ -147,8 +181,83 @@ async function getTransactionTimestamp(
   );
 }
 
+/*
+============================================================
+ATTRIBUTION DU PARRAIN VICTORY WORLD
+============================================================
+*/
+
+async function ensureAssignedSponsor(
+  user
+) {
+  if (
+    user.victory_world_assigned_link
+  ) {
+    const existingSponsor =
+      await repository
+        .findUserByVictoryWorldLink(
+          user.victory_world_assigned_link
+        );
+
+    if (!existingSponsor) {
+      throw new Error(
+        "Le parrain Victory World attribué n’existe plus dans Point Focal."
+      );
+    }
+
+    return {
+      assignedLink:
+        user.victory_world_assigned_link,
+
+      sponsor:
+        existingSponsor
+    };
+  }
+
+  const sponsor =
+    await repository
+      .findVictoryWorldSponsorLink();
+
+  if (
+    !sponsor ||
+    !sponsor.victory_world_link
+  ) {
+    throw new Error(
+      "Aucun parrain Victory World validé n’est actuellement disponible."
+    );
+  }
+
+  const savedAssignment =
+    await repository
+      .saveAssignedVictoryWorldLink(
+        user.id,
+        sponsor.victory_world_link
+      );
+
+  if (!savedAssignment) {
+    throw new Error(
+      "Impossible d’attribuer un parrain Victory World."
+    );
+  }
+
+  return {
+    assignedLink:
+      savedAssignment
+        .victory_world_assigned_link,
+
+    sponsor
+  };
+}
+
+/*
+============================================================
+VÉRIFICATION BLOCKCHAIN
+============================================================
+*/
+
 async function verifyUsdtPayment(
   txHash,
+  targetAddress,
   minimumAmount,
   victoryWorldStartedAt
 ) {
@@ -160,19 +269,18 @@ async function verifyUsdtPayment(
 
   if (!receipt) {
     throw new Error(
-      "Transaction introuvable."
+      "Transaction introuvable sur la BNB Chain."
     );
   }
 
   if (!receipt.status) {
     throw new Error(
-      "Transaction échouée."
+      "La transaction blockchain a échoué."
     );
   }
 
   const latestBlockNumber =
-    await web3.eth
-      .getBlockNumber();
+    await web3.eth.getBlockNumber();
 
   const confirmations =
     Number(latestBlockNumber) -
@@ -184,52 +292,87 @@ async function verifyUsdtPayment(
     REQUIRED_CONFIRMATIONS
   ) {
     throw new Error(
-      `Transaction trop récente (${confirmations}/${REQUIRED_CONFIRMATIONS}).`
+      `Transaction trop récente : ${confirmations}/${REQUIRED_CONFIRMATIONS} confirmations.`
     );
   }
 
-  const transferLog =
-    receipt.logs.find((log) => {
-      if (
-        !log.topics ||
-        log.topics.length < 3
-      ) {
-        return false;
-      }
+  const transferLogs =
+    receipt.logs.filter(
+      (log) => {
+        if (
+          !log.topics ||
+          log.topics.length < 3
+        ) {
+          return false;
+        }
 
-      return (
-        normalizeAddress(
-          log.address
-        ) ===
+        const logContract =
           normalizeAddress(
-            USDT_CONTRACT
-          ) &&
-        String(
-          log.topics[0]
-        ).toLowerCase() ===
+            log.address
+          );
+
+        const transferTopic =
           String(
-            ERC20_TRANSFER_TOPIC
-          ).toLowerCase()
-      );
-    });
+            log.topics[0]
+          ).toLowerCase();
 
-  if (!transferLog) {
-    throw new Error(
-      "Aucun transfert USDT trouvé."
-    );
-  }
-
-  const payment =
-    decodeTransferLog(
-      transferLog
+        return (
+          logContract ===
+            normalizeAddress(
+              USDT_CONTRACT
+            ) &&
+          transferTopic ===
+            String(
+              ERC20_TRANSFER_TOPIC
+            ).toLowerCase()
+        );
+      }
     );
 
   if (
-    payment.amount <
+    transferLogs.length === 0
+  ) {
+    throw new Error(
+      "Aucun transfert USDT BEP-20 trouvé dans cette transaction."
+    );
+  }
+
+  const matchingPayments =
+    transferLogs
+      .map(
+        decodeTransferLog
+      )
+      .filter(
+        (payment) =>
+          payment.to ===
+          targetAddress
+      );
+
+  if (
+    matchingPayments.length === 0
+  ) {
+    throw new Error(
+      "Cette transaction n’a pas envoyé d’USDT à l’adresse cible indiquée."
+    );
+  }
+
+  const totalAmount =
+    matchingPayments.reduce(
+      (
+        total,
+        payment
+      ) =>
+        total +
+        payment.amount,
+      0
+    );
+
+  if (
+    totalAmount <
     minimumAmount
   ) {
     throw new Error(
-      `Montant insuffisant. Minimum : ${minimumAmount} USDT.`
+      `Montant insuffisant. Minimum requis : ${minimumAmount} USDT. Montant détecté : ${totalAmount} USDT.`
     );
   }
 
@@ -238,31 +381,62 @@ async function verifyUsdtPayment(
       receipt.blockNumber
     );
 
-  const startedAt =
+  const startedAtMilliseconds =
+    new Date(
+      victoryWorldStartedAt
+    ).getTime();
+
+  if (
+    !Number.isFinite(
+      startedAtMilliseconds
+    )
+  ) {
+    throw new Error(
+      "Date de démarrage Victory World invalide."
+    );
+  }
+
+  const startedAtSeconds =
     Math.floor(
-      new Date(
-        victoryWorldStartedAt
-      ).getTime() / 1000
+      startedAtMilliseconds /
+      1000
     );
 
   if (
     transactionTimestamp <
-    startedAt
+    startedAtSeconds
   ) {
     throw new Error(
-      "Transaction trop ancienne."
+      "Cette transaction est antérieure à l’enregistrement de votre lien Victory World."
     );
   }
 
   return {
-    ...payment,
+    from:
+      matchingPayments[0].from,
+
+    to:
+      targetAddress,
+
+    amount:
+      totalAmount,
+
     confirmations,
+
     blockNumber:
       Number(
         receipt.blockNumber
-      )
+      ),
+
+    transactionTimestamp
   };
 }
+
+/*
+============================================================
+ENREGISTRER LE LIEN PERSONNEL
+============================================================
+*/
 
 async function saveLink(
   userId,
@@ -279,11 +453,62 @@ async function saveLink(
     );
   }
 
+  if (
+    user.victory_world_status ===
+    "validated"
+  ) {
+    throw new Error(
+      "Victory World est déjà validé pour ce compte."
+    );
+  }
+
   const {
     normalizedLink
   } = validateVictoryWorldLink(
     payload.victoryWorldLink
   );
+
+  const assignment =
+    await ensureAssignedSponsor(
+      user
+    );
+
+  const registeredSponsor =
+    await repository
+      .findUserByVictoryWorldLink(
+        assignment.assignedLink
+      );
+
+  if (!registeredSponsor) {
+    throw new Error(
+      "Le lien du parrain Victory World n’appartient à aucun membre enregistré dans Point Focal."
+    );
+  }
+
+  if (
+    normalizedLink ===
+    assignment.assignedLink
+  ) {
+    throw new Error(
+      "Votre lien personnel Victory World doit être différent du lien de votre parrain."
+    );
+  }
+
+  const existingOwner =
+    await repository
+      .findUserByVictoryWorldLink(
+        normalizedLink
+      );
+
+  if (
+    existingOwner &&
+    Number(existingOwner.id) !==
+      Number(userId)
+  ) {
+    throw new Error(
+      "Ce lien Victory World est déjà utilisé par un autre compte Point Focal."
+    );
+  }
 
   const saved =
     await repository
@@ -292,16 +517,40 @@ async function saveLink(
         normalizedLink
       );
 
+  if (!saved) {
+    throw new Error(
+      "Impossible d’enregistrer votre lien Victory World."
+    );
+  }
+
   return {
     success: true,
+
     message:
       "Lien Victory World enregistré.",
+
     victoryWorldLink:
       saved.victory_world_link,
+
+    assignedLink:
+      assignment.assignedLink,
+
+    sponsorUserId:
+      registeredSponsor.id,
+
     status:
-      saved.victory_world_status
+      saved.victory_world_status,
+
+    startedAt:
+      saved.victory_world_started_at
   };
 }
+
+/*
+============================================================
+VALIDER LE PAIEMENT
+============================================================
+*/
 
 async function validatePayment(
   userId,
@@ -319,12 +568,47 @@ async function validatePayment(
   }
 
   if (
+    user.victory_world_status ===
+    "validated"
+  ) {
+    throw new Error(
+      "Victory World est déjà validé pour ce compte."
+    );
+  }
+
+  if (
     !user.victory_world_link
   ) {
     throw new Error(
-      "Enregistrez votre lien Victory World."
+      "Enregistrez d’abord votre lien personnel Victory World."
     );
   }
+
+  if (
+    !user.victory_world_assigned_link
+  ) {
+    throw new Error(
+      "Aucun parrain Victory World n’a été attribué à ce compte."
+    );
+  }
+
+  const registeredSponsor =
+    await repository
+      .findUserByVictoryWorldLink(
+        user.victory_world_assigned_link
+      );
+
+  if (!registeredSponsor) {
+    throw new Error(
+      "Le lien de parrain attribué n’existe pas dans la base Point Focal."
+    );
+  }
+
+  const normalizedTargetAddress =
+    validateBlockchainAddress(
+      payload.adresseCible ||
+      payload.targetAddress
+    );
 
   const normalizedTxHash =
     validateTransactionHash(
@@ -339,15 +623,22 @@ async function validatePayment(
 
   if (existingPayment) {
     throw new Error(
-      "Hash déjà utilisé."
+      "Ce hash de transaction a déjà été utilisé."
     );
   }
 
   const payment =
     await verifyUsdtPayment(
       normalizedTxHash,
+      normalizedTargetAddress,
       MIN_VICTORY_WORLD_USDT,
       user.victory_world_started_at
+    );
+
+  await repository
+    .saveVictoryWorldTargetAddress(
+      userId,
+      normalizedTargetAddress
     );
 
   await repository
@@ -355,7 +646,7 @@ async function validatePayment(
       userId,
       user.campaign_id,
       normalizedTxHash,
-      payment.to,
+      normalizedTargetAddress,
       payment.amount
     );
 
@@ -366,6 +657,12 @@ async function validatePayment(
         normalizedTxHash
       );
 
+  if (!validated) {
+    throw new Error(
+      "Impossible de valider Victory World."
+    );
+  }
+
   const nextOpportunity =
     await repository
       .findNextOpportunity(2);
@@ -374,7 +671,7 @@ async function validatePayment(
     success: true,
 
     message:
-      "Paiement Victory World validé.",
+      "Paiement Victory World validé. L’opportunité suivante est maintenant accessible.",
 
     status:
       validated.victory_world_status,
@@ -382,8 +679,18 @@ async function validatePayment(
     victoryWorldLink:
       validated.victory_world_link,
 
+    assignedLink:
+      validated
+        .victory_world_assigned_link,
+
+    targetAddress:
+      validated
+        .victory_world_target_address,
+
     nextOpportunityUnlocked:
-      !!nextOpportunity,
+      Boolean(
+        nextOpportunity
+      ),
 
     nextOpportunity,
 
@@ -403,6 +710,12 @@ async function validatePayment(
   };
 }
 
+/*
+============================================================
+STATUT
+============================================================
+*/
+
 async function getStatus(userId) {
   const user =
     await repository.findUserById(
@@ -415,9 +728,42 @@ async function getStatus(userId) {
     );
   }
 
+  let assignedLink =
+    user.victory_world_assigned_link;
+
+  if (!assignedLink) {
+    const assignment =
+      await ensureAssignedSponsor(
+        user
+      );
+
+    assignedLink =
+      assignment.assignedLink;
+  } else {
+    const sponsor =
+      await repository
+        .findUserByVictoryWorldLink(
+          assignedLink
+        );
+
+    if (!sponsor) {
+      throw new Error(
+        "Le lien du parrain Victory World attribué n’existe plus dans la base."
+      );
+    }
+  }
+
   return {
+    success: true,
+
+    assignedLink,
+
     victoryWorldLink:
       user.victory_world_link,
+
+    targetAddress:
+      user
+        .victory_world_target_address,
 
     status:
       user.victory_world_status ||
