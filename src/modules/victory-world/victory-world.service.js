@@ -448,15 +448,15 @@ async function validatePayment(
     );
   }
 
- ✋ const normalizedTargetAddress =
-    validateTargetAddress(
-      payload.adresseCible
-    );
+ const normalizedTxHash =
+  validateTransactionHash(
+    payload.txHash
+  );
 
-  const normalizedTxHash =
-    validateTransactionHash(
-      payload.txHash
-    );✋
+const normalizedTargetAddress =
+  normalizeAddress(
+    paymentReceiverAddress
+  );
 
   const existingPayment =
     await repository
