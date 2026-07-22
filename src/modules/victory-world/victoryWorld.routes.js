@@ -1,13 +1,35 @@
-const express = require("express");
+const express =
+  require("express");
 
-const router = express.Router();
+const authMiddleware =
+  require(
+    "../../middlewares/auth.middleware"
+  );
 
-router.get("/", (req, res) => {
-  res.json({
-    success: true,
-    opportunity: "Victory World",
-    status: "Disponible"
-  });
-});
+const controller =
+  require(
+    "./victory-world.controller"
+  );
+
+const router =
+  express.Router();
+
+router.post(
+  "/link",
+  authMiddleware,
+  controller.saveLink
+);
+
+router.post(
+  "/payment",
+  authMiddleware,
+  controller.validatePayment
+);
+
+router.get(
+  "/status",
+  authMiddleware,
+  controller.getStatus
+);
 
 module.exports = router;
