@@ -1,5 +1,5 @@
 
-const db = require("../../config/database");
+const db = require("../../config/db");
 
 async function findAllActive() {
   const result = await db.query(
