@@ -37,3 +37,4 @@ async function validateFollowMeLink({
 module.exports = {
   validateFollowMeLink
 };
+
