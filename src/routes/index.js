@@ -20,10 +20,6 @@ const paymentsRoutes = require(
   "../modules/payments/payments.routes"
 );
 
-const followmeRoutes = require(
-  "../modules/followme/followme.routes"
-);
-
 const opportunitiesRoutes = require(
   "../modules/opportunities/opportunities.routes"
 );
@@ -69,11 +65,6 @@ router.use(
 router.use(
   "/payment",
   paymentsRoutes
-);
-
-router.use(
-  "/followme",
-  followmeRoutes
 );
 
 router.use(
