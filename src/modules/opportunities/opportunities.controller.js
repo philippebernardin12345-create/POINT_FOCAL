@@ -1,4 +1,4 @@
-const opportunityService = require("./opportunity.service");
+const opportunityService = require("./opportunities.service");
 
 async function getAll(req, res) {
   try {
