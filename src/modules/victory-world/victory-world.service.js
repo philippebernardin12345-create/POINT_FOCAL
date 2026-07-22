@@ -535,7 +535,7 @@ return {
       payment.blockNumber
   }
 };
-
+}
 async function getStatus(userId) {
   const user =
     await repository.findUserById(
