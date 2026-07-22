@@ -50,9 +50,39 @@ async function getNext(req, res) {
     });
   }
 }
+async function registerFollowMeLink(req, res) {
+  try {
+    const {
+      opportunityId,
+      assignedSponsorLink,
+      personalLink,
+      realParentLink
+    } = req.body;
 
+    const result =
+      await opportunityService.registerFollowMeLink({
+        userId: req.user.id,
+        opportunityId,
+        assignedSponsorLink,
+        personalLink,
+        realParentLink
+      });
+
+    return res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
 module.exports = {
   getAll,
   getActive,
-  getNext
+  getNext,
+  registerFollowMeLink
 };
