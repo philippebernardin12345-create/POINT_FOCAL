@@ -74,28 +74,6 @@ function validateVictoryWorldLink(link) {
   };
 }
 
-function validateTargetAddress(address) {
-  const normalizedAddress =
-    normalizeAddress(address);
-
-  if (
-    normalizedAddress.length !== 42 ||
-    !normalizedAddress.startsWith("0x") ||
-    !/^0x[a-f0-9]{40}$/.test(
-      normalizedAddress
-    ) ||
-    !web3.utils.isAddress(
-      normalizedAddress
-    )
-  ) {
-    throw new Error(
-      "Adresse blockchain cible invalide."
-    );
-  }
-
-  return normalizedAddress;
-}
-
 function validateTransactionHash(txHash) {
   const normalizedTxHash =
     String(txHash || "")
@@ -121,16 +99,6 @@ function validateTransactionHash(txHash) {
 }
 
 function decodeTransferLog(log) {
-  if (
-    !log ||
-    !log.topics ||
-    log.topics.length < 3
-  ) {
-    throw new Error(
-      "Journal blockchain invalide."
-    );
-  }
-
   const from =
     "0x" +
     String(log.topics[1]).slice(26);
@@ -170,7 +138,7 @@ async function getTransactionTimestamp(
 
   if (!block) {
     throw new Error(
-      "Bloc de la transaction introuvable."
+      "Bloc introuvable."
     );
   }
 
@@ -181,7 +149,6 @@ async function getTransactionTimestamp(
 
 async function verifyUsdtPayment(
   txHash,
-  targetAddress,
   minimumAmount,
   victoryWorldStartedAt
 ) {
@@ -193,7 +160,7 @@ async function verifyUsdtPayment(
 
   if (!receipt) {
     throw new Error(
-      "Transaction introuvable sur la BNB Chain."
+      "Transaction introuvable."
     );
   }
 
@@ -217,7 +184,7 @@ async function verifyUsdtPayment(
     REQUIRED_CONFIRMATIONS
   ) {
     throw new Error(
-      `Transaction trop récente. ${confirmations}/${REQUIRED_CONFIRMATIONS} confirmations.`
+      `Transaction trop récente (${confirmations}/${REQUIRED_CONFIRMATIONS}).`
     );
   }
 
@@ -230,41 +197,25 @@ async function verifyUsdtPayment(
         return false;
       }
 
-      const logContract =
+      return (
         normalizeAddress(
           log.address
-        );
-
-      const transferTopic =
-        String(
-          log.topics[0]
-        ).toLowerCase();
-
-      const logTargetAddress =
-        normalizeAddress(
-          "0x" +
-          String(
-            log.topics[2]
-          ).slice(26)
-        );
-
-      return (
-        logContract ===
+        ) ===
           normalizeAddress(
             USDT_CONTRACT
           ) &&
-        transferTopic ===
+        String(
+          log.topics[0]
+        ).toLowerCase() ===
           String(
             ERC20_TRANSFER_TOPIC
-          ).toLowerCase() &&
-        logTargetAddress ===
-          targetAddress
+          ).toLowerCase()
       );
     });
 
   if (!transferLog) {
     throw new Error(
-      "Aucun transfert USDT BEP-20 vers l’adresse indiquée."
+      "Aucun transfert USDT trouvé."
     );
   }
 
@@ -278,7 +229,7 @@ async function verifyUsdtPayment(
     minimumAmount
   ) {
     throw new Error(
-      `Montant insuffisant. Minimum requis : ${minimumAmount} USDT.`
+      `Montant insuffisant. Minimum : ${minimumAmount} USDT.`
     );
   }
 
@@ -287,33 +238,19 @@ async function verifyUsdtPayment(
       receipt.blockNumber
     );
 
-  const startedAtMilliseconds =
-    new Date(
-      victoryWorldStartedAt
-    ).getTime();
-
-  if (
-    !startedAtMilliseconds ||
-    Number.isNaN(
-      startedAtMilliseconds
-    )
-  ) {
-    throw new Error(
-      "Date de démarrage Victory World invalide."
-    );
-  }
-
-  const startedAtSeconds =
+  const startedAt =
     Math.floor(
-      startedAtMilliseconds / 1000
+      new Date(
+        victoryWorldStartedAt
+      ).getTime() / 1000
     );
 
   if (
     transactionTimestamp <
-    startedAtSeconds
+    startedAt
   ) {
     throw new Error(
-      "Transaction trop ancienne. Le paiement doit être effectué après l’enregistrement du lien Victory World."
+      "Transaction trop ancienne."
     );
   }
 
@@ -323,8 +260,7 @@ async function verifyUsdtPayment(
     blockNumber:
       Number(
         receipt.blockNumber
-      ),
-    transactionTimestamp
+      )
   };
 }
 
@@ -332,12 +268,6 @@ async function saveLink(
   userId,
   payload = {}
 ) {
-  if (!userId) {
-    throw new Error(
-      "Utilisateur non authentifié."
-    );
-  }
-
   const user =
     await repository.findUserById(
       userId
@@ -347,22 +277,6 @@ async function saveLink(
     throw new Error(
       "Utilisateur introuvable."
     );
-  }
-
-  if (
-    user.victory_world_status ===
-    "validated"
-  ) {
-    return {
-      success: true,
-      alreadyValidated: true,
-      message:
-        "Victory World est déjà validé.",
-      victoryWorldLink:
-        user.victory_world_link,
-      status:
-        user.victory_world_status
-    };
   }
 
   const {
@@ -378,22 +292,14 @@ async function saveLink(
         normalizedLink
       );
 
-  if (!saved) {
-    throw new Error(
-      "Impossible d’enregistrer le lien Victory World."
-    );
-  }
-
   return {
     success: true,
     message:
-      "Lien Victory World enregistré. Paiement en attente.",
+      "Lien Victory World enregistré.",
     victoryWorldLink:
       saved.victory_world_link,
     status:
-      saved.victory_world_status,
-    startedAt:
-      saved.victory_world_started_at
+      saved.victory_world_status
   };
 }
 
@@ -401,12 +307,6 @@ async function validatePayment(
   userId,
   payload = {}
 ) {
-  if (!userId) {
-    throw new Error(
-      "Utilisateur non authentifié."
-    );
-  }
-
   const user =
     await repository.findUserById(
       userId
@@ -419,44 +319,17 @@ async function validatePayment(
   }
 
   if (
-    user.victory_world_status ===
-    "validated"
-  ) {
-    return {
-      success: true,
-      alreadyValidated: true,
-      message:
-        "Le paiement Victory World a déjà été validé.",
-      status:
-        user.victory_world_status
-    };
-  }
-
-  if (
     !user.victory_world_link
   ) {
     throw new Error(
-      "Enregistrez d’abord votre lien Victory World."
+      "Enregistrez votre lien Victory World."
     );
   }
 
-  if (
-    !user.victory_world_started_at
-  ) {
-    throw new Error(
-      "Date de démarrage Victory World introuvable. Enregistrez à nouveau votre lien."
+  const normalizedTxHash =
+    validateTransactionHash(
+      payload.txHash
     );
-  }
-
- const normalizedTxHash =
-  validateTransactionHash(
-    payload.txHash
-  );
-
-const normalizedTargetAddress =
-  normalizeAddress(
-    paymentReceiverAddress
-  );
 
   const existingPayment =
     await repository
@@ -466,14 +339,13 @@ const normalizedTargetAddress =
 
   if (existingPayment) {
     throw new Error(
-      "Ce hash de transaction a déjà été utilisé."
+      "Hash déjà utilisé."
     );
   }
 
   const payment =
     await verifyUsdtPayment(
       normalizedTxHash,
-      normalizedTargetAddress,
       MIN_VICTORY_WORLD_USDT,
       user.victory_world_started_at
     );
@@ -483,59 +355,54 @@ const normalizedTargetAddress =
       userId,
       user.campaign_id,
       normalizedTxHash,
-      normalizedTargetAddress,
+      payment.to,
       payment.amount
     );
 
   const validated =
-  await repository
-    .validateVictoryWorld(
-      userId,
-      normalizedTxHash
-    );
+    await repository
+      .validateVictoryWorld(
+        userId,
+        normalizedTxHash
+      );
 
-if (!validated) {
-  throw new Error(
-    "Impossible de valider Victory World."
-  );
+  const nextOpportunity =
+    await repository
+      .findNextOpportunity(2);
+
+  return {
+    success: true,
+
+    message:
+      "Paiement Victory World validé.",
+
+    status:
+      validated.victory_world_status,
+
+    victoryWorldLink:
+      validated.victory_world_link,
+
+    nextOpportunityUnlocked:
+      !!nextOpportunity,
+
+    nextOpportunity,
+
+    payment: {
+      amount:
+        payment.amount,
+
+      targetAddress:
+        payment.to,
+
+      confirmations:
+        payment.confirmations,
+
+      blockNumber:
+        payment.blockNumber
+    }
+  };
 }
 
-const nextOpportunity =
-  await repository
-    .findNextOpportunity(2);
-
-return {
-  success: true,
-
-  message:
-    "Paiement Victory World validé. L’opportunité suivante est maintenant accessible.",
-
-  status:
-    validated.victory_world_status,
-
-  victoryWorldLink:
-    validated.victory_world_link,
-
-  nextOpportunityUnlocked:
-    !!nextOpportunity,
-
-  nextOpportunity,
-
-  payment: {
-    amount:
-      payment.amount,
-
-    targetAddress:
-      payment.to,
-
-    confirmations:
-      payment.confirmations,
-
-    blockNumber:
-      payment.blockNumber
-  }
-};
-}
 async function getStatus(userId) {
   const user =
     await repository.findUserById(
