@@ -1,15 +1,27 @@
-const repository = require("./victory.repository");
+const repository = require(
+  "./victory.repository"
+);
+
+const opportunityService = require(
+  "../opportunities/opportunities.service"
+);
+
+function normalizeVictoryLink(victoryLink) {
+  return String(victoryLink || "")
+    .trim()
+    .replace(/\/+$/, "");
+}
 
 function extractVictoryIdentifier(victoryLink) {
   let parsedUrl;
 
   try {
     parsedUrl = new URL(
-      String(victoryLink || "").trim()
+      normalizeVictoryLink(victoryLink)
     );
   } catch {
     throw new Error(
-      "Lien Victory Automatic attribué invalide."
+      "Lien Victory Automatic invalide."
     );
   }
 
@@ -19,14 +31,13 @@ function extractVictoryIdentifier(victoryLink) {
       "victoryautomatic.com"
   ) {
     throw new Error(
-      "Le lien Victory Automatic attribué utilise un domaine invalide."
+      "Le lien Victory Automatic utilise un domaine invalide."
     );
   }
 
-  const parts =
-    parsedUrl.pathname
-      .split("/")
-      .filter(Boolean);
+  const parts = parsedUrl.pathname
+    .split("/")
+    .filter(Boolean);
 
   if (
     parts.length !== 3 ||
@@ -34,7 +45,7 @@ function extractVictoryIdentifier(victoryLink) {
     parts[1] !== "register"
   ) {
     throw new Error(
-      "Le lien Victory Automatic attribué ne respecte pas le format attendu."
+      "Le lien Victory Automatic ne respecte pas le format attendu."
     );
   }
 
@@ -43,17 +54,37 @@ function extractVictoryIdentifier(victoryLink) {
 
   if (!identifier) {
     throw new Error(
-      "Identifiant Victory du parrain introuvable."
+      "Identifiant Victory introuvable."
     );
   }
 
-  if (!/^[a-zA-Z0-9._-]+$/.test(identifier)) {
+  if (
+    !/^[a-zA-Z0-9._-]+$/.test(
+      identifier
+    )
+  ) {
     throw new Error(
-      "Identifiant Victory du parrain invalide."
+      "Identifiant Victory invalide."
     );
   }
 
   return identifier;
+}
+
+function buildVictoryLink(identifier) {
+  const normalizedIdentifier =
+    String(identifier || "").trim();
+
+  if (!normalizedIdentifier) {
+    throw new Error(
+      "Identifiant du parrain Victory manquant."
+    );
+  }
+
+  return (
+    "https://victoryautomatic.com/user/register/" +
+    encodeURIComponent(normalizedIdentifier)
+  );
 }
 
 async function assignVictoryLink(userId) {
@@ -111,9 +142,11 @@ async function assignVictoryLink(userId) {
   */
   if (!assignedVictoryLink) {
     const fifoSponsor =
-      await repository.findOldestAvailableVictorySponsor(
-        userWithSponsor.sponsor_user_id || null
-      );
+      await repository
+        .findOldestAvailableVictorySponsor(
+          userWithSponsor.sponsor_user_id ||
+            null
+        );
 
     if (
       fifoSponsor &&
@@ -183,10 +216,11 @@ async function assignVictoryLink(userId) {
     );
 
   const savedParentIdentifier =
-    await repository.saveVictoryParentIdentifier(
-      userId,
-      victoryParentIdentifier
-    );
+    await repository
+      .saveVictoryParentIdentifier(
+        userId,
+        victoryParentIdentifier
+      );
 
   if (!savedParentIdentifier) {
     throw new Error(
@@ -198,7 +232,7 @@ async function assignVictoryLink(userId) {
 
   const expiresAt = new Date(
     now.getTime() +
-    24 * 60 * 60 * 1000
+      24 * 60 * 60 * 1000
   );
 
   const assignedUser =
@@ -215,15 +249,188 @@ async function assignVictoryLink(userId) {
   }
 
   return {
-    url: assignedVictoryLink,
+    url: normalizeVictoryLink(
+      assignedVictoryLink
+    ),
+
     source,
+
     sponsorUserId:
       assignedSponsorUserId,
+
     victoryParentIdentifier,
+
     startedAt:
       assignedUser.victory_started_at,
+
     expiresAt:
       assignedUser.victory_expires_at
+  };
+}
+
+async function saveVictoryPersonalLink(
+  userId,
+  victoryPersonalLink
+) {
+  if (!userId) {
+    throw new Error(
+      "Utilisateur non authentifié."
+    );
+  }
+
+  const normalizedPersonalLink =
+    normalizeVictoryLink(
+      victoryPersonalLink
+    );
+
+  /*
+    Vérifie le domaine, le chemin et
+    l’identifiant du lien personnel.
+  */
+  extractVictoryIdentifier(
+    normalizedPersonalLink
+  );
+
+  const user =
+    await repository.findUserWithSponsor(
+      userId
+    );
+
+  if (!user) {
+    throw new Error(
+      "Utilisateur introuvable."
+    );
+  }
+
+  if (
+    user.victory_expired === true ||
+    user.status === "expired"
+  ) {
+    throw new Error(
+      "Votre délai de 24 heures a expiré. Demandez une réactivation."
+    );
+  }
+
+  if (!user.victory_started_at) {
+    throw new Error(
+      "Aucun lien Victory Automatic ne vous a encore été attribué."
+    );
+  }
+
+  if (
+    user.victory_expires_at &&
+    new Date(user.victory_expires_at) <
+      new Date()
+  ) {
+    throw new Error(
+      "Votre délai de 24 heures a expiré. Demandez une réactivation."
+    );
+  }
+
+  if (user.victory_personal_link) {
+    throw new Error(
+      "Votre lien Victory Automatic est déjà enregistré."
+    );
+  }
+
+  const duplicateLink =
+    await repository
+      .findUserByVictoryPersonalLink(
+        normalizedPersonalLink
+      );
+
+  if (
+    duplicateLink &&
+    duplicateLink.id !== userId
+  ) {
+    throw new Error(
+      "Ce lien Victory Automatic appartient déjà à un autre membre."
+    );
+  }
+
+  if (!user.victory_parent_identifier) {
+    throw new Error(
+      "Le parrain Victory attribué est introuvable."
+    );
+  }
+
+  /*
+    Le lien du parrain est reconstruit
+    à partir de l’identifiant enregistré
+    lors de l’attribution.
+  */
+  const realParentLink =
+    buildVictoryLink(
+      user.victory_parent_identifier
+    );
+
+  if (
+    normalizedPersonalLink ===
+    realParentLink
+  ) {
+    throw new Error(
+      "Votre lien personnel ne peut pas être identique au lien du parrain."
+    );
+  }
+
+  const opportunity =
+    await repository
+      .findVictoryOpportunityRootLink();
+
+  if (!opportunity) {
+    throw new Error(
+      "L’opportunité Victory Automatic est introuvable ou désactivée."
+    );
+  }
+
+  /*
+    Le moteur Follow Me vérifie ici que
+    le lien du parrain est déjà présent
+    dans opportunity_assignments.
+  */
+  const assignment =
+    await opportunityService
+      .registerFollowMeLink({
+        userId,
+        opportunityId:
+          opportunity.id,
+
+        assignedSponsorLink:
+          realParentLink,
+
+        personalLink:
+          normalizedPersonalLink,
+
+        realParentLink
+      });
+
+  const savedUser =
+    await repository.saveVictoryPersonalLink(
+      userId,
+      normalizedPersonalLink
+    );
+
+  if (!savedUser) {
+    throw new Error(
+      "Impossible d’enregistrer le lien Victory Automatic."
+    );
+  }
+
+  return {
+    victoryPersonalLink:
+      savedUser.victory_personal_link,
+
+    victoryParentLink:
+      realParentLink,
+
+    assignmentId:
+      assignment.id,
+
+    opportunityId:
+      opportunity.id,
+
+    assignmentSource:
+      assignment.assignment_source
   };
 }
 
@@ -248,14 +455,19 @@ async function reactivateVictory(userId) {
   return {
     message:
       "Votre compte a été réactivé avec succès. Un nouveau délai de 24 heures commence maintenant.",
+
     status:
       user.status,
+
     startedAt:
       user.victory_started_at,
+
     expiresAt:
       user.victory_expires_at,
+
     victoryExpired:
       user.victory_expired,
+
     linkActive:
       user.link_active
   };
@@ -263,5 +475,6 @@ async function reactivateVictory(userId) {
 
 module.exports = {
   assignVictoryLink,
+  saveVictoryPersonalLink,
   reactivateVictory
 };
