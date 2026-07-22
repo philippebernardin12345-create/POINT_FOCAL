@@ -269,3 +269,14 @@ async function findUserByVictoryPersonalLink(
 
   return result.rows[0] || null;
 }
+module.exports = {
+  findUserWithSponsor,
+  findOldestAvailableVictorySponsor,
+  findRootVictoryLink,
+  findVictoryOpportunityRootLink,
+  markVictoryAssigned,
+  reactivateVictoryUser,
+  saveVictoryParentIdentifier,
+  saveVictoryPersonalLink,
+  findUserByVictoryPersonalLink
+};
