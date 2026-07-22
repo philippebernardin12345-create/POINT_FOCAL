@@ -38,7 +38,89 @@ async function findById(id) {
 
   return result.rows[0];
 }
+async function findOpportunityBySlug(slug) {
+  const result = await db.query(
+    `
+    SELECT *
+    FROM opportunities
+    WHERE slug = $1
+    LIMIT 1
+    `,
+    [slug]
+  );
 
+  return result.rows[0] || null;
+}
+
+async function findAssignmentByUser(
+  userId,
+  opportunityId
+) {
+  const result = await db.query(
+    `
+    SELECT *
+    FROM opportunity_assignments
+    WHERE user_id = $1
+      AND opportunity_id = $2
+    LIMIT 1
+    `,
+    [userId, opportunityId]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function findAssignmentByPersonalLink(
+  opportunityId,
+  personalLink
+) {
+  const result = await db.query(
+    `
+    SELECT *
+    FROM opportunity_assignments
+    WHERE opportunity_id = $1
+      AND personal_link = $2
+    LIMIT 1
+    `,
+    [opportunityId, personalLink]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function createAssignment({
+  userId,
+  opportunityId,
+  assignedSponsorLink,
+  personalLink,
+  realParentLink,
+  assignmentSource = "follow_me"
+}) {
+  const result = await db.query(
+    `
+    INSERT INTO opportunity_assignments (
+      user_id,
+      opportunity_id,
+      assigned_sponsor_link,
+      personal_link,
+      real_parent_link,
+      assignment_source
+    )
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *
+    `,
+    [
+      userId,
+      opportunityId,
+      assignedSponsorLink,
+      personalLink,
+      realParentLink,
+      assignmentSource
+    ]
+  );
+
+  return result.rows[0];
+}
 module.exports = {
   findAllActive,
   findAll,
