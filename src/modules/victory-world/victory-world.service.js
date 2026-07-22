@@ -178,6 +178,7 @@ async function getTransactionTimestamp(
     block.timestamp
   );
 }
+
 async function verifyUsdtPayment(
   txHash,
   targetAddress,
@@ -327,115 +328,6 @@ async function verifyUsdtPayment(
   };
 }
 
-
-
-  if (!receipt) {
-    throw new Error(
-      "Transaction introuvable sur la BNB Chain."
-    );
-  }
-
-  if (!receipt.status) {
-    throw new Error(
-      "Transaction échouée."
-    );
-  }
-
-  const latestBlockNumber =
-    await web3.eth
-      .getBlockNumber();
-
-  const confirmations =
-    Number(latestBlockNumber) -
-    Number(receipt.blockNumber) +
-    1;
-
-  if (
-    confirmations <
-    REQUIRED_CONFIRMATIONS
-  ) {
-    throw new Error(
-      `Transaction trop récente. ${confirmations}/${REQUIRED_CONFIRMATIONS} confirmations.`
-    );
-  }
-
-  const transferLog =
-    receipt.logs.find((log) => {
-      if (
-        !log.topics ||
-        log.topics.length < 3
-      ) {
-        return false;
-      }
-
-      const logContract =
-        normalizeAddress(
-          log.address
-        );
-
-      const transferTopic =
-        String(
-          log.topics[0]
-        ).toLowerCase();
-
-      const logTargetAddress =
-        normalizeAddress(
-          "0x" +
-          String(
-            log.topics[2]
-          ).slice(26)
-        );
-
-      return (
-        logContract ===
-          normalizeAddress(
-            USDT_CONTRACT
-          ) &&
-        transferTopic ===
-          String(
-            ERC20_TRANSFER_TOPIC
-          ).toLowerCase() &&
-        logTargetAddress ===
-          targetAddress
-      );
-    });
-
-  if (!transferLog) {
-    throw new Error(
-      "Aucun transfert USDT BEP-20 vers l’adresse indiquée."
-    );
-  }
-
-  const payment =
-    decodeTransferLog(
-      transferLog
-    );
-
-  if (
-    payment.amount <
-    minimumAmount
-  ) {
-    throw new Error(
-      `Montant insuffisant. Minimum requis : ${minimumAmount} USDT.`
-    );
-  }
-
-  const transactionTimestamp =
-    await getTransactionTimestamp(
-      receipt.blockNumber
-    );
-
-  return {
-    ...payment,
-    confirmations,
-    blockNumber:
-      Number(
-        receipt.blockNumber
-      ),
-    transactionTimestamp
-  };
-}
-
 async function saveLink(
   userId,
   payload = {}
@@ -499,7 +391,9 @@ async function saveLink(
     victoryWorldLink:
       saved.victory_world_link,
     status:
-      saved.victory_world_status
+      saved.victory_world_status,
+    startedAt:
+      saved.victory_world_started_at
   };
 }
 
@@ -546,6 +440,14 @@ async function validatePayment(
     );
   }
 
+  if (
+    !user.victory_world_started_at
+  ) {
+    throw new Error(
+      "Date de démarrage Victory World introuvable. Enregistrez à nouveau votre lien."
+    );
+  }
+
   const normalizedTargetAddress =
     validateTargetAddress(
       payload.adresseCible
@@ -572,7 +474,8 @@ async function validatePayment(
     await verifyUsdtPayment(
       normalizedTxHash,
       normalizedTargetAddress,
-      MIN_VICTORY_WORLD_USDT
+      MIN_VICTORY_WORLD_USDT,
+      user.victory_world_started_at
     );
 
   await repository
@@ -649,6 +552,9 @@ async function getStatus(userId) {
 
     paidAt:
       user.victory_world_paid_at,
+
+    startedAt:
+      user.victory_world_started_at,
 
     nextOpportunityUnlocked:
       user.victory_world_status ===
