@@ -157,5 +157,6 @@ module.exports = {
   findPaymentByHash,
   saveVictoryWorldLink,
   saveVictoryWorldPayment,
-  validateVictoryWorld
+  validateVictoryWorld,
+  findNextOpportunity
 };
