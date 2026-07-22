@@ -62,8 +62,45 @@ async function reactivateVictory(req, res) {
     });
   }
 }
+async function saveVictoryPersonalLink(
+  req,
+  res
+) {
+  try {
+    const {
+      victoryPersonalLink
+    } = req.body;
 
+    const result =
+      await victoryService.saveVictoryPersonalLink(
+        req.user.id,
+        victoryPersonalLink
+      );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Lien Victory enregistré avec succès.",
+      data: result
+    });
+
+  } catch (err) {
+    console.error(
+      "======= SAVE VICTORY LINK ERROR ======="
+    );
+
+    console.error(err);
+
+    return res.status(400).json({
+      success: false,
+      message:
+        err.message ||
+        "Erreur d'enregistrement."
+    });
+  }
+}
 module.exports = {
   assignVictoryLink,
-  reactivateVictory
+  reactivateVictory,
+  saveVictoryPersonalLink
 };
