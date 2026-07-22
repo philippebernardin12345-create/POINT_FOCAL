@@ -217,12 +217,55 @@ async function saveVictoryParentIdentifier(
   return result.rows[0] || null;
 }
 
-module.exports = {
-  findUserWithSponsor,
-  findOldestAvailableVictorySponsor,
-  findRootVictoryLink,
-  findVictoryOpportunityRootLink,
-  markVictoryAssigned,
-  reactivateVictoryUser,
-  saveVictoryParentIdentifier
-};
+async function saveVictoryPersonalLink(
+  userId,
+  victoryPersonalLink
+) {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET
+      victory_personal_link = $2,
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING
+      id,
+      email,
+      sponsor_id,
+      victory_parent_identifier,
+      victory_personal_link,
+      victory_started_at,
+      victory_expires_at,
+      victory_expired,
+      link_active
+    `,
+    [
+      userId,
+      victoryPersonalLink
+    ]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function findUserByVictoryPersonalLink(
+  victoryPersonalLink
+) {
+  const result = await db.query(
+    `
+    SELECT
+      id,
+      email,
+      sponsor_id,
+      victory_parent_identifier,
+      victory_personal_link,
+      link_active
+    FROM users
+    WHERE victory_personal_link = $1
+    LIMIT 1
+    `,
+    [victoryPersonalLink]
+  );
+
+  return result.rows[0] || null;
+}
