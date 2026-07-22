@@ -16,5 +16,9 @@ router.post(
   authMiddleware,
   victoryController.reactivateVictory
 );
-
+router.post(
+  "/personal-link",
+  authMiddleware,
+  victoryController.saveVictoryPersonalLink
+);
 module.exports = router;
