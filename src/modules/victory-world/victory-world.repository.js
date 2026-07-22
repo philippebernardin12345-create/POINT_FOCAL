@@ -10,7 +10,8 @@ async function findUserById(userId) {
       victory_world_link,
       victory_world_status,
       victory_world_tx_hash,
-      victory_world_paid_at
+      victory_world_paid_at,
+      victory_world_started_at
     FROM users
     WHERE id = $1
     LIMIT 1
@@ -49,12 +50,14 @@ async function saveVictoryWorldLink(
       victory_world_link = $2,
       victory_world_status = 'payment_pending',
       victory_world_tx_hash = NULL,
-      victory_world_paid_at = NULL
+      victory_world_paid_at = NULL,
+      victory_world_started_at = NOW()
     WHERE id = $1
     RETURNING
       id,
       victory_world_link,
-      victory_world_status
+      victory_world_status,
+      victory_world_started_at
     `,
     [
       userId,
@@ -115,7 +118,8 @@ async function validateVictoryWorld(
       victory_world_link,
       victory_world_status,
       victory_world_tx_hash,
-      victory_world_paid_at
+      victory_world_paid_at,
+      victory_world_started_at
     `,
     [
       userId,
