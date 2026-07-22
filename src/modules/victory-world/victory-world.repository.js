@@ -129,7 +129,29 @@ async function validateVictoryWorld(
 
   return result.rows[0] || null;
 }
+async function findNextOpportunity(
+  currentOrderPosition
+) {
+  const result = await db.query(
+    `
+    SELECT
+      id,
+      name,
+      slug,
+      order_position,
+      entry_url
+    FROM opportunities
+    WHERE
+      active = true
+      AND order_position > $1
+    ORDER BY order_position ASC
+    LIMIT 1
+    `,
+    [currentOrderPosition]
+  );
 
+  return result.rows[0] || null;
+}
 module.exports = {
   findUserById,
   findPaymentByHash,
