@@ -27,7 +27,7 @@ router.get(
   opportunityController.getNext
 );
 
-// Enregistrement d’un lien dans Follow Me
+// Enregistrement d’un lien Follow Me
 router.post(
   "/follow-me/register",
   authMiddleware,
