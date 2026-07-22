@@ -488,44 +488,53 @@ async function validatePayment(
     );
 
   const validated =
-    await repository
-      .validateVictoryWorld(
-        userId,
-        normalizedTxHash
-      );
-
-  if (!validated) {
-    throw new Error(
-      "Impossible de valider Victory World."
+  await repository
+    .validateVictoryWorld(
+      userId,
+      normalizedTxHash
     );
-  }
 
-  return {
-    success: true,
-    message:
-      "Paiement Victory World validé. L’opportunité suivante est maintenant accessible.",
-    status:
-      validated.victory_world_status,
-    victoryWorldLink:
-      validated.victory_world_link,
-    nextOpportunityUnlocked:
-      true,
-
-    payment: {
-      amount:
-        payment.amount,
-
-      targetAddress:
-        payment.to,
-
-      confirmations:
-        payment.confirmations,
-
-      blockNumber:
-        payment.blockNumber
-    }
-  };
+if (!validated) {
+  throw new Error(
+    "Impossible de valider Victory World."
+  );
 }
+
+const nextOpportunity =
+  await repository
+    .findNextOpportunity(2);
+
+return {
+  success: true,
+
+  message:
+    "Paiement Victory World validé. L’opportunité suivante est maintenant accessible.",
+
+  status:
+    validated.victory_world_status,
+
+  victoryWorldLink:
+    validated.victory_world_link,
+
+  nextOpportunityUnlocked:
+    !!nextOpportunity,
+
+  nextOpportunity,
+
+  payment: {
+    amount:
+      payment.amount,
+
+    targetAddress:
+      payment.to,
+
+    confirmations:
+      payment.confirmations,
+
+    blockNumber:
+      payment.blockNumber
+  }
+};
 
 async function getStatus(userId) {
   const user =
