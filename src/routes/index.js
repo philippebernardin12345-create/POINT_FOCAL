@@ -1,39 +1,36 @@
 const express = require("express");
 
-const authRoutes =
-  require(
-    "../modules/auth/auth.routes"
-  );
+const authRoutes = require(
+  "../modules/auth/auth.routes"
+);
 
-const videoRoutes =
-  require(
-    "../modules/video/video.routes"
-  );
+const videoRoutes = require(
+  "../modules/video/video.routes"
+);
 
-const victoryRoutes =
-  require(
-    "../modules/victory/victory.routes"
-  );
+const victoryRoutes = require(
+  "../modules/victory/victory.routes"
+);
 
-const victoryWorldRoutes =
-  require(
-    "../modules/victory-world/victory-world.routes"
-  );
+const victoryWorldRoutes = require(
+  "../modules/victory-world/victory-world.routes"
+);
 
-const paymentsRoutes =
-  require(
-    "../modules/payments/payments.routes"
-  );
+const paymentsRoutes = require(
+  "../modules/payments/payments.routes"
+);
 
-const followmeRoutes =
-  require(
-    "../modules/followme/followme.routes"
-  );
+const followmeRoutes = require(
+  "../modules/followme/followme.routes"
+);
 
-const adminRoutes =
-  require(
-    "../modules/admin/admin.routes"
-  );
+const opportunitiesRoutes = require(
+  "../modules/opportunities/opportunities.routes"
+);
+
+const adminRoutes = require(
+  "../modules/admin/admin.routes"
+);
 
 const router = express.Router();
 
@@ -77,6 +74,11 @@ router.use(
 router.use(
   "/followme",
   followmeRoutes
+);
+
+router.use(
+  "/opportunities",
+  opportunitiesRoutes
 );
 
 module.exports = router;
