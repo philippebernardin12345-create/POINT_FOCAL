@@ -12,9 +12,10 @@ async function findUserWithSponsor(userId) {
       u.victory_started_at,
       u.victory_expires_at,
       u.victory_expired,
-      u.victory_personal_link,
-      u.link_active,
-
+      
+u.victory_personal_link,
+u.victory_parent_identifier,
+u.link_active,
       sponsor.id AS sponsor_user_id,
       sponsor.email AS sponsor_email,
       sponsor.victory_personal_link AS sponsor_victory_link
