@@ -131,5 +131,6 @@ async function settings() {
 module.exports = {
   login,
   dashboard,
-  users
+  users,
+  settings
 };
