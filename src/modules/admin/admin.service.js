@@ -52,10 +52,7 @@ async function login(payload) {
   }
 
   const passwordIsValid =
-    await bcrypt.compare(
-      password,
-      adminPasswordHash
-    );
+  password === adminPasswordHash;
 
   if (!passwordIsValid) {
     throw new Error(
