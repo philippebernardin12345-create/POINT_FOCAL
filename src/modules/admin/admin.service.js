@@ -116,6 +116,18 @@ async function dashboard() {
 async function users() {
   return repository.getUsers();
 }
+async function settings() {
+  return {
+    adminEmail:
+      process.env.ADMIN_EMAIL || "",
+
+    sessionDuration:
+      "12h",
+
+    role:
+      "super_admin"
+  };
+}
 module.exports = {
   login,
   dashboard,
