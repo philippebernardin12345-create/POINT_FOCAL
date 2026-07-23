@@ -74,9 +74,23 @@ async function settings(
     req,
     res
 ) {
-    return res.json({
-        ai: true
-    });
+    try {
+
+        const result =
+            await service.settings();
+
+        return res.json(
+            result
+        );
+
+    } catch (error) {
+
+        return res.status(500).json({
+            message:
+                error.message
+        });
+
+    }
 }
 
 module.exports = {
