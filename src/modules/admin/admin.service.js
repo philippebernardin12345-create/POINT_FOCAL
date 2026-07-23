@@ -36,14 +36,17 @@ async function login(payload) {
     process.env.ADMIN_PASSWORD_HASH || ""
   ).trim();
 
-  if (
-    !adminEmail ||
-    !adminPasswordHash
-  ) {
-    throw new Error(
-      "Le compte administrateur n’est pas encore configuré."
-    );
-  }
+ if (!adminEmail) {
+  throw new Error(
+    "La variable ADMIN_EMAIL est absente ou vide sur Render."
+  );
+}
+
+if (!adminPasswordHash) {
+  throw new Error(
+    "La variable ADMIN_PASSWORD_HASH est absente ou vide sur Render."
+  );
+}
 
   if (email !== adminEmail) {
     throw new Error(
