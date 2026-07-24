@@ -59,12 +59,12 @@ async function login(payload) {
   }
 
   // Vérification de l’adresse email administrateur
-  if (email !== adminEmail) {
-    throw new Error(
-      "Identifiants administrateur incorrects."
-    );
-  }
-
+  
+if (email !== adminEmail) {
+  throw new Error(
+    "EMAIL_ADMIN_INCORRECT"
+  );
+}
   // Vérification du mot de passe avec bcrypt
   let passwordIsValid = false;
 
@@ -86,10 +86,10 @@ async function login(payload) {
   }
 
   if (!passwordIsValid) {
-    throw new Error(
-      "Identifiants administrateur incorrects."
-    );
-  }
+  throw new Error(
+    "MOT_DE_PASSE_ADMIN_INCORRECT"
+  );
+}
 
   const admin = {
     email: adminEmail,
