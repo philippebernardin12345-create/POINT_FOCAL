@@ -6,17 +6,24 @@ const controller =
 const adminMiddleware =
     require("../../middlewares/admin.middleware");
 
-const router = express.Router();
+const router =
+    express.Router();
 
 
-// Connexion publique
+// ============================================================
+// CONNEXION ADMINISTRATEUR
+// ============================================================
+
 router.post(
     "/login",
     controller.login
 );
 
 
-// Routes protégées
+// ============================================================
+// ROUTES PROTÉGÉES
+// ============================================================
+
 router.get(
     "/dashboard",
     adminMiddleware,
@@ -35,4 +42,21 @@ router.get(
     controller.settings
 );
 
-module.exports = router;
+
+// ============================================================
+// OPPORTUNITÉS
+// ============================================================
+
+router.post(
+    "/opportunities",
+    adminMiddleware,
+    controller.createOpportunity
+);
+
+
+// ============================================================
+// EXPORT
+// ============================================================
+
+module.exports =
+    router;
