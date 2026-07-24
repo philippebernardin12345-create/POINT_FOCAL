@@ -246,10 +246,12 @@ const opportunityUrl = String(
 
 
 
-module.exports = {
-  login,
-  dashboard,
-  users,
-  settings,
-  createOpportunity
-};
+return repository.createOpportunity({
+  name,
+  description,
+  opportunityUrl,
+  status,
+  prelaunchEnabled,
+  publicOpen,
+  defaultLanguage
+});
