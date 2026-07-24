@@ -336,7 +336,7 @@ async function updateOpportunity(
     );
   }
 
-  return repository.updateOpportunity(
+    return repository.updateOpportunity(
     id,
     {
       name,
@@ -348,6 +348,7 @@ async function updateOpportunity(
       defaultLanguage
     }
   );
+}
 
 module.exports = {
   login,
@@ -357,5 +358,3 @@ module.exports = {
   createOpportunity,
   updateOpportunity
 };
-
-
