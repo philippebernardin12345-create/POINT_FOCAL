@@ -234,19 +234,6 @@ const opportunityUrl = String(
   }
 
   return repository.createOpportunity({
-    name,
-    description,
-    status,
-    prelaunchEnabled,
-    publicOpen,
-    defaultLanguage
-  });
-}
-
-
-
-
-return repository.createOpportunity({
   name,
   description,
   opportunityUrl,
@@ -255,3 +242,7 @@ return repository.createOpportunity({
   publicOpen,
   defaultLanguage
 });
+
+
+
+
