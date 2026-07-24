@@ -55,7 +55,10 @@ if (!adminPasswordHash) {
   }
 
   const passwordIsValid =
-  password === adminPasswordHash;
+  await bcrypt.compare(
+    password,
+    adminPasswordHash
+  );
 
   if (!passwordIsValid) {
     throw new Error(
