@@ -233,7 +233,8 @@ const opportunityUrl = String(
     );
   }
 
-  return repository.createOpportunity({
+  
+return repository.createOpportunity({
   name,
   description,
   opportunityUrl,
@@ -242,7 +243,15 @@ const opportunityUrl = String(
   publicOpen,
   defaultLanguage
 });
+}
 
+module.exports = {
+  login,
+  dashboard,
+  users,
+  settings,
+  createOpportunity
+};
 
 
 
