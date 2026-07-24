@@ -33,8 +33,8 @@ async function login(payload) {
     .toLowerCase();
 
   const adminPasswordHash = String(
-    process.env.ADMIN_PASSWORD_HASH || ""
-  ).trim();console.log("ADMIN HASH =", adminPasswordHash);
+  process.env.ADMIN_PASSWORD_HASH || ""
+).trim();
 
   const jwtSecret = String(
     process.env.JWT_SECRET || ""
