@@ -244,15 +244,118 @@ return repository.createOpportunity({
   defaultLanguage
 });
 }
+// ============================================================
+// MODIFIER UNE OPPORTUNITÉ
+// ============================================================
+
+async function updateOpportunity(
+  opportunityId,
+  payload
+) {
+  const id = Number(
+    opportunityId
+  );
+
+  if (
+    !Number.isInteger(id) ||
+    id <= 0
+  ) {
+    throw new Error(
+      "Identifiant de l’opportunité invalide."
+    );
+  }
+
+  const name = String(
+    payload?.name || ""
+  ).trim();
+
+  const description = String(
+    payload?.description || ""
+  ).trim();
+
+  const opportunityUrl = String(
+    payload?.opportunityUrl || ""
+  ).trim();
+
+  const status = String(
+    payload?.status || "inactive"
+  )
+    .trim()
+    .toLowerCase();
+
+  const defaultLanguage = String(
+    payload?.defaultLanguage || "fr"
+  )
+    .trim()
+    .toLowerCase();
+
+  const prelaunchEnabled =
+    payload?.prelaunchEnabled === true;
+
+  const publicOpen =
+    payload?.publicOpen === true;
+
+  if (!name) {
+    throw new Error(
+      "Le nom de l’opportunité est obligatoire."
+    );
+  }
+
+  const allowedStatuses = [
+    "active",
+    "inactive",
+    "draft"
+  ];
+
+  if (
+    !allowedStatuses.includes(
+      status
+    )
+  ) {
+    throw new Error(
+      "Le statut de l’opportunité est invalide."
+    );
+  }
+
+  const allowedLanguages = [
+    "fr",
+    "en",
+    "es",
+    "pt",
+    "ar",
+    "hi"
+  ];
+
+  if (
+    !allowedLanguages.includes(
+      defaultLanguage
+    )
+  ) {
+    throw new Error(
+      "La langue par défaut est invalide."
+    );
+  }
+
+  return repository.updateOpportunity(
+    id,
+    {
+      name,
+      description,
+      opportunityUrl,
+      status,
+      prelaunchEnabled,
+      publicOpen,
+      defaultLanguage
+    }
+  );
 
 module.exports = {
   login,
   dashboard,
   users,
   settings,
-  createOpportunity
+  createOpportunity,
+  updateOpportunity
 };
-
-
 
 
