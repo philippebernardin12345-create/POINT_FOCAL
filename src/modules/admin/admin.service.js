@@ -48,11 +48,11 @@ if (!adminPasswordHash) {
   );
 }
 
-  if (email !== adminEmail) {
-    throw new Error(
-      "Identifiants administrateur incorrects."
-    );
-  }
+  if (!passwordIsValid) {
+  throw new Error(
+    "Le mot de passe administrateur est incorrect."
+  );
+}
 
   const passwordIsValid =
   await bcrypt.compare(
