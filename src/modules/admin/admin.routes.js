@@ -42,10 +42,21 @@ router.get(
     controller.settings
 );
 
-
 // ============================================================
 // OPPORTUNITÉS
 // ============================================================
+
+router.post(
+    "/opportunities",
+    adminMiddleware,
+    controller.createOpportunity
+);
+
+router.put(
+    "/opportunities/:id",
+    adminMiddleware,
+    controller.updateOpportunity
+);
 
 router.post(
     "/opportunities",
