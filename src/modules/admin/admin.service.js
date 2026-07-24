@@ -34,7 +34,7 @@ async function login(payload) {
 
   const adminPasswordHash = String(
     process.env.ADMIN_PASSWORD_HASH || ""
-  ).trim();
+  ).trim();console.log("ADMIN HASH =", adminPasswordHash);
 
   const jwtSecret = String(
     process.env.JWT_SECRET || ""
