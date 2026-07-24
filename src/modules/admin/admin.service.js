@@ -163,6 +163,7 @@ async function settings() {
 // ============================================================
 // EXPORTS
 // ============================================================
+
 // ============================================================
 // AJOUTER UNE OPPORTUNITÉ
 // ============================================================
@@ -206,9 +207,7 @@ async function createOpportunity(payload) {
     "draft"
   ];
 
-  if (
-    !allowedStatuses.includes(status)
-  ) {
+  if (!allowedStatuses.includes(status)) {
     throw new Error(
       "Le statut de l’opportunité est invalide."
     );
@@ -242,6 +241,12 @@ async function createOpportunity(payload) {
     defaultLanguage
   });
 }
+
+
+// ============================================================
+// EXPORTS
+// ============================================================
+
 module.exports = {
   login,
   dashboard,
