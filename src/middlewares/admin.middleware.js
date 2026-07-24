@@ -6,22 +6,38 @@ function adminMiddleware(
     next
 ) {
     try {
-
         const authHeader =
             req.headers.authorization;
 
         if (!authHeader) {
             return res.status(401).json({
                 message:
-                    "Accès refusé."
+                    "Token administrateur manquant."
+            });
+        }
+
+        if (
+            !authHeader.startsWith(
+                "Bearer "
+            )
+        ) {
+            return res.status(401).json({
+                message:
+                    "Format du token invalide."
             });
         }
 
         const token =
-            authHeader.replace(
-                "Bearer ",
-                ""
-            );
+            authHeader
+                .slice(7)
+                .trim();
+
+        if (!token) {
+            return res.status(401).json({
+                message:
+                    "Token administrateur vide."
+            });
+        }
 
         const payload =
             jwt.verify(
@@ -29,12 +45,14 @@ function adminMiddleware(
                 process.env.JWT_SECRET
             );
 
-        if (
-            !payload.isAdmin
-        ) {
+        const isAdmin =
+            payload.role === "admin" ||
+            payload.isAdmin === true;
+
+        if (!isAdmin) {
             return res.status(403).json({
                 message:
-                    "Accès interdit."
+                    "Accès administrateur interdit."
             });
         }
 
@@ -44,12 +62,25 @@ function adminMiddleware(
         next();
 
     } catch (error) {
+        console.error(
+            "Erreur middleware admin :",
+            error.message
+        );
+
+        if (
+            error.name ===
+            "TokenExpiredError"
+        ) {
+            return res.status(401).json({
+                message:
+                    "Session administrateur expirée."
+            });
+        }
 
         return res.status(401).json({
             message:
                 "Session administrateur invalide."
         });
-
     }
 }
 
