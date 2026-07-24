@@ -159,7 +159,41 @@ async function createOpportunity(
     }
 }
 
+// ============================================================
+// MODIFIER UNE OPPORTUNITÉ
+// ============================================================
 
+async function updateOpportunity(
+    req,
+    res
+) {
+    try {
+        const result =
+            await service.updateOpportunity(
+                req.params.id,
+                req.body
+            );
+
+        return res.json({
+            message:
+                "Opportunité modifiée avec succès.",
+
+            opportunity:
+                result
+        });
+
+    } catch (error) {
+        console.error(
+            "Erreur modification opportunité :",
+            error.message
+        );
+
+        return res.status(400).json({
+            message:
+                error.message
+        });
+    }
+}
 // ============================================================
 // EXPORTS
 // ============================================================
@@ -169,5 +203,6 @@ module.exports = {
     dashboard,
     users,
     settings,
-    createOpportunity
+    createOpportunity,
+    updateOpportunity
 };
