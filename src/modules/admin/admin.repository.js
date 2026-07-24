@@ -116,8 +116,60 @@ async function createOpportunity(data) {
 
   return result.rows[0];
 }
+async function updateOpportunity(
+  id,
+  data
+) {
+  const {
+    name,
+    description,
+    opportunityUrl,
+    status,
+    prelaunchEnabled,
+    publicOpen,
+    defaultLanguage
+  } = data;
+
+  const result = await db.query(
+    `
+    UPDATE campaigns
+    SET
+      name = $1,
+      description = $2,
+      opportunity_url = $3,
+      status = $4,
+      prelaunch_enabled = $5,
+      public_open = $6,
+      default_language = $7
+    WHERE id = $8
+    RETURNING
+      id,
+      name,
+      description,
+      opportunity_url,
+      status,
+      prelaunch_enabled,
+      public_open,
+      default_language,
+      created_at
+    `,
+    [
+      name,
+      description,
+      opportunityUrl,
+      status,
+      prelaunchEnabled,
+      publicOpen,
+      defaultLanguage,
+      id
+    ]
+  );
+
+  return result.rows[0];
+}
 module.exports = {
   getDashboardStats,
   getUsers,
-  createOpportunity
+  createOpportunity,
+  updateOpportunity
 };
