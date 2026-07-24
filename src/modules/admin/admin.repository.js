@@ -65,6 +65,7 @@ async function createOpportunity(data) {
   const {
     name,
     description,
+    opportunityUrl,
     status,
     prelaunchEnabled,
     publicOpen,
@@ -76,6 +77,7 @@ async function createOpportunity(data) {
     INSERT INTO campaigns (
       name,
       description,
+      opportunity_url,
       status,
       prelaunch_enabled,
       public_open,
@@ -87,12 +89,14 @@ async function createOpportunity(data) {
       $3,
       $4,
       $5,
-      $6
+      $6,
+      $7
     )
     RETURNING
       id,
       name,
       description,
+      opportunity_url,
       status,
       prelaunch_enabled,
       public_open,
@@ -102,6 +106,7 @@ async function createOpportunity(data) {
     [
       name,
       description,
+      opportunityUrl,
       status,
       prelaunchEnabled,
       publicOpen,
