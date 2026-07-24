@@ -41,7 +41,6 @@ router.get(
     adminMiddleware,
     controller.settings
 );
-
 // ============================================================
 // OPPORTUNITÉS
 // ============================================================
@@ -57,14 +56,6 @@ router.put(
     adminMiddleware,
     controller.updateOpportunity
 );
-
-router.post(
-    "/opportunities",
-    adminMiddleware,
-    controller.createOpportunity
-);
-
-
 // ============================================================
 // EXPORT
 // ============================================================
