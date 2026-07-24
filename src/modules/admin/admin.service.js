@@ -36,42 +36,58 @@ async function login(payload) {
     process.env.ADMIN_PASSWORD_HASH || ""
   ).trim();
 
- if (!adminEmail) {
-  throw new Error(
-    "La variable ADMIN_EMAIL est absente ou vide sur Render."
-  );
-}
+  const jwtSecret = String(
+    process.env.JWT_SECRET || ""
+  ).trim();
 
-if (!adminPasswordHash) {
-  throw new Error(
-    "La variable ADMIN_PASSWORD_HASH est absente ou vide sur Render."
-  );
-}
+  if (!adminEmail) {
+    throw new Error(
+      "La variable ADMIN_EMAIL est absente ou vide sur Render."
+    );
+  }
 
-  if (!passwordIsValid) {
-  throw new Error(
-    "Le mot de passe administrateur est incorrect."
-  );
-}
+  if (!adminPasswordHash) {
+    throw new Error(
+      "La variable ADMIN_PASSWORD_HASH est absente ou vide sur Render."
+    );
+  }
 
-  const passwordIsValid =
-  await bcrypt.compare(
-    password,
-    adminPasswordHash
-  );
+  if (!jwtSecret) {
+    throw new Error(
+      "La variable JWT_SECRET est absente ou vide sur Render."
+    );
+  }
 
-  if (!passwordIsValid) {
+  // Vérification de l’adresse email administrateur
+  if (email !== adminEmail) {
     throw new Error(
       "Identifiants administrateur incorrects."
     );
   }
 
-  const jwtSecret =
-    process.env.JWT_SECRET;
+  // Vérification du mot de passe avec bcrypt
+  let passwordIsValid = false;
 
-  if (!jwtSecret) {
+  try {
+    passwordIsValid =
+      await bcrypt.compare(
+        password,
+        adminPasswordHash
+      );
+  } catch (error) {
+    console.error(
+      "Erreur de vérification bcrypt :",
+      error.message
+    );
+
     throw new Error(
-      "La clé JWT_SECRET est absente."
+      "Impossible de vérifier le mot de passe administrateur."
+    );
+  }
+
+  if (!passwordIsValid) {
+    throw new Error(
+      "Identifiants administrateur incorrects."
     );
   }
 
@@ -85,7 +101,7 @@ if (!adminPasswordHash) {
     {
       email: admin.email,
       role: admin.role,
-      isAdmin: true
+      isAdmin: admin.isAdmin
     },
     jwtSecret,
     {
@@ -114,15 +130,26 @@ async function dashboard() {
 
 
 // ============================================================
-// EXPORTS
+// LISTE DES UTILISATEURS
 // ============================================================
+
 async function users() {
   return repository.getUsers();
 }
+
+
+// ============================================================
+// PARAMÈTRES ADMINISTRATEUR
+// ============================================================
+
 async function settings() {
   return {
     adminEmail:
-      process.env.ADMIN_EMAIL || "",
+      String(
+        process.env.ADMIN_EMAIL || ""
+      )
+        .trim()
+        .toLowerCase(),
 
     sessionDuration:
       "12h",
@@ -131,6 +158,12 @@ async function settings() {
       "super_admin"
   };
 }
+
+
+// ============================================================
+// EXPORTS
+// ============================================================
+
 module.exports = {
   login,
   dashboard,
