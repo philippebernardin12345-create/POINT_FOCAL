@@ -174,6 +174,9 @@ async function createOpportunity(payload) {
   const description = String(
     payload?.description || ""
   ).trim();
+const opportunityUrl = String(
+  payload?.opportunityUrl || ""
+).trim();
 
   const status = String(
     payload?.status || "inactive"
