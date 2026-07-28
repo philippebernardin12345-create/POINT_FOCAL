@@ -125,6 +125,37 @@ async function settings(
 
 
 // ============================================================
+// RÉCUPÉRER LES OPPORTUNITÉS
+// ============================================================
+
+async function getOpportunities(
+    req,
+    res
+) {
+    try {
+        const result =
+            await service.getOpportunities();
+
+        return res.json({
+            opportunities:
+                result
+        });
+
+    } catch (error) {
+        console.error(
+            "Erreur récupération opportunités :",
+            error.message
+        );
+
+        return res.status(500).json({
+            message:
+                error.message
+        });
+    }
+}
+
+
+// ============================================================
 // AJOUTER UNE OPPORTUNITÉ
 // ============================================================
 
@@ -159,6 +190,7 @@ async function createOpportunity(
     }
 }
 
+
 // ============================================================
 // MODIFIER UNE OPPORTUNITÉ
 // ============================================================
@@ -173,6 +205,13 @@ async function updateOpportunity(
                 req.params.id,
                 req.body
             );
+
+        if (!result) {
+            return res.status(404).json({
+                message:
+                    "Opportunité introuvable."
+            });
+        }
 
         return res.json({
             message:
@@ -194,6 +233,8 @@ async function updateOpportunity(
         });
     }
 }
+
+
 // ============================================================
 // EXPORTS
 // ============================================================
@@ -203,6 +244,7 @@ module.exports = {
     dashboard,
     users,
     settings,
+    getOpportunities,
     createOpportunity,
     updateOpportunity
 };
