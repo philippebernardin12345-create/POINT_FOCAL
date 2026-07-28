@@ -41,21 +41,34 @@ router.get(
     adminMiddleware,
     controller.settings
 );
+
+
 // ============================================================
 // OPPORTUNITÉS
 // ============================================================
 
+// Récupérer toutes les opportunités
+router.get(
+    "/opportunities",
+    adminMiddleware,
+    controller.getOpportunities
+);
+
+// Ajouter une opportunité
 router.post(
     "/opportunities",
     adminMiddleware,
     controller.createOpportunity
 );
 
+// Modifier une opportunité
 router.put(
     "/opportunities/:id",
     adminMiddleware,
     controller.updateOpportunity
 );
+
+
 // ============================================================
 // EXPORT
 // ============================================================
