@@ -160,7 +160,13 @@ async function settings() {
 }
 
 
+// ============================================================
+// RÉCUPÉRER LES OPPORTUNITÉS
+// ============================================================
 
+async function getOpportunities() {
+  return repository.getOpportunities();
+}
 
 // ============================================================
 // AJOUTER UNE OPPORTUNITÉ
@@ -355,6 +361,7 @@ module.exports = {
   dashboard,
   users,
   settings,
+  getOpportunities,
   createOpportunity,
   updateOpportunity
 };
