@@ -1,5 +1,8 @@
-
 const db = require("../../config/db");
+
+// ============================================================
+// STATISTIQUES DU DASHBOARD
+// ============================================================
 
 async function getDashboardStats() {
   const usersResult = await db.query(
@@ -45,6 +48,11 @@ async function getDashboardStats() {
       opportunitiesResult.rows[0]?.total || 0
   };
 }
+
+// ============================================================
+// LISTE DES UTILISATEURS
+// ============================================================
+
 async function getUsers() {
   const result = await db.query(
     `
@@ -61,6 +69,36 @@ async function getUsers() {
 
   return result.rows;
 }
+
+// ============================================================
+// RÉCUPÉRER LES OPPORTUNITÉS
+// ============================================================
+
+async function getOpportunities() {
+  const result = await db.query(
+    `
+    SELECT
+      id,
+      name,
+      description,
+      opportunity_url,
+      status,
+      prelaunch_enabled,
+      public_open,
+      default_language,
+      created_at
+    FROM campaigns
+    ORDER BY id DESC
+    `
+  );
+
+  return result.rows;
+}
+
+// ============================================================
+// AJOUTER UNE OPPORTUNITÉ
+// ============================================================
+
 async function createOpportunity(data) {
   const {
     name,
@@ -116,6 +154,11 @@ async function createOpportunity(data) {
 
   return result.rows[0];
 }
+
+// ============================================================
+// MODIFIER UNE OPPORTUNITÉ
+// ============================================================
+
 async function updateOpportunity(
   id,
   data
@@ -167,9 +210,15 @@ async function updateOpportunity(
 
   return result.rows[0];
 }
+
+// ============================================================
+// EXPORTS
+// ============================================================
+
 module.exports = {
   getDashboardStats,
   getUsers,
+  getOpportunities,
   createOpportunity,
   updateOpportunity
 };
