@@ -1,4 +1,3 @@
-
 const opportunityModel = {
   id: null,
   name: "",
