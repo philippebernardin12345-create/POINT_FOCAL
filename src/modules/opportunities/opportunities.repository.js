@@ -143,5 +143,6 @@ module.exports = {
   findAssignmentByUser,
   findAssignmentByPersonalLink,
   createAssignment,
+
   getActiveEntryOpportunity
 };
