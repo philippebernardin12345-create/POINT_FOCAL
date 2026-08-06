@@ -18,6 +18,7 @@ router.get(
 // Opportunités actives seulement
 router.get(
   "/active",
+  
   opportunityController.getActive
 );// Opportunité d'entrée Follow Me
 router.get(
