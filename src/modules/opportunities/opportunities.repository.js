@@ -120,6 +120,19 @@ async function createAssignment({
   );
 
   return result.rows[0];
+}async function getActiveEntryOpportunity() {
+  const result = await db.query(
+    `
+    SELECT *
+    FROM opportunities
+    WHERE status = 'active'
+      AND is_entry = true
+    ORDER BY priority ASC
+    LIMIT 1
+    `
+  );
+
+  return result.rows[0] || null;
 }
 module.exports = {
   findAllActive,
@@ -129,6 +142,6 @@ module.exports = {
   findOpportunityBySlug,
   findAssignmentByUser,
   findAssignmentByPersonalLink,
-  createAssignment
+  createAssignment,
+  getActiveEntryOpportunity
 };
-
