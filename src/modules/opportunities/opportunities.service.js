@@ -105,7 +105,7 @@ async function registerFollowMeLink({
   });
 }
 
-module.exports = {
+modugmodule.exports = {
   getActiveOpportunities,
   getActiveEntryOpportunity,
   getAllOpportunities,
