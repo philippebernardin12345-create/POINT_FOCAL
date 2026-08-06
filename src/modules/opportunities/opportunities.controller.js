@@ -80,7 +80,24 @@ async function registerFollowMeLink(req, res) {
     });
   }
 }
-module.exports = {
+async function getEntry(req, res) {
+  try {
+    const opportunity =
+      await opportunityService.getActiveEntryOpportunity();
+
+    return res.json({
+      success: true,
+      data: opportunity
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors du chargement de l'opportunité d'entrée."
+    });
+  }
+}
+  module.exports = {
   getAll,
   getActive,
   getNext,
