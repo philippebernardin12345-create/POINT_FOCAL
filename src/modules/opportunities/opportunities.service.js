@@ -105,6 +105,7 @@ async function registerFollowMeLink({
 
 module.exports = {
   getActiveOpportunities,
+  getActiveEntryOpportunity,
   getAllOpportunities,
   getOpportunityById,
   getOpportunityBySlug,
