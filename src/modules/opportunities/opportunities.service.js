@@ -12,8 +12,6 @@ async function getActiveOpportunities() {
 
 async function getActiveEntryOpportunity() {
   return opportunityRepository.getActiveEntryOpportunity();
-} opportunityRepository.getActiveEntryOpportunity();
-} opportunityRepository.findAllActive();
 }
 
 async function getAllOpportunities() {
