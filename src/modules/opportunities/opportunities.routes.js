@@ -19,6 +19,10 @@ router.get(
 router.get(
   "/active",
   opportunityController.getActive
+);// Opportunité d'entrée Follow Me
+router.get(
+  "/entry",
+  opportunityController.getEntry
 );
 
 // Prochaine opportunité après une position donnée
