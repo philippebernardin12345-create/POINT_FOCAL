@@ -1,35 +1,44 @@
+const opportunityService = require("./opportunities.service");
 
-const opportunityService = require("./opportunity.service");
-const supabase = require("../../config/supabase");
-
-
-const getOpportunities = async (req, res) => {
+async function getAll(req, res) {
   try {
-
     const opportunities =
-      await opportunityService.getAllOpportunities(supabase);
+      await opportunityService.getAllOpportunities();
 
-    res.json({
+    return res.json({
       success: true,
-      opportunities
+      data: opportunities
     });
 
   } catch (error) {
-
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: error.message
+      message: "Erreur lors du chargement des opportunités."
+    });
+  }
+}
+
+
+async function getActive(req, res) {
+  try {
+    const opportunities =
+      await opportunityService.getActiveOpportunities();
+
+    return res.json({
+      success: true,
+      data: opportunities
     });
 
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors du chargement des opportunités actives."
+    });
   }
-};
+}
 
 
-const getEntryOpportunity = async (req, res) => {
-  try {
-
-    const opportunity =
-      await opportunityService.getActiveEntryOpportunity(supabase);✋async function getEntry(req, res) {
+async function getEntry(req, res) {
   try {
     const opportunity =
       await opportunityService.getActiveEntryOpportunity();
@@ -47,23 +56,64 @@ const getEntryOpportunity = async (req, res) => {
   }
 }
 
-    res.json({
+
+async function getNext(req, res) {
+  try {
+    const position = Number(req.params.position);
+
+    const nextOpportunity =
+      await opportunityService.getNextOpportunity(position);
+
+    return res.json({
       success: true,
-      opportunity
+      data: nextOpportunity
     });
 
   } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la recherche de la prochaine opportunité."
+    });
+  }
+}
 
-    res.status(500).json({
+
+async function registerFollowMeLink(req, res) {
+  try {
+    const {
+      opportunityId,
+      assignedSponsorLink,
+      personalLink,
+      realParentLink
+    } = req.body;
+
+    const result =
+      await opportunityService.registerFollowMeLink({
+        userId: req.user.id,
+        opportunityId,
+        assignedSponsorLink,
+        personalLink,
+        realParentLink
+      });
+
+    return res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    return res.status(400).json({
       success: false,
       message: error.message
     });
-
   }
-};
+}
 
 
 module.exports = {
-  getOpportunities,
-  getEntryOpportunity
+  getAll,
+  getActive,
+  getEntry,
+  getNext,
+  registerFollowMeLink
 };
