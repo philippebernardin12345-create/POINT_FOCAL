@@ -121,6 +121,7 @@ async function createAssignment({
 
   return result.rows[0];
 }
+
 async function getActiveEntryOpportunity() {
   const result = await db.query(
     `
