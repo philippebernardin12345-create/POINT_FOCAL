@@ -97,11 +97,12 @@ async function getEntry(req, res) {
     });
   }
 }
-  module.exports = {
+  }
+
+module.exports = {
   getAll,
   getActive,
   getNext,
   registerFollowMeLink,
   getEntry
 };
-
