@@ -10,6 +10,12 @@ async function getActiveOpportunities() {
   return opportunityRepository.findAllActive();
 }
 
+async function getActiveEntryOpportunity() {
+  return opportunityRepository.getActiveEntryOpportunity();
+} opportunityRepository.getActiveEntryOpportunity();
+} opportunityRepository.findAllActive();
+}
+
 async function getAllOpportunities() {
   return opportunityRepository.findAll();
 }
