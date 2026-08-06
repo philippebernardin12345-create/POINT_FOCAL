@@ -101,5 +101,6 @@ async function getEntry(req, res) {
   getAll,
   getActive,
   getNext,
-  registerFollowMeLink
+  registerFollowMeLink,
+  getEntry
 };
