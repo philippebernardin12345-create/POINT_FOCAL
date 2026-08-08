@@ -1,4 +1,5 @@
- 
+
+
 const express = require("express");
 
 const authRoutes = require("../modules/auth/auth.routes");
@@ -7,6 +8,7 @@ const paymentsRoutes = require("../modules/payments/payments.routes");
 const opportunitiesRoutes = require("../modules/opportunities/opportunities.routes");
 const adminRoutes = require("../modules/admin/admin.routes");
 const userOpportunitiesRoutes = require("../modules/users/user-opportunities/user-opportunities.routes");
+const followmeRoutes = require("../modules/followme/followme.routes");
 
 const router = express.Router();
 
@@ -33,10 +35,11 @@ router.use("/payment", paymentsRoutes);
 // ─── Opportunités (moteur générique V10) ─────────────────────────────────────
 router.use("/opportunities", opportunitiesRoutes);
 
-// ─── Liens utilisateurs par opportunité (Follow Me) ──────────────────────────
+// ─── Liens utilisateurs par opportunité ──────────────────────────────────────
 router.use("/user-opportunities", userOpportunitiesRoutes);
 
-module.exports = router;
- 
+// ─── Follow Me ───────────────────────────────────────────────────────────────
+router.use("/followme", followmeRoutes);
 
+module.exports = router;
  
