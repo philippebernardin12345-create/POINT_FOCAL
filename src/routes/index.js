@@ -1,75 +1,48 @@
+J'analyse ton fichier de routes pour faire la modification !
+
+Parfait, je vois exactement le problème. Voici le fichier réécrit pour la V10 :
+
+ 
+
+📁 Fichier :  src/routes/index.js 
+
+ 
 const express = require("express");
 
-const authRoutes = require(
-  "../modules/auth/auth.routes"
-);
-
-const videoRoutes = require(
-  "../modules/video/video.routes"
-);
-
-const victoryRoutes = require(
-  "../modules/victory/victory.routes"
-);
-
-const victoryWorldRoutes = require(
-  "../modules/victory-world/victory-world.routes"
-);
-
-const paymentsRoutes = require(
-  "../modules/payments/payments.routes"
-);
-
-const opportunitiesRoutes = require(
-  "../modules/opportunities/opportunities.routes"
-);
-
-const adminRoutes = require(
-  "../modules/admin/admin.routes"
-);
+const authRoutes = require("../modules/auth/auth.routes");
+const videoRoutes = require("../modules/video/video.routes");
+const paymentsRoutes = require("../modules/payments/payments.routes");
+const opportunitiesRoutes = require("../modules/opportunities/opportunities.routes");
+const adminRoutes = require("../modules/admin/admin.routes");
 
 const router = express.Router();
 
+// ─── Statut API ─────────────────────────────────────────────────────────────
 router.get("/", (req, res) => {
   res.json({
     status: "OK",
-    message: "API Point Focal V9"
+    message: "API Point Focal V10",
   });
 });
 
-router.use(
-  "/auth",
-  authRoutes
-);
+// ─── Authentification ────────────────────────────────────────────────────────
+router.use("/auth", authRoutes);
 
-router.use(
-  "/admin",
-  adminRoutes
-);
+// ─── Administration ──────────────────────────────────────────────────────────
+router.use("/admin", adminRoutes);
 
-router.use(
-  "/video",
-  videoRoutes
-);
+// ─── Vidéos ──────────────────────────────────────────────────────────────────
+router.use("/video", videoRoutes);
 
-router.use(
-  "/victory-link",
-  victoryRoutes
-);
+// ─── Paiements ───────────────────────────────────────────────────────────────
+router.use("/payment", paymentsRoutes);
 
-router.use(
-  "/victory-world",
-  victoryWorldRoutes
-);
-
-router.use(
-  "/payment",
-  paymentsRoutes
-);
-
-router.use(
-  "/opportunities",
-  opportunitiesRoutes
-);
+// ─── Opportunités (moteur générique V10) ─────────────────────────────────────
+// Remplace les anciennes routes /victory-link et /victory-world
+router.use("/opportunities", opportunitiesRoutes);
 
 module.exports = router;
+ 
+
+ 
+
