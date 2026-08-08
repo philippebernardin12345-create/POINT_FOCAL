@@ -1,8 +1,8 @@
 const repo = require('./user-opportunities.repository');
-const { getOpportunityBySlug } = require('../opportunities/opportunities.repository');
+const { findOpportunityBySlug } = require('../opportunities/opportunity.model');
 
 const saveUserLink = async (userId, { opportunitySlug, referralLink, targetAddress, paymentHash }) => {
-  const opportunity = await getOpportunityBySlug(opportunitySlug);
+  const opportunity = await findOpportunityBySlug(opportunitySlug);
   if (!opportunity) throw new Error('Opportunité introuvable');
 
   if (opportunity.slug === 'victory-automatic') {
@@ -11,7 +11,7 @@ const saveUserLink = async (userId, { opportunitySlug, referralLink, targetAddre
     }
   } else {
     if (!referralLink) {
-      throw new Error('Le lien de l\'opportunité est obligatoire');
+      throw new Error('Le lien de opportunite est obligatoire');
     }
   }
 
@@ -25,7 +25,7 @@ const saveUserLink = async (userId, { opportunitySlug, referralLink, targetAddre
 };
 
 const getAvailableLink = async (opportunitySlug) => {
-  const opportunity = await getOpportunityBySlug(opportunitySlug);
+  const opportunity = await findOpportunityBySlug(opportunitySlug);
   if (!opportunity) throw new Error('Opportunité introuvable');
   return await repo.getAvailableLinkForOpportunity(opportunity.id);
 };
@@ -36,3 +36,7 @@ const getUserLinks = async (userId) => {
 
 module.exports = { saveUserLink, getAvailableLink, getUserLinks };
  
+
+ 
+
+ 
