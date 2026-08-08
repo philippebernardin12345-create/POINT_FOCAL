@@ -7,9 +7,7 @@ const opportunityEngine = require(
 );
 
 async function getActiveOpportunities() {
-  return opportunityRepository.findAllActive();async function getActiveEntryOpportunity() {
-  return opportunityRepository.getActiveEntryOpportunity();
-}
+  return opportunityRepository.findAllActive();
 }
 
 async function getActiveEntryOpportunity() {
