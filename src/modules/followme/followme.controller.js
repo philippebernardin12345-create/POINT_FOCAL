@@ -1,4 +1,4 @@
-require("./followme.service");
+const followmeService = require("./followme.service");
 
 async function getSponsorLink(req, res) {
   try {
@@ -24,4 +24,4 @@ async function getSponsorLink(req, res) {
   }
 }
 
-module.exports
+module.exports = { getSponsorLink };
