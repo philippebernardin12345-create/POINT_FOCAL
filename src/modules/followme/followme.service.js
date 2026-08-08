@@ -1,4 +1,3 @@
-
 const repository = require("./followme.repository");
 
 async function getSponsorLinkForOpportunity(userId, opportunitySlug) {
@@ -78,4 +77,3 @@ async function getSponsorLinkForOpportunity(userId, opportunitySlug) {
 module.exports = { getSponsorLinkForOpportunity };
  
 
- 
