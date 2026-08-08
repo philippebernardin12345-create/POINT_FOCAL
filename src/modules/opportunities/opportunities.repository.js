@@ -1,12 +1,15 @@
 
+
+ 
 const db = require("../../config/db");
 
+// ─── Toutes les opportunités actives (ordonnées par position) ────────────────
 async function findAllActive() {
   const result = await db.query(
     `
     SELECT *
     FROM opportunities
-    WHERE active = true
+    WHERE status = 'active'
     ORDER BY position ASC
     `
   );
@@ -14,6 +17,7 @@ async function findAllActive() {
   return result.rows;
 }
 
+// ─── Toutes les opportunités (actives ou non) ────────────────────────────────
 async function findAll() {
   const result = await db.query(
     `
@@ -26,6 +30,7 @@ async function findAll() {
   return result.rows;
 }
 
+// ─── Une opportunité par ID ──────────────────────────────────────────────────
 async function findById(id) {
   const result = await db.query(
     `
@@ -36,8 +41,10 @@ async function findById(id) {
     [id]
   );
 
-  return result.rows[0];
+  return result.rows[0] || null;
 }
+
+// ─── Une opportunité par slug ────────────────────────────────────────────────
 async function findOpportunityBySlug(slug) {
   const result = await db.query(
     `
@@ -52,10 +59,8 @@ async function findOpportunityBySlug(slug) {
   return result.rows[0] || null;
 }
 
-async function findAssignmentByUser(
-  userId,
-  opportunityId
-) {
+// ─── Assignment d'un utilisateur sur une opportunité ────────────────────────
+async function findAssignmentByUser(userId, opportunityId) {
   const result = await db.query(
     `
     SELECT *
@@ -70,10 +75,8 @@ async function findAssignmentByUser(
   return result.rows[0] || null;
 }
 
-async function findAssignmentByPersonalLink(
-  opportunityId,
-  personalLink
-) {
+// ─── Assignment par lien personnel ──────────────────────────────────────────
+async function findAssignmentByPersonalLink(opportunityId, personalLink) {
   const result = await db.query(
     `
     SELECT *
@@ -88,13 +91,14 @@ async function findAssignmentByPersonalLink(
   return result.rows[0] || null;
 }
 
+// ─── Créer un assignment ─────────────────────────────────────────────────────
 async function createAssignment({
   userId,
   opportunityId,
   assignedSponsorLink,
   personalLink,
   realParentLink,
-  assignmentSource = "follow_me"
+  assignmentSource = "follow_me",
 }) {
   const result = await db.query(
     `
@@ -115,13 +119,14 @@ async function createAssignment({
       assignedSponsorLink,
       personalLink,
       realParentLink,
-      assignmentSource
+      assignmentSource,
     ]
   );
 
   return result.rows[0];
 }
 
+// ─── Opportunité d'entrée active (point de départ du parcours) ───────────────
 async function getActiveEntryOpportunity() {
   const result = await db.query(
     `
@@ -129,22 +134,25 @@ async function getActiveEntryOpportunity() {
     FROM opportunities
     WHERE status = 'active'
       AND is_entry = true
-    ORDER BY priority ASC
+    ORDER BY position ASC
     LIMIT 1
     `
   );
 
   return result.rows[0] || null;
 }
+
+// ─── Exports ─────────────────────────────────────────────────────────────────
 module.exports = {
   findAllActive,
   findAll,
   findById,
-
   findOpportunityBySlug,
   findAssignmentByUser,
   findAssignmentByPersonalLink,
   createAssignment,
-
-  getActiveEntryOpportunity
+  getActiveEntryOpportunity,
 };
+ 
+
+ 
