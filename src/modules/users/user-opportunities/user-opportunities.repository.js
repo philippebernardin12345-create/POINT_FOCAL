@@ -1,7 +1,7 @@
 
 
  
-const pool = require('../../config/db');
+const pool = require('../../../config/db');
 
 const saveUserOpportunityLink = async ({
   userId,

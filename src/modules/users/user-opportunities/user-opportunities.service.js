@@ -1,5 +1,5 @@
 const repo = require('./user-opportunities.repository');
-const { findOpportunityBySlug } = require('../opportunities/opportunity.model');
+const { findOpportunityBySlug } = require('../../opportunities/opportunities.repository');
 
 const saveUserLink = async (userId, { opportunitySlug, referralLink, targetAddress, paymentHash }) => {
   const opportunity = await findOpportunityBySlug(opportunitySlug);
