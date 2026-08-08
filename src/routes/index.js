@@ -1,11 +1,3 @@
-J'analyse ton fichier de routes pour faire la modification !
-
-Parfait, je vois exactement le problème. Voici le fichier réécrit pour la V10 :
-
- 
-
-📁 Fichier :  src/routes/index.js 
-
  
 const express = require("express");
 
@@ -14,10 +6,11 @@ const videoRoutes = require("../modules/video/video.routes");
 const paymentsRoutes = require("../modules/payments/payments.routes");
 const opportunitiesRoutes = require("../modules/opportunities/opportunities.routes");
 const adminRoutes = require("../modules/admin/admin.routes");
+const userOpportunitiesRoutes = require("../modules/users/user-opportunities/user-opportunities.routes");
 
 const router = express.Router();
 
-// ─── Statut API ─────────────────────────────────────────────────────────────
+// ─── Statut API ──────────────────────────────────────────────────────────────
 router.get("/", (req, res) => {
   res.json({
     status: "OK",
@@ -38,11 +31,12 @@ router.use("/video", videoRoutes);
 router.use("/payment", paymentsRoutes);
 
 // ─── Opportunités (moteur générique V10) ─────────────────────────────────────
-// Remplace les anciennes routes /victory-link et /victory-world
 router.use("/opportunities", opportunitiesRoutes);
+
+// ─── Liens utilisateurs par opportunité (Follow Me) ──────────────────────────
+router.use("/user-opportunities", userOpportunitiesRoutes);
 
 module.exports = router;
  
 
  
-
