@@ -14,8 +14,12 @@ const errorMiddleware = require("./middlewares/error.middleware");
 // ─── Registre des modules d'opportunité ─────────────────────────────────────
 // Chargé APRÈS les dépendances, AVANT le démarrage de l'app
 const registry = require("./modules/opportunities/opportunities.registry");
-registry.register("victory-automatic", { name: "Victory Automatic", requiresLink: true });
-registry.register("victory-world", { name: "Victory World", requiresLink: true });
+const victoryAutomaticModule = require("./modules/victory/victory-automatic.module");
+const victoryWorldModule = require("./modules/victory-world/victory-world.module");
+
+// Enregistrement des modules avec leurs méthodes checkEligibility
+registry.register("victory-automatic", victoryAutomaticModule);
+registry.register("victory-world", victoryWorldModule);
 
 const app = express();
 
