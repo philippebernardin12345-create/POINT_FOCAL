@@ -1,10 +1,8 @@
-require("dotenv").config();
-const registry = require("./modules/opportunities/registry");
 
-// Simulation : On enregistre les deux opportunités existantes comme modules
-// Plus tard, ces modules auront leurs propres dossiers exports
-registry.register("victory-automatic", { name: "Victory Automatic", requiresLink: true });
-registry.register("victory-world", { name: "Victory World", requiresLink: true });
+
+ 
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -13,12 +11,18 @@ const rateLimit = require("express-rate-limit");
 const routes = require("./routes");
 const errorMiddleware = require("./middlewares/error.middleware");
 
+// ─── Registre des modules d'opportunité ─────────────────────────────────────
+// Chargé APRÈS les dépendances, AVANT le démarrage de l'app
+const registry = require("./modules/opportunities/registry");
+registry.register("victory-automatic", { name: "Victory Automatic", requiresLink: true });
+registry.register("victory-world", { name: "Victory World", requiresLink: true });
+
 const app = express();
 
-// ─── Sécurité : Headers HTTP ───────────────────────────────────────────────
+// ─── Sécurité : Headers HTTP ─────────────────────────────────────────────────
 app.use(helmet());
 
-// ─── Sécurité : CORS ────────────────────────────────────────────────────────
+// ─── Sécurité : CORS ─────────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
   : ["http://localhost:3000"];
@@ -26,7 +30,6 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Autoriser les requêtes sans origin (ex: Postman, mobile)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -39,10 +42,10 @@ app.use(
   })
 );
 
-// ─── Sécurité : Rate Limiting ───────────────────────────────────────────────
+// ─── Sécurité : Rate Limiting ─────────────────────────────────────────────────
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,                  // max 100 requêtes par IP
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -53,11 +56,11 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-// ─── Parsing ────────────────────────────────────────────────────────────────
+// ─── Parsing ──────────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ─── Routes de santé ────────────────────────────────────────────────────────
+// ─── Routes de santé ──────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.json({
     status: "OK",
@@ -74,10 +77,14 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ─── Routes API ─────────────────────────────────────────────────────────────
+// ─── Routes API ───────────────────────────────────────────────────────────────
 app.use("/api", routes);
 
-// ─── Gestion des erreurs ────────────────────────────────────────────────────
+// ─── Gestion des erreurs ──────────────────────────────────────────────────────
 app.use(errorMiddleware);
 
 module.exports = app;
+ 
+
+ 
+
