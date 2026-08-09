@@ -1,6 +1,3 @@
-
- 
-
 class OpportunityRegistry {
   constructor() {
     this.modules = new Map();
