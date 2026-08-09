@@ -1,6 +1,4 @@
 
-
- 
 const db = require("../../config/db");
 
 // ─── Toutes les opportunités actives (ordonnées par position) ────────────────
@@ -9,7 +7,7 @@ async function findAllActive() {
     `
     SELECT *
     FROM opportunities
-    WHERE status = 'active'
+    WHERE status = 'ACTIVE'
     ORDER BY position ASC
     `
   );
@@ -132,7 +130,7 @@ async function getActiveEntryOpportunity() {
     `
     SELECT *
     FROM opportunities
-    WHERE status = 'active'
+    WHERE status = 'ACTIVE'
       AND is_entry = true
     ORDER BY position ASC
     LIMIT 1
