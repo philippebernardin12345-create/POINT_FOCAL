@@ -1,5 +1,10 @@
 require("dotenv").config();
+const registry = require("./modules/opportunities/registry");
 
+// Simulation : On enregistre les deux opportunités existantes comme modules
+// Plus tard, ces modules auront leurs propres dossiers exports
+registry.register("victory-automatic", { name: "Victory Automatic", requiresLink: true });
+registry.register("victory-world", { name: "Victory World", requiresLink: true });
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
