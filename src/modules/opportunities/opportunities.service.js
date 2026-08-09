@@ -1,10 +1,5 @@
-const opportunityRepository = require(
-  "./opportunities.repository"
-);
-
-const opportunityEngine = require(
-  "./opportunities.engine"
-);
+const opportunityRepository = require("./opportunities.repository");
+const opportunityEngine = require("./opportunities.engine");
 
 async function getActiveOpportunities() {
   return opportunityRepository.findAllActive();
@@ -28,36 +23,27 @@ async function getOpportunityBySlug(slug) {
     .toLowerCase();
 
   if (!normalizedSlug) {
-    throw new Error(
-      "Identifiant de l'opportunité manquant."
-    );
+    throw new Error("Identifiant de l'opportunité manquant.");
   }
 
-  const opportunity =
-    await opportunityRepository.findOpportunityBySlug(
-      normalizedSlug
-    );
+  const opportunity = await opportunityRepository.findOpportunityBySlug(
+    normalizedSlug
+  );
 
   if (!opportunity) {
-    throw new Error(
-      "Opportunité introuvable."
-    );
+    throw new Error("Opportunité introuvable.");
   }
 
   return opportunity;
 }
 
-async function getNextOpportunity(
-  currentPosition
-) {
-  const opportunities =
-    await opportunityRepository.findAllActive();
+async function getNextOpportunity(currentPosition) {
+  const opportunities = await opportunityRepository.findAllActive();
 
   return (
     opportunities.find(
       (opportunity) =>
-        Number(opportunity.position) >
-        Number(currentPosition)
+        Number(opportunity.position) > Number(currentPosition)
     ) || null
   );
 }
@@ -69,26 +55,18 @@ async function registerFollowMeLink({
   personalLink,
   realParentLink
 }) {
-  const opportunity =
-    await opportunityRepository.findById(
-      opportunityId
-    );
+  const opportunity = await opportunityRepository.findById(opportunityId);
 
   if (!opportunity) {
-    throw new Error(
-      "Opportunité introuvable."
-    );
+    throw new Error("Opportunité introuvable.");
   }
 
-  if (opportunity.active === false) {
-    throw new Error(
-      "Cette opportunité est désactivée."
-    );
+  // V10 : utiliser status au lieu de active
+  if (opportunity.status !== "ACTIVE") {
+    throw new Error("Cette opportunité est désactivée.");
   }
 
-  if (
-    opportunity.requires_user_link === false
-  ) {
+  if (opportunity.requires_user_link === false) {
     throw new Error(
       "Cette opportunité ne demande pas de lien personnel."
     );
@@ -102,8 +80,6 @@ async function registerFollowMeLink({
     realParentLink
   });
 }
-
-//
 
 module.exports = {
   getActiveOpportunities,
