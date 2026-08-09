@@ -128,6 +128,25 @@ async function getBySlug(req, res) {
   }
 }
 
+// ─── Opportunités éligibles pour l'utilisateur connecté ─────────────────────
+async function getEligible(req, res) {
+  try {
+    const opportunities = await opportunityService.getEligibleOpportunities(
+      req.user.id
+    );
+
+    return res.json({
+      success: true,
+      data: opportunities,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 // ─── Enregistrement d'un lien Follow Me ─────────────────────────────────────
 async function registerFollowMeLink(req, res) {
   try {
@@ -166,6 +185,7 @@ module.exports = {
   getNext,
   getById,
   getBySlug,
+  getEligible,
   registerFollowMeLink,
 };
  
