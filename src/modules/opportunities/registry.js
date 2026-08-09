@@ -29,6 +29,7 @@ class OpportunityRegistry {
 }
 
 module.exports = new OpportunityRegistry();
+
  
 
  
