@@ -140,6 +140,35 @@ async function getActiveEntryOpportunity() {
   return result.rows[0] || null;
 }
 
+// ─── États des opportunités pour un utilisateur ─────────────────────────────
+// Consulte la table user_opportunity_states (Sprint 3) afin de connaître
+// l'état courant de l'utilisateur vis-à-vis de chaque opportunité.
+//
+// La lecture est volontairement défensive : si la table n'existe pas encore
+// dans un environnement donné, on retourne une liste vide plutôt que de faire
+// échouer le moteur générique.
+async function getUserOpportunityStates(userId) {
+  try {
+    const result = await db.query(
+      `
+      SELECT *
+      FROM user_opportunity_states
+      WHERE user_id = $1
+      `,
+      [userId]
+    );
+
+    return result.rows;
+  } catch (error) {
+    console.warn(
+      "[opportunities] Lecture de user_opportunity_states impossible :",
+      error.message
+    );
+
+    return [];
+  }
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 module.exports = {
   findAllActive,
@@ -150,6 +179,7 @@ module.exports = {
   findAssignmentByPersonalLink,
   createAssignment,
   getActiveEntryOpportunity,
+  getUserOpportunityStates,
 };
  
 

@@ -48,6 +48,10 @@ async function getNextOpportunity(currentPosition) {
   );
 }
 
+async function getEligibleOpportunities(userId) {
+  return opportunityEngine.getEligibleOpportunities(userId);
+}
+
 async function registerFollowMeLink({
   userId,
   opportunityId,
@@ -88,5 +92,6 @@ module.exports = {
   getOpportunityById,
   getOpportunityBySlug,
   getNextOpportunity,
+  getEligibleOpportunities,
   registerFollowMeLink
 };

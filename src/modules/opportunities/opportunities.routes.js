@@ -33,6 +33,13 @@ router.get(
   opportunityController.getNext
 );
 
+// Opportunités éligibles pour l'utilisateur connecté (moteur générique)
+router.get(
+  "/eligible",
+  authMiddleware,
+  opportunityController.getEligible
+);
+
 // Enregistrement d’un lien Follow Me
 router.post(
   "/follow-me/register",
