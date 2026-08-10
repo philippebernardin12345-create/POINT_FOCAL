@@ -1,7 +1,9 @@
 /**
-* POINT FOCAL V10 - Registre des Modules d'Opportunité
-* Permet d'enregistrer dynamiquement des opportunités sans modifier le moteur central.
-*/
+ * POINT FOCAL V10 - Registre des Modules d'Opportunité
+ *
+ * Permet d'enregistrer dynamiquement les opportunités
+ * sans modifier le moteur central.
+ */
 
 class OpportunityRegistry {
   constructor() {
@@ -9,9 +11,10 @@ class OpportunityRegistry {
   }
 
   /**
-   * Enregistre un module d'opportunité
-   * @param {string} slug - ex: 'victory-automatic'
-   * @param {object} config - Configuration et routes du module
+   * Enregistre un module d'opportunité.
+   *
+   * @param {string} slug - Identifiant unique du module
+   * @param {object} moduleConfig - Configuration du module
    */
   register(slug, moduleConfig) {
     if (!slug || typeof slug !== "string") {
@@ -33,68 +36,101 @@ class OpportunityRegistry {
   }
 
   /**
-   * Récupère un module par son slug
+   * Récupère un module par son slug.
+   *
+   * @param {string} slug
+   * @returns {object|undefined}
    */
   get(slug) {
     return this.modules.get(slug);
   }
 
   /**
-   * Liste tous les modules actifs
+   * Retourne tous les modules enregistrés.
+   *
+   * @returns {Array<object>}
    */
   list() {
     return Array.from(this.modules.values());
   }
 
   /**
-   * Liste tous les modules enregistrés en conservant leur slug.
-   * Utilisé par le moteur générique pour parcourir les modules
-   * sans connaître leurs noms à l'avance.
-   * @returns {Array<{ slug: string, module: object }>}
+   * Retourne les modules avec leur slug.
+   * Utilisé par le moteur générique pour parcourir
+   * les opportunités sans connaître leurs noms à l'avance.
+   *
+   * @returns {Array<{slug: string, module: object}>}
    */
   entries() {
     return Array.from(this.modules.entries()).map(
-      ([slug, module]) => ({ slug, module })
+      ([slug, module]) => ({
+        slug,
+        module
+      })
     );
   }
 
   /**
-   * Indique si un module est enregistré pour un slug donné
+   * Vérifie si un module est enregistré.
+   *
+   * @param {string} slug
+   * @returns {boolean}
    */
   has(slug) {
     return this.modules.has(slug);
   }
 
   /**
-   * Charge les modules d'opportunité depuis la base de données.
-   * Exige un repository avec la méthode findAllActive() qui renvoie
-   * les opportunités actives (status = 'ACTIVE') avec au minimum
-   * les champs : id, slug, name, requires_user_link, position.
+   * Charge les opportunités actives depuis la base de données.
+   *
+   * Le repository doit fournir une méthode findAllActive()
+   * retournant au minimum :
+   * - id
+   * - slug
+   * - name
+   * - requires_user_link
+   * - position
+   *
+   * @param {object} opportunityRepository
+   * @returns {Promise<Array<object>>}
    */
   async loadFromDatabase(opportunityRepository) {
-    if (!opportunityRepository || typeof opportunityRepository.findAllActive !== "function") {
-      throw new Error("Un repository d'opportunités valide est requis.");
+    if (
+      !opportunityRepository ||
+      typeof opportunityRepository.findAllActive !== "function"
+    ) {
+      throw new Error(
+        "Un repository d'opportunités valide est requis."
+      );
     }
 
     try {
-      const activeOps = await opportunityRepository.findAllActive();
+      const activeOpportunities =
+        await opportunityRepository.findAllActive();
 
-      activeOps.forEach((op) => {
-        if (!this.has(op.slug)) {
-          this.register(op.slug, {
-            id: op.id,
-            name: op.name,
-            requiresLink: op.requires_user_link,
-            position: op.position
+      activeOpportunities.forEach((opportunity) => {
+        if (!this.has(opportunity.slug)) {
+          this.register(opportunity.slug, {
+            id: opportunity.id,
+            name: opportunity.name,
+            requiresLink: opportunity.requires_user_link,
+            position: opportunity.position
           });
         }
       });
 
-      console.log(`[Registry] ${this.modules.size} modules chargés depuis la DB.`);
+      console.log(
+        `[Registry] ${this.modules.size} modules chargés depuis la DB.`
+      );
+
       return this.list();
-    } catch (err) {
-      console.error("[Registry] Erreur lors du chargement depuis la DB:", err);
-      throw err;
+    } catch (error) {
+      console.error(
+        "[Registry] Erreur lors du chargement depuis la DB:",
+        error
+      );
+
+      throw error;
     }
   }
 }
