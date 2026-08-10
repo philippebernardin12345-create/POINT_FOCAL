@@ -1,6 +1,6 @@
 
 
- 
+ const opportunitiesRepository = require('./opportunities.repository');
 const opportunityService = require("./opportunities.service");
 
 // ─── Toutes les opportunités ─────────────────────────────────────────────────
