@@ -45,6 +45,22 @@ router.post(
   "/follow-me/register",
   authMiddleware,
   opportunityController.registerFollowMeLink
+);✋
+// src/modules/opportunities/opportunities.routes.js
+
+// Liste complète des opportunités
+router.get(
+  "/",
+  opportunityController.getAll
 );
 
-module.exports = router;
+// --- AJOUTER ICI ---
+router.get('/:slug', opportunityController.getBySlug);
+// ----------------------
+
+// Opportunités actives seulement
+router.get(
+  "/active",
+  opportunityController.getActive
+);
+✋module.exports = router;
