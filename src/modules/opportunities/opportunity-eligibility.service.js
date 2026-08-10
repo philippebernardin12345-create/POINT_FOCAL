@@ -5,7 +5,7 @@ Colle exactement ce code :
 
  
 // src/modules/opportunities/opportunity-eligibility.service.js
-
+const eligibilityService = require('./opportunity-eligibility.service');
 const opportunityService = require('./opportunities.service');
 
 // tentative d'accès au service repository utilisateur (plusieurs signatures possibles)
