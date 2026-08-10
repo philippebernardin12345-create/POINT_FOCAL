@@ -1,5 +1,3 @@
-
-
  const opportunitiesRepository = require('./opportunities.repository');
 const opportunityService = require("./opportunities.service");
 
