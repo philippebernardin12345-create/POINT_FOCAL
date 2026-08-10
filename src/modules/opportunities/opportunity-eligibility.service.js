@@ -1,6 +1,5 @@
+ 
 
-
- 
 // src/modules/opportunities/opportunity-eligibility.service.js
 
 // Ne pas require ce fichier lui-même (éviter require circulaire)
@@ -30,8 +29,8 @@ async function _getActiveOpportunities() {
 }
 
 /**
- * Helper pour récupérer les états user_opportunity depuis le service ou le repo existant.
- */
+* Helper pour récupérer les états user_opportunity depuis le service ou le repo existant.
+*/
 async function _getUserStates(userId) {
   if (userOpportunitiesService) {
     if (typeof userOpportunitiesService.findByUserId === 'function') {
@@ -58,11 +57,11 @@ async function _getUserStates(userId) {
 }
 
 /**
- * getEligibleOpportunities(userId)
- * - Filtre uniquement les opportunités actives (via repository)
- * - Exclut celles pour lesquelles l'utilisateur a un état final (COMPLETED, FAILED, SUSPENDED, NOT_AVAILABLE)
- * - Si aucun état pour l'utilisateur : n'inclut que les opportunités d\'entrée (is_entry === true)
- */
+* getEligibleOpportunities(userId)
+* - Filtre uniquement les opportunités actives (via repository)
+* - Exclut celles pour lesquelles l'utilisateur a un état final (COMPLETED, FAILED, SUSPENDED, NOT_AVAILABLE)
+* - Si aucun état pour l'utilisateur : n'inclut que les opportunités d\'entrée (is_entry === true)
+*/
 async function getEligibleOpportunities(userId) {
   try {
     if (!userId) throw new Error('userId requis');
@@ -103,7 +102,7 @@ async function getEligibleOpportunities(userId) {
 module.exports = {
   getEligibleOpportunities,
 };
- 
+ 
 
 Étapes suivantes (une par une)
 
@@ -118,7 +117,7 @@ Intégration dans opportunities.service.js
 
 Ajoute (si pas déjà) dans opportunities.service.js :
 
- 
+ 
 const eligibilityService = require('./opportunity-eligibility.service');
 
 async function getEligibleOpportunities(userId) {
@@ -129,5 +128,5 @@ module.exports = {
   // ... autres exports ...
   getEligibleOpportunities,
 };
- 
+ 
 
