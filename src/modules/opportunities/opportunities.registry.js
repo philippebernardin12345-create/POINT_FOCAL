@@ -1,3 +1,10 @@
+
+ 
+/**
+* POINT FOCAL V10 - Registre des Modules d'Opportunité
+* Permet d'enregistrer dynamiquement des opportunités sans modifier le moteur central.
+*/
+
 class OpportunityRegistry {
   constructor() {
     this.modules = new Map();
@@ -9,8 +16,22 @@ class OpportunityRegistry {
    * @param {object} config - Configuration et routes du module
    */
   register(slug, moduleConfig) {
-    this.modules.set(slug, moduleConfig);
-    console.log(`[Registry] Module '${slug}' enregistré avec succès.`);
+    if (!slug || typeof slug !== "string") {
+      throw new Error("Le slug du module est obligatoire.");
+    }
+
+    if (!moduleConfig || typeof moduleConfig !== "object") {
+      throw new Error(
+        `La configuration du module "${slug}" est invalide.`
+      );
+    }
+
+    this.modules.set(slug, {
+      slug,
+      ...moduleConfig
+    });
+
+    console.log(`[Registry] Module "${slug}" enregistré.`);
   }
 
   /**
@@ -45,10 +66,43 @@ class OpportunityRegistry {
   has(slug) {
     return this.modules.has(slug);
   }
+
+  /**
+   * Charge les modules d'opportunité depuis la base de données.
+   * Exige un repository avec la méthode findAllActive() qui renvoie
+   * les opportunités actives (status = 'ACTIVE') avec au minimum
+   * les champs : id, slug, name, requires_user_link, position.
+   */
+  async loadFromDatabase(opportunityRepository) {
+    if (!opportunityRepository || typeof opportunityRepository.findAllActive !== "function") {
+      throw new Error("Un repository d'opportunités valide est requis.");
+    }
+
+    try {
+      const activeOps = await opportunityRepository.findAllActive();
+
+      activeOps.forEach((op) => {
+        if (!this.has(op.slug)) {
+          this.register(op.slug, {
+            id: op.id,
+            name: op.name,
+            requiresLink: op.requires_user_link,
+            position: op.position
+          });
+        }
+      });
+
+      console.log(`[Registry] ${this.modules.size} modules chargés depuis la DB.`);
+      return this.list();
+    } catch (err) {
+      console.error("[Registry] Erreur lors du chargement depuis la DB:", err);
+      throw err;
+    }
+  }
 }
 
 module.exports = new OpportunityRegistry();
+ 
 
- 
+ 
 
- 
