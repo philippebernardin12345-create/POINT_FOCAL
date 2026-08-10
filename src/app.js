@@ -14,8 +14,13 @@ const errorMiddleware = require("./middlewares/error.middleware");
 // ─── Registre des modules d'opportunité ─────────────────────────────────────
 // Chargé APRÈS les dépendances, AVANT le démarrage de l'app
 const registry = require("./modules/opportunities/opportunities.registry");
-✋registry.register("victory-automatic", { name: "Victory Automatic", requiresLink: true });
-registry.register("victory-world", { name: "Victory World", requiresLink: true });✋
+// Chargement automatique des opportunités depuis la base
+const opportunityRepository = require("./modules/opportunities/opportunities.repository");
+registry.loadFromDatabase(opportunityRepository).catch(err => {
+  console.error("[Startup] Échec du chargement du registre depuis la base :", err.message);
+  process.exit(1);
+});
+
 
 const app = express();
 
