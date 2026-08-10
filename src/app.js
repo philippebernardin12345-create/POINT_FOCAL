@@ -8,6 +8,21 @@ const rateLimit = require("express-rate-limit");
 const routes = require("./routes");
 const errorMiddleware = require("./middlewares/error.middleware");
 
+// ─── Registre des modules d'opportunité (chargé au démarrage dans server.js) ──
+const registry = require("./modules/opportunities/registry");
+
+const app = express();
+
+// ... reste du fichier inchangé ...
+
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+
+const routes = require("./routes");
+const errorMiddleware = require("./middlewares/error.middleware");
+
 // ─── Registre des modules d'opportunité ─────────────────────────────────────
 // Chargé APRÈS les dépendances, AVANT le démarrage de l'app
 const registry = require("./modules/opportunities/opportunities.registry");
