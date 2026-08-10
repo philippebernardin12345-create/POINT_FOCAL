@@ -45,22 +45,10 @@ router.post(
   "/follow-me/register",
   authMiddleware,
   opportunityController.registerFollowMeLink
-);✋
-// src/modules/opportunities/opportunities.routes.js
-
-// Liste complète des opportunités
-router.get(
-  "/",
-  opportunityController.getAll
 );
 
-// --- AJOUTER ICI ---
+// Route paramétrée : récupérer une opportunité par son slug
+// Doit être placée *après* toutes les routes statiques pour éviter les collisions
 router.get('/:slug', opportunityController.getBySlug);
-// ----------------------
 
-// Opportunités actives seulement
-router.get(
-  "/active",
-  opportunityController.getActive
-);
-✋module.exports = router;
+module.exports = router;
