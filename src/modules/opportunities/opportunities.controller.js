@@ -103,22 +103,24 @@ async function getById(req, res) {
 }
 
 // ─── Opportunité par slug ────────────────────────────────────────────────────
+ 
 async function getBySlug(req, res) {
   try {
     const opportunity = await opportunityService.getOpportunityBySlug(req.params.slug);
+
+    if (!opportunity) {
+      return res.status(404).json({
+        success: false,
+        message: "Opportunité introuvable."
+      });
+    }
 
     return res.json({
       success: true,
       data: opportunity,
     });
   } catch (error) {
-    if (error.message === "Opportunité introuvable.") {
-      return res.status(404).json({
-        success: false,
-        message: error.message,
-      });
-    }
-
+    console.error('[opportunities.controller.getBySlug]', error);
     return res.status(500).json({
       success: false,
       message: "Erreur lors du chargement de l'opportunité.",
@@ -126,7 +128,7 @@ async function getBySlug(req, res) {
   }
 }
 
-// ─── Opportunités éligibles pour l'utilisateur connecté ─────────────────────
+🇨🇩// ─── Opportunités éligibles pour l'utilisateur connecté ─────────────────────
 async function getEligible(req, res) {
   try {
     const opportunities = await opportunityService.getEligibleOpportunities(
