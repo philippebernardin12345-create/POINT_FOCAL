@@ -1,5 +1,3 @@
- 
-
 // src/modules/opportunities/opportunity-eligibility.service.js
 
 // Ne pas require ce fichier lui-même (éviter require circulaire)
