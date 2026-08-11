@@ -7,7 +7,7 @@ const registry = require("./opportunities.registry");
 // Ce moteur ne connaît AUCUNE opportunité en particulier (ni Victory Automatic,
 // ni Victory World). Il découvre dynamiquement les modules enregistrés via le
 // registry (Sprint 2) et interroge chaque module via un contrat standardisé.
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
 
 // États considérés comme « terminés » : l'opportunité correspondante n'est
 // plus proposée à l'utilisateur car elle est déjà accomplie.
@@ -99,7 +99,34 @@ async function getEligibleOpportunities(userId) {
   const states = await repository.getUserOpportunityStates(userId);
   const { stateBySlug, stateByOpportunityId } = indexUserStates(states);
 
- ✋ const eligibleOpportunities = [];
+ eligibleOpportunities.push({
+  slug,
+  name: (opportunity && opportunity.name) || module.name || slug,
+  requiresLink:
+    module.requiresLink !== undefined && module.requiresLink !== null
+      ? Boolean(module.requiresLink)
+      : Boolean(opportunity && opportunity.requires_user_link),
+  opportunityId: opportunity ? opportunity.id : null,
+  // Normaliser position : convertir en entier si possible, sinon null
+  position:
+    opportunity && opportunity.position !== undefined && opportunity.position !== null
+      ? Number.isNaN(Number(opportunity.position))
+        ? null
+        : Number(opportunity.position)
+      : null,
+  // Exposer explicitement logo_url (null si absent)
+  logo_url:
+    opportunity && (opportunity.logo_url || opportunity.logoUrl)
+      ? (opportunity.logo_url || opportunity.logoUrl)
+      : null,
+  currentStatus: currentStatus || "available",
+  reason: eligibility.reason,
+  metadata: {
+    ...(module.metadata || {}),
+    ...(eligibility.metadata || {}),
+  },
+});  
+ const eligibleOpportunities = [];
 
   for (const { slug, module } of registeredModules) {
     // Métadonnées de l'opportunité en base (facultatif : le module peut exister
@@ -117,7 +144,7 @@ async function getEligibleOpportunities(userId) {
       (opportunity
         ? stateByOpportunityId.get(String(opportunity.id))
         : null) ||
-      null;✋
+      null;
 
     const currentStatus = state
       ? String(state.status || state.state || "").toLowerCase()
