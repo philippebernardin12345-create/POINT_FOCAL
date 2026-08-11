@@ -128,7 +128,7 @@ async function getBySlug(req, res) {
   }
 }
 
-🇨🇩// ─── Opportunités éligibles pour l'utilisateur connecté ─────────────────────
+// ─── Opportunités éligibles pour l'utilisateur connecté ─────────────────────
 async function getEligible(req, res) {
   try {
     const opportunities = await opportunityService.getEligibleOpportunities(
