@@ -96,6 +96,7 @@ async function registerFollowMeLink({ userId, opportunityId, assignedSponsorLink
 }
 
 module.exports = { getEligibleOpportunities, registerFollowMeLink };
+
  
 
  
