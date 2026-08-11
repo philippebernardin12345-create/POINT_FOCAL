@@ -99,7 +99,7 @@ async function getEligibleOpportunities(userId) {
   const states = await repository.getUserOpportunityStates(userId);
   const { stateBySlug, stateByOpportunityId } = indexUserStates(states);
 
-  const eligibleOpportunities = [];
+ ✋ const eligibleOpportunities = [];
 
   for (const { slug, module } of registeredModules) {
     // Métadonnées de l'opportunité en base (facultatif : le module peut exister
@@ -117,7 +117,7 @@ async function getEligibleOpportunities(userId) {
       (opportunity
         ? stateByOpportunityId.get(String(opportunity.id))
         : null) ||
-      null;
+      null;✋
 
     const currentStatus = state
       ? String(state.status || state.state || "").toLowerCase()
