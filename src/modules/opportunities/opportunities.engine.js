@@ -1,5 +1,3 @@
-
- 
 const repository = require("./opportunities.repository");
 const registry = require("./opportunities.registry");
 
@@ -30,6 +28,7 @@ function indexUserStates(states) {
 
 async function getEligibleOpportunities(userId) {
   if (!userId) throw new Error("Utilisateur non authentifié.");
+  
   const registeredModules = registry.entries();
   const states = await repository.getUserOpportunityStates(userId);
   const { stateBySlug, stateByOpportunityId } = indexUserStates(states);
@@ -41,6 +40,7 @@ async function getEligibleOpportunities(userId) {
     const state = stateBySlug.get(String(slug)) || (opportunity ? stateByOpportunityId.get(String(opportunity.id)) : null);
     const currentStatus = state ? String(state.status || state.state || "").toLowerCase() : null;
 
+    // Ignorer les opportunités terminées
     if (currentStatus && COMPLETED_STATES.includes(currentStatus)) continue;
 
     let eligibility = module && typeof module.checkEligibility === "function"
@@ -62,10 +62,11 @@ async function getEligibleOpportunities(userId) {
     });
   }
 
+  // Trier par position
   eligibleOpportunities.sort((a, b) => (a.position || 999) - (b.position || 999));
 
-  // OPTION 2 : Une seule carte à la fois
-  return eligibleOpportunities.length > 0 ? [eligibleOpportunities[0]] : [];
+  // ✅ CORRECTION : Retourner TOUTES les opportunités
+  return eligibleOpportunities;
 }
 
 async function registerFollowMeLink({ userId, opportunityId, assignedSponsorLink, personalLink, realParentLink }) {
@@ -96,12 +97,3 @@ async function registerFollowMeLink({ userId, opportunityId, assignedSponsorLink
 }
 
 module.exports = { getEligibleOpportunities, registerFollowMeLink };
-
- 
-
- 
-
-
-
-
-
