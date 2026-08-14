@@ -7,6 +7,7 @@ const rateLimit = require("express-rate-limit");
 
 const routes = require("./routes");
 const errorMiddleware = require("./middlewares/error.middleware");
+const timingMiddleware = require("./middleware/timing");
 
 // Registre des modules d'opportunité (chargé au démarrage dans server.js)
 const registry = require("./modules/opportunities/registry");
@@ -53,6 +54,7 @@ app.use(limiter);
 // ─── Parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(timingMiddleware);
 
 // ─── Routes de santé
 app.get("/", (req, res) => {
