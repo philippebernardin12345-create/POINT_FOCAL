@@ -312,7 +312,7 @@ async function register(payload) {
         user.victory_expired
     }
   };
-}
+}✋
 
 async function confirmEmail(userId) {
   if (!userId) {
