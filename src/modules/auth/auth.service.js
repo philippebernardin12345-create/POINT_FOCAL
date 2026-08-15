@@ -222,7 +222,7 @@ async function register(payload) {
   };
 }
 
-async function login(payload) {
+✋async function login(payload) {
   const normalizedEmail =
     String(payload.email || "")
       .trim()
