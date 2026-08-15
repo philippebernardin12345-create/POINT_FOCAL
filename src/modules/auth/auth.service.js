@@ -223,7 +223,7 @@ async function register(payload) {
 }
 
 
-async function confirmEmail(userId) {
+✋async function confirmEmail(userId) {
   if (!userId) {
     throw new Error(
       "Identifiant utilisateur manquant."
