@@ -221,7 +221,133 @@ async function register(payload) {
       "Un code OTP a été envoyé à votre email."
   };
 }
+async function login(payload) {
+  const totalStart = Date.now();
 
+  const normalizedEmail =
+    String(payload.email || "")
+      .trim()
+      .toLowerCase();
+
+  const password = payload.password;
+
+  if (!normalizedEmail || !password) {
+    throw new Error(
+      "Email et mot de passe obligatoires."
+    );
+  }
+
+  const dbStart = Date.now();
+
+  const user =
+    await authRepository.findUserByEmail(
+      normalizedEmail
+    );
+
+  console.log(
+    `[login-timing] findUserByEmail=${Date.now() - dbStart}ms`
+  );
+
+  if (!user) {
+    console.log(
+      `[login-timing] total=${Date.now() - totalStart}ms`
+    );
+
+    throw new Error(
+      "Identifiants invalides."
+    );
+  }
+
+  const bcryptStart = Date.now();
+
+  const validPassword =
+    await bcrypt.compare(
+      password,
+      user.password_hash
+    );
+
+  console.log(
+    `[login-timing] bcrypt.compare=${Date.now() - bcryptStart}ms`
+  );
+
+  if (!validPassword) {
+    console.log(
+      `[login-timing] total=${Date.now() - totalStart}ms`
+    );
+
+    throw new Error(
+      "Identifiants invalides."
+    );
+  }
+
+  if (!user.email_confirmed) {
+    console.log(
+      `[login-timing] total=${Date.now() - totalStart}ms`
+    );
+
+    throw new Error(
+      "Veuillez confirmer votre email avec le code OTP avant de vous connecter."
+    );
+  }
+
+  const tokenStart = Date.now();
+
+  const token = signToken({
+    id: user.id,
+    email: user.email,
+    campaignId: user.campaign_id,
+    isRoot: user.is_root,
+    isLeader: user.is_leader
+  });
+
+  console.log(
+    `[login-timing] signToken=${Date.now() - tokenStart}ms`
+  );
+
+  console.log(
+    `[login-timing] total=${Date.now() - totalStart}ms`
+  );
+
+  return {
+    token,
+    user: {
+      id: user.id,
+      email: user.email,
+      whatsapp: user.whatsapp,
+      language: user.language,
+      status: user.status,
+      campaignId:
+        user.campaign_id,
+
+      invitationCodeSeries1:
+        user.invitation_code_series_1,
+
+      invitationCodeSeries2:
+        user.invitation_code_series_2,
+
+      invitationCodeSeries3:
+        user.invitation_code_series_3,
+
+      isRoot:
+        user.is_root,
+
+      isLeader:
+        user.is_leader,
+
+      isPrelaunchLeader:
+        user.is_prelaunch_leader,
+
+      linkActive:
+        user.link_active,
+
+      victoryPersonalLink:
+        user.victory_personal_link,
+
+      victoryExpired:
+        user.victory_expired
+    }
+  };
+}
 
 ✋async function confirmEmail(userId) {
   if (!userId) {
