@@ -370,7 +370,7 @@ async function confirmEmail(userId) {
   return user;
 }
 
-✋async function confirmOtp(payload) {
+async function confirmOtp(payload) {
   const normalizedEmail =
     String(payload.email || "")
       .trim()
