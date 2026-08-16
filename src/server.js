@@ -1,24 +1,53 @@
+/**
+ * POINT FOCAL V10.4 - Point d'entrée du serveur
+ * 
+ * RÉFÉRENCE : Constitution Technique V10.4 - Article 35
+ */
+
 require("dotenv").config();
 
 const app = require("./app");
 const registry = require("./modules/opportunities/registry");
 const opportunityRepository = require("./modules/opportunities/opportunities.repository");
+const { logger } = require("./utils/logger");
 
 const PORT = process.env.PORT || 5000;
 
-async function start() {
+/**
+ * Démarre le serveur
+ */
+async function startServer() {
   try {
-    // Charge les modules d'opportunité depuis la base AVANT de démarrer le serveur
+    // 1. Charger les modules d'opportunité depuis la base
+    logger.info("[Startup] Chargement du registre des opportunités...");
+    
     await registry.loadFromDatabase(opportunityRepository);
-    console.log("[Startup] Registre chargé depuis la base.");
+    
+    logger.info(`[Startup] Registre chargé : ${registry.list().length} modules actifs.`);
 
+    // 2. Démarrer le serveur HTTP
     app.listen(PORT, () => {
-      console.log(`Point Focal Backend V10 running on port ${PORT}`);
+      logger.info(`[Startup] Point Focal Backend V10.4 démarré sur le port ${PORT}`);
+      logger.info(`[Startup] Environnement : ${process.env.NODE_ENV || 'development'}`);
+      logger.info(`[Startup] API disponible : http://localhost:${PORT}/api`);
     });
-  } catch (err) {
-    console.error("[Startup] Échec du chargement du registre:", err);
+
+    // 3. Gestion des signaux d'arrêt
+    process.on("SIGTERM", () => {
+      logger.info("[Shutdown] Réception de SIGTERM, arrêt du serveur...");
+      process.exit(0);
+    });
+
+    process.on("SIGINT", () => {
+      logger.info("[Shutdown] Réception de SIGINT, arrêt du serveur...");
+      process.exit(0);
+    });
+
+  } catch (error) {
+    logger.error("[Startup] Échec du démarrage:", error);
     process.exit(1);
   }
 }
 
-start();
+// Démarrer le serveur
+startServer();
