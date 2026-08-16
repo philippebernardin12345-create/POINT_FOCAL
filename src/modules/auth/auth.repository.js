@@ -152,6 +152,24 @@ async function confirmEmailByOtp(email, otp) {
   return result.rows[0] || null;
 }
 
+async function countRootLeaders() {
+  const result = await db.query(
+    `
+    SELECT COUNT(*)::int AS total
+    FROM users
+    WHERE is_leader = true
+      AND sponsor_id = (
+        SELECT id
+        FROM users
+        WHERE is_root = true
+        LIMIT 1
+      )
+    `
+  );
+
+  return result.rows[0]?.total || 0;
+}
+
 async function countPrelaunchLeaders() {
   const result = await db.query(
     `
@@ -267,6 +285,7 @@ module.exports = {
   saveEmailOtp,
   confirmEmail,
   confirmEmailByOtp,
+  countRootLeaders,
   countPrelaunchLeaders,
   findOldestAvailableSponsorForFifo,
   savePasswordResetToken,
