@@ -1,36 +1,48 @@
+/**
+ * POINT FOCAL V10.4 - Repository Opportunités
+ * 
+ * RÉFÉRENCE : Constitution Technique V10.4 - Article 37
+ */
 
-const db = require("../../config/db");
+const { query } = require("../../config/db");
 
-// ─── Toutes les opportunités actives (ordonnées par position) ────────────────
-async function findAllActive() {
-  const result = await db.query(
-    `
-    SELECT *
-    FROM opportunities
-    WHERE status = 'ACTIVE'
-    ORDER BY position ASC
-    `
-  );
-
-  return result.rows;
-}
-
-// ─── Toutes les opportunités (actives ou non) ────────────────────────────────
+/**
+ * Récupère toutes les opportunités
+ */
 async function findAll() {
-  const result = await db.query(
+  const result = await query(
     `
     SELECT *
     FROM opportunities
-    ORDER BY position ASC
+    ORDER BY priority ASC, created_at ASC
     `
   );
 
   return result.rows;
 }
 
-// ─── Une opportunité par ID ──────────────────────────────────────────────────
+/**
+ * Récupère toutes les opportunités actives
+ */
+async function findAllActive() {
+  const result = await query(
+    `
+    SELECT *
+    FROM opportunities
+    WHERE status = 'active'
+      AND is_available = true
+    ORDER BY priority ASC, created_at ASC
+    `
+  );
+
+  return result.rows;
+}
+
+/**
+ * Récupère une opportunité par son ID
+ */
 async function findById(id) {
-  const result = await db.query(
+  const result = await query(
     `
     SELECT *
     FROM opportunities
@@ -42,14 +54,15 @@ async function findById(id) {
   return result.rows[0] || null;
 }
 
-// ─── Une opportunité par slug ────────────────────────────────────────────────
-async function findOpportunityBySlug(slug) {
-  const result = await db.query(
+/**
+ * Récupère une opportunité par son slug
+ */
+async function findBySlug(slug) {
+  const result = await query(
     `
     SELECT *
     FROM opportunities
     WHERE slug = $1
-    LIMIT 1
     `,
     [slug]
   );
@@ -57,130 +70,207 @@ async function findOpportunityBySlug(slug) {
   return result.rows[0] || null;
 }
 
-// ─── Assignment d'un utilisateur sur une opportunité ────────────────────────
-async function findAssignmentByUser(userId, opportunityId) {
-  const result = await db.query(
+/**
+ * Récupère l'opportunité d'entrée
+ */
+async function findEntryOpportunity() {
+  const result = await query(
     `
     SELECT *
-    FROM opportunity_assignments
-    WHERE user_id = $1
-      AND opportunity_id = $2
+    FROM opportunities
+    WHERE status = 'active'
+      AND is_available = true
+      AND is_entry = true
+    ORDER BY priority ASC
     LIMIT 1
-    `,
-    [userId, opportunityId]
+    `
   );
 
   return result.rows[0] || null;
 }
 
-// ─── Assignment par lien personnel ──────────────────────────────────────────
-async function findAssignmentByPersonalLink(opportunityId, personalLink) {
-  const result = await db.query(
+/**
+ * Récupère le générateur du lien PF
+ */
+async function findGeneratorOpportunity() {
+  const result = await query(
     `
     SELECT *
-    FROM opportunity_assignments
-    WHERE opportunity_id = $1
-      AND personal_link = $2
+    FROM opportunities
+    WHERE status = 'active'
+      AND is_available = true
+      AND can_generate_point_focal_link = true
+    ORDER BY priority ASC
     LIMIT 1
-    `,
-    [opportunityId, personalLink]
+    `
   );
 
   return result.rows[0] || null;
 }
 
-// ─── Créer un assignment ─────────────────────────────────────────────────────
-async function createAssignment({
-  userId,
-  opportunityId,
-  assignedSponsorLink,
-  personalLink,
-  realParentLink,
-  assignmentSource = "follow_me",
-}) {
-  const result = await db.query(
+/**
+ * Crée une nouvelle opportunité
+ */
+async function create(data) {
+  const result = await query(
     `
-    INSERT INTO opportunity_assignments (
-      user_id,
-      opportunity_id,
-      assigned_sponsor_link,
-      personal_link,
-      real_parent_link,
-      assignment_source
+    INSERT INTO opportunities (
+      name,
+      slug,
+      description,
+      status,
+      is_available,
+      priority,
+      is_entry,
+      can_generate_point_focal_link,
+      requires_provision,
+      provision_amount,
+      provision_message,
+      registration_url,
+      depends_on,
+      created_at,
+      updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
     RETURNING *
     `,
     [
-      userId,
-      opportunityId,
-      assignedSponsorLink,
-      personalLink,
-      realParentLink,
-      assignmentSource,
+      data.name,
+      data.slug,
+      data.description || null,
+      data.status || "draft",
+      data.isAvailable !== false,
+      data.priority || 1,
+      data.isEntry || false,
+      data.canGeneratePointFocalLink || false,
+      data.requiresProvision || false,
+      data.provisionAmount || null,
+      data.provisionMessage || null,
+      data.registrationUrl || null,
+      data.dependsOn || null
     ]
   );
 
   return result.rows[0];
 }
 
-// ─── Opportunité d'entrée active (point de départ du parcours) ───────────────
-async function getActiveEntryOpportunity() {
-  const result = await db.query(
+/**
+ * Met à jour une opportunité
+ */
+async function update(id, data) {
+  const fields = [];
+  const values = [];
+  let paramIndex = 1;
+
+  if (data.name !== undefined) {
+    fields.push(`name = $${paramIndex++}`);
+    values.push(data.name);
+  }
+
+  if (data.slug !== undefined) {
+    fields.push(`slug = $${paramIndex++}`);
+    values.push(data.slug);
+  }
+
+  if (data.description !== undefined) {
+    fields.push(`description = $${paramIndex++}`);
+    values.push(data.description);
+  }
+
+  if (data.status !== undefined) {
+    fields.push(`status = $${paramIndex++}`);
+    values.push(data.status);
+  }
+
+  if (data.isAvailable !== undefined) {
+    fields.push(`is_available = $${paramIndex++}`);
+    values.push(data.isAvailable);
+  }
+
+  if (data.priority !== undefined) {
+    fields.push(`priority = $${paramIndex++}`);
+    values.push(data.priority);
+  }
+
+  if (data.isEntry !== undefined) {
+    fields.push(`is_entry = $${paramIndex++}`);
+    values.push(data.isEntry);
+  }
+
+  if (data.canGeneratePointFocalLink !== undefined) {
+    fields.push(`can_generate_point_focal_link = $${paramIndex++}`);
+    values.push(data.canGeneratePointFocalLink);
+  }
+
+  if (data.requiresProvision !== undefined) {
+    fields.push(`requires_provision = $${paramIndex++}`);
+    values.push(data.requiresProvision);
+  }
+
+  if (data.provisionAmount !== undefined) {
+    fields.push(`provision_amount = $${paramIndex++}`);
+    values.push(data.provisionAmount);
+  }
+
+  if (data.provisionMessage !== undefined) {
+    fields.push(`provision_message = $${paramIndex++}`);
+    values.push(data.provisionMessage);
+  }
+
+  if (data.registrationUrl !== undefined) {
+    fields.push(`registration_url = $${paramIndex++}`);
+    values.push(data.registrationUrl);
+  }
+
+  if (data.dependsOn !== undefined) {
+    fields.push(`depends_on = $${paramIndex++}`);
+    values.push(data.dependsOn);
+  }
+
+  if (fields.length === 0) {
+    throw new Error("Aucune donnée à mettre à jour");
+  }
+
+  fields.push(`updated_at = NOW()`);
+  values.push(id);
+
+  const result = await query(
     `
-    SELECT *
-    FROM opportunities
-    WHERE status = 'ACTIVE'
-      AND is_entry = true
-    ORDER BY position ASC
-    LIMIT 1
-    `
+    UPDATE opportunities
+    SET ${fields.join(", ")}
+    WHERE id = $${paramIndex}
+    RETURNING *
+    `,
+    values
   );
 
   return result.rows[0] || null;
 }
 
-// ─── États des opportunités pour un utilisateur ─────────────────────────────
-// Consulte la table user_opportunity_states (Sprint 3) afin de connaître
-// l'état courant de l'utilisateur vis-à-vis de chaque opportunité.
-//
-// La lecture est volontairement défensive : si la table n'existe pas encore
-// dans un environnement donné, on retourne une liste vide plutôt que de faire
-// échouer le moteur générique.
-async function getUserOpportunityStates(userId) {
-  try {
-    const result = await db.query(
-      `
-      SELECT *
-      FROM user_opportunity_states
-      WHERE user_id = $1
-      `,
-      [userId]
-    );
+/**
+ * Supprime une opportunité
+ */
+async function remove(id) {
+  const result = await query(
+    `
+    DELETE FROM opportunities
+    WHERE id = $1
+    RETURNING id
+    `,
+    [id]
+  );
 
-    return result.rows;
-  } catch (error) {
-    console.warn(
-      "[opportunities] Lecture de user_opportunity_states impossible :",
-      error.message
-    );
-
-    return [];
-  }
+  return result.rows[0] || null;
 }
 
-// ─── Exports ─────────────────────────────────────────────────────────────────
 module.exports = {
-  findAllActive,
   findAll,
+  findAllActive,
   findById,
-  findOpportunityBySlug,
-  findAssignmentByUser,
-  findAssignmentByPersonalLink,
-  createAssignment,
-  getActiveEntryOpportunity,
-  getUserOpportunityStates,
+  findBySlug,
+  findEntryOpportunity,
+  findGeneratorOpportunity,
+  create,
+  update,
+  remove
 };
- 
-
- 
