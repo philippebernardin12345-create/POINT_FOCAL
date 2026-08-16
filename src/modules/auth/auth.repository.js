@@ -229,6 +229,23 @@ async function findOldestAvailableSponsorForFifo() {
   return result.rows[0] || null;
 }
 
+async function activatePrelaunchLeaders() {
+  const result = await db.query(
+    `
+    UPDATE users
+    SET
+      is_prelaunch_leader = false,
+      link_active = true
+    WHERE is_prelaunch_leader = true
+      AND is_leader = true
+      AND link_active = false
+    RETURNING id
+    `
+  );
+
+  return result.rows;
+}
+
 async function savePasswordResetToken(
   userId,
   resetTokenHash,
@@ -309,6 +326,7 @@ module.exports = {
   countRootLeaders,
   countPrelaunchLeaders,
   findOldestAvailableSponsorForFifo,
+  activatePrelaunchLeaders,
   savePasswordResetToken,
   findUserByPasswordResetToken,
   updatePasswordAndClearResetToken
