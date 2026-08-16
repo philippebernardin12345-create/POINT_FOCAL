@@ -1,8 +1,10 @@
 /**
- * POINT FOCAL V10 - Registre des Modules d'Opportunité
- *
+ * POINT FOCAL V10.4 - Registre des Modules d'Opportunité
+ * 
  * Permet d'enregistrer dynamiquement les opportunités
  * sans modifier le moteur central.
+ * 
+ * RÉFÉRENCE : Constitution Technique V10.4 - Article 29, 36
  */
 
 class OpportunityRegistry {
@@ -11,10 +13,7 @@ class OpportunityRegistry {
   }
 
   /**
-   * Enregistre un module d'opportunité.
-   *
-   * @param {string} slug - Identifiant unique du module
-   * @param {object} moduleConfig - Configuration du module
+   * Enregistre un module d'opportunité
    */
   register(slug, moduleConfig) {
     if (!slug || typeof slug !== "string") {
@@ -22,9 +21,7 @@ class OpportunityRegistry {
     }
 
     if (!moduleConfig || typeof moduleConfig !== "object") {
-      throw new Error(
-        `La configuration du module "${slug}" est invalide.`
-      );
+      throw new Error(`La configuration du module "${slug}" est invalide.`);
     }
 
     this.modules.set(slug, {
@@ -36,100 +33,131 @@ class OpportunityRegistry {
   }
 
   /**
-   * Récupère un module par son slug.
-   *
-   * @param {string} slug
-   * @returns {object|undefined}
+   * Récupère un module par son slug
    */
   get(slug) {
     return this.modules.get(slug);
   }
 
   /**
-   * Retourne tous les modules enregistrés.
-   *
-   * @returns {Array<object>}
+   * Récupère un module par son ID
+   */
+  getById(id) {
+    for (const [slug, module] of this.modules) {
+      if (module.id === id) {
+        return module;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Retourne tous les modules enregistrés
    */
   list() {
     return Array.from(this.modules.values());
   }
 
   /**
-   * Retourne les modules avec leur slug.
-   * Utilisé par le moteur générique pour parcourir
-   * les opportunités sans connaître leurs noms à l'avance.
-   *
-   * @returns {Array<{slug: string, module: object}>}
+   * Retourne les modules avec leur slug
    */
   entries() {
-    return Array.from(this.modules.entries()).map(
-      ([slug, module]) => ({
-        slug,
-        module
-      })
-    );
+    return Array.from(this.modules.entries()).map(([slug, module]) => ({
+      slug,
+      module
+    }));
   }
 
   /**
-   * Vérifie si un module est enregistré.
-   *
-   * @param {string} slug
-   * @returns {boolean}
+   * Vérifie si un module est enregistré
    */
   has(slug) {
     return this.modules.has(slug);
   }
 
   /**
-   * Charge les opportunités actives depuis la base de données.
-   *
-   * Le repository doit fournir une méthode findAllActive()
-   * retournant au minimum :
-   * - id
-   * - slug
-   * - name
-   * - requires_user_link
-   * - position
-   *
-   * @param {object} opportunityRepository
-   * @returns {Promise<Array<object>>}
+   * Recherche des modules par capacité
+   */
+  findByCapacity(capacity, value = true) {
+    const results = [];
+
+    for (const [slug, module] of this.modules) {
+      if (module[capacity] === value) {
+        results.push(module);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Récupère l'opportunité d'entrée
+   */
+  getEntryOpportunity() {
+    const entries = this.findByCapacity("isEntry", true);
+    const available = entries.filter(m => 
+      (m.status === "active" || m.isActive === true) &&
+      m.isAvailable !== false
+    );
+
+    available.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+
+    return available[0] || null;
+  }
+
+  /**
+   * Récupère le générateur du lien PF
+   */
+  getGeneratorOpportunity() {
+    const generators = this.findByCapacity("canGeneratePointFocalLink", true);
+    const available = generators.filter(m =>
+      (m.status === "active" || m.isActive === true) &&
+      m.isAvailable !== false
+    );
+
+    available.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+
+    return available[0] || null;
+  }
+
+  /**
+   * Charge les opportunités depuis la base de données
    */
   async loadFromDatabase(opportunityRepository) {
-    if (
-      !opportunityRepository ||
-      typeof opportunityRepository.findAllActive !== "function"
-    ) {
-      throw new Error(
-        "Un repository d'opportunités valide est requis."
-      );
+    if (!opportunityRepository || typeof opportunityRepository.findAllActive !== "function") {
+      throw new Error("Un repository d'opportunités valide est requis.");
     }
 
     try {
-      const activeOpportunities =
-        await opportunityRepository.findAllActive();
+      const activeOpportunities = await opportunityRepository.findAllActive();
 
       activeOpportunities.forEach((opportunity) => {
         if (!this.has(opportunity.slug)) {
           this.register(opportunity.slug, {
             id: opportunity.id,
             name: opportunity.name,
-            requiresLink: opportunity.requires_user_link,
-            position: opportunity.position
+            description: opportunity.description,
+            status: opportunity.status,
+            isActive: opportunity.status === "active",
+            isAvailable: opportunity.is_available !== false,
+            priority: opportunity.priority || 1,
+            isEntry: opportunity.is_entry || false,
+            canGeneratePointFocalLink: opportunity.can_generate_point_focal_link || false,
+            requiresProvision: opportunity.requires_provision || false,
+            provisionAmount: opportunity.provision_amount || null,
+            provisionMessage: opportunity.provision_message || null,
+            registrationUrl: opportunity.registration_url || null,
+            dependsOn: opportunity.depends_on || null,
+            requiresUserLink: opportunity.requires_user_link !== false
           });
         }
       });
 
-      console.log(
-        `[Registry] ${this.modules.size} modules chargés depuis la DB.`
-      );
+      console.log(`[Registry] ${this.modules.size} modules chargés depuis la DB.`);
 
       return this.list();
     } catch (error) {
-      console.error(
-        "[Registry] Erreur lors du chargement depuis la DB:",
-        error
-      );
-
+      console.error("[Registry] Erreur lors du chargement depuis la DB:", error);
       throw error;
     }
   }
