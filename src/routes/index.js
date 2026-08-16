@@ -1,13 +1,15 @@
-
-
+// src/routes/index.js
 const express = require("express");
 
-const authRoutes = require("../modules/auth/auth.routes");
+// Modules existants
 const videoRoutes = require("../modules/video/video.routes");
 const paymentsRoutes = require("../modules/payments/payments.routes");
 const opportunitiesRoutes = require("../modules/opportunities/opportunities.routes");
-const adminRoutes = require("../modules/admin/admin.routes");
 const userOpportunitiesRoutes = require("../modules/users/user-opportunities/user-opportunities.routes");
+
+// NOUVEAUX MODULES V10.4
+const authRoutes = require("../modules/auth/auth.routes");
+const adminRoutes = require("../modules/admin/admin.routes");
 const followmeRoutes = require("../modules/followme/followme.routes");
 
 const router = express.Router();
@@ -16,7 +18,8 @@ const router = express.Router();
 router.get("/", (req, res) => {
   res.json({
     status: "OK",
-    message: "API Point Focal V10",
+    message: "API Point Focal V10.4",
+    version: "10.4.0"
   });
 });
 
@@ -24,7 +27,7 @@ router.get("/", (req, res) => {
 router.use("/auth", authRoutes);
 
 // ─── Administration ──────────────────────────────────────────────────────────
-router.use("/admin", adminRoutes);
+// router.use("/admin", adminRoutes); // À activer quand admin sera créé
 
 // ─── Vidéos ──────────────────────────────────────────────────────────────────
 router.use("/video", videoRoutes);
@@ -32,14 +35,13 @@ router.use("/video", videoRoutes);
 // ─── Paiements ───────────────────────────────────────────────────────────────
 router.use("/payment", paymentsRoutes);
 
-// ─── Opportunités (moteur générique V10) ─────────────────────────────────────
+// ─── Opportunités (moteur générique V10.4) ──────────────────────────────────
 router.use("/opportunities", opportunitiesRoutes);
 
-// ─── Liens utilisateurs par opportunité ──────────────────────────────────────
+// ─── Liens utilisateurs par opportunité (Follow Me) ────────────────────────
 router.use("/user-opportunities", userOpportunitiesRoutes);
 
-// ─── Follow Me ───────────────────────────────────────────────────────────────
-router.use("/followme", followmeRoutes);
+// ─── Follow Me ──────────────────────────────────────────────────────────────
+// router.use("/followme", followmeRoutes); // À activer quand followme sera créé
 
 module.exports = router;
- 
