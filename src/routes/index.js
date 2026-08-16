@@ -1,16 +1,24 @@
-// src/routes/index.js
+/**
+ * POINT FOCAL V10.4 - Routes API
+ * 
+ * Point d'entrée de toutes les routes de l'API
+ * 
+ * RÉFÉRENCE : Constitution Technique V10.4 - Article 35
+ */
+
 const express = require("express");
 
 // Modules existants
 const videoRoutes = require("../modules/video/video.routes");
 const paymentsRoutes = require("../modules/payments/payments.routes");
 const opportunitiesRoutes = require("../modules/opportunities/opportunities.routes");
-const userOpportunitiesRoutes = require("../modules/users/user-opportunities/user-opportunities.routes");
+const userOpportunitiesRoutes = require("../modules/user-opportunities/user-opportunities.routes");
 
 // NOUVEAUX MODULES V10.4
 const authRoutes = require("../modules/auth/auth.routes");
 const adminRoutes = require("../modules/admin/admin.routes");
 const followmeRoutes = require("../modules/followme/followme.routes");
+const notificationsRoutes = require("../modules/notifications/notifications.routes");
 
 const router = express.Router();
 
@@ -19,7 +27,17 @@ router.get("/", (req, res) => {
   res.json({
     status: "OK",
     message: "API Point Focal V10.4",
-    version: "10.4.0"
+    version: "10.4.0",
+    modules: {
+      auth: true,
+      admin: true,
+      video: true,
+      payments: true,
+      opportunities: true,
+      userOpportunities: true,
+      followme: true,
+      notifications: true
+    }
   });
 });
 
@@ -27,7 +45,7 @@ router.get("/", (req, res) => {
 router.use("/auth", authRoutes);
 
 // ─── Administration ──────────────────────────────────────────────────────────
-// router.use("/admin", adminRoutes); // À activer quand admin sera créé
+router.use("/admin", adminRoutes);
 
 // ─── Vidéos ──────────────────────────────────────────────────────────────────
 router.use("/video", videoRoutes);
@@ -42,6 +60,9 @@ router.use("/opportunities", opportunitiesRoutes);
 router.use("/user-opportunities", userOpportunitiesRoutes);
 
 // ─── Follow Me ──────────────────────────────────────────────────────────────
-// router.use("/followme", followmeRoutes); // À activer quand followme sera créé
+router.use("/followme", followmeRoutes);
+
+// ─── Notifications ──────────────────────────────────────────────────────────
+router.use("/notifications", notificationsRoutes);
 
 module.exports = router;
