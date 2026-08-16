@@ -40,6 +40,20 @@ async function getActiveCampaign() {
   return result.rows[0] || null;
 }
 
+async function findRootUser() {
+  const result = await db.query(
+    `
+    SELECT *
+    FROM users
+    WHERE is_root = true
+    ORDER BY created_at ASC
+    LIMIT 1
+    `
+  );
+
+  return result.rows[0] || null;
+}
+
 async function createUser(user) {
   const result = await db.query(
     `INSERT INTO users (
@@ -71,9 +85,9 @@ async function createUser(user) {
       NULL,
       NULL,
       false,
-      false,
-      false,
-      false,
+      $8,
+      $9,
+      $10,
       false
     )
     RETURNING
@@ -100,7 +114,10 @@ async function createUser(user) {
       user.language,
       user.status,
       user.sponsorId,
-      user.campaignId
+      user.campaignId,
+      user.isLeader === true,
+      user.isPrelaunchLeader === true,
+      user.linkActive === true
     ]
   );
 
@@ -181,6 +198,7 @@ async function countPrelaunchLeaders() {
 
   return result.rows[0]?.total || 0;
 }
+
 async function findOldestAvailableSponsorForFifo() {
   const result = await db.query(
     `
@@ -210,6 +228,7 @@ async function findOldestAvailableSponsorForFifo() {
 
   return result.rows[0] || null;
 }
+
 async function savePasswordResetToken(
   userId,
   resetTokenHash,
@@ -276,11 +295,13 @@ async function updatePasswordAndClearResetToken(
 
   return result.rows[0] || null;
 }
+
 module.exports = {
   findUserByEmail,
   findUserById,
   findUserByInvitationCode,
   getActiveCampaign,
+  findRootUser,
   createUser,
   saveEmailOtp,
   confirmEmail,
