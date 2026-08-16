@@ -1,97 +1,134 @@
-const opportunityRepository = require("./opportunities.repository");
-const opportunityEngine = require("./opportunities.engine");
+/**
+ * POINT FOCAL V10.4 - Service Opportunités
+ * 
+ * RÉFÉRENCE : Constitution Technique V10.4 - Article 4, 5, 6
+ */
 
-async function getActiveOpportunities() {
-  return opportunityRepository.findAllActive();
-}
+const registry = require("./registry");
+const { 
+  getEntryOpportunity, 
+  getGeneratorOpportunity, 
+  getNextOpportunity,
+  getOpportunityBySlug,
+  getOpportunityById,
+  getAvailableOpportunities
+} = require("../../core/opportunity.engine");
+const followmeService = require("../followme/followme.service");
+const { logger } = require("../../utils/logger");
 
-async function getActiveEntryOpportunity() {
-  return opportunityRepository.getActiveEntryOpportunity();
-}
-
+/**
+ * Récupère toutes les opportunités
+ */
 async function getAllOpportunities() {
-  return opportunityRepository.findAll();
+  return registry.list();
 }
 
-async function getOpportunityById(id) {
-  return opportunityRepository.findById(id);
+/**
+ * Récupère les opportunités actives
+ */
+async function getActiveOpportunities() {
+  return getAvailableOpportunities();
 }
 
+/**
+ * Récupère l'opportunité d'entrée dynamique
+ */
+async function getEntryOpportunity(userId) {
+  return await getEntryOpportunity({ userId });
+}
+
+/**
+ * Récupère le générateur du lien PF dynamique
+ */
+async function getGeneratorOpportunity(userId) {
+  return await getGeneratorOpportunity({ userId });
+}
+
+/**
+ * Récupère la prochaine opportunité
+ */
+async function getNextOpportunity(userId, currentOpportunityId) {
+  return await getNextOpportunity(userId, currentOpportunityId);
+}
+
+/**
+ * Récupère une opportunité par son slug
+ */
 async function getOpportunityBySlug(slug) {
-  const normalizedSlug = String(slug || "")
-    .trim()
-    .toLowerCase();
+  return getOpportunityBySlug(slug);
+}
 
-  if (!normalizedSlug) {
-    throw new Error("Identifiant de l'opportunité manquant.");
+/**
+ * Enregistre le lien Follow Me pour une opportunité
+ */
+async function registerFollowMeLink({ userId, opportunityId, referralLink, targetAddress, paymentHash }) {
+  try {
+    // Vérifier que l'opportunité existe
+    const opportunity = await getOpportunityById(opportunityId);
+
+    if (!opportunity) {
+      throw new Error("Opportunité introuvable");
+    }
+
+    // Vérifier que l'opportunité est active
+    if (opportunity.status !== "active" && opportunity.isActive !== true) {
+      throw new Error("Opportunité non active");
+    }
+
+    // Enregistrer le lien via le service Follow Me
+    const result = await followmeService.registerUserLink({
+      userId,
+      opportunityId,
+      referralLink,
+      targetAddress,
+      paymentHash
+    });
+
+    return result;
+  } catch (error) {
+    logger.error("[OpportunitiesService] Erreur registerFollowMeLink:", error);
+    throw error;
   }
+}
 
-  const opportunity = await opportunityRepository.findOpportunityBySlug(
-    normalizedSlug
-  );
+/**
+ * Vérifie si une opportunité peut générer le lien PF
+ */
+async function canGeneratePointFocalLink(opportunityId) {
+  const opportunity = await getOpportunityById(opportunityId);
 
   if (!opportunity) {
-    throw new Error("Opportunité introuvable.");
+    return false;
   }
 
-  return opportunity;
+  return opportunity.canGeneratePointFocalLink === true;
 }
 
-async function getNextOpportunity(currentPosition) {
-  const opportunities = await opportunityRepository.findAllActive();
-
-  return (
-    opportunities.find(
-      (opportunity) =>
-        Number(opportunity.position) > Number(currentPosition)
-    ) || null
-  );
-}
-
-async function getEligibleOpportunities(userId) {
-  return opportunityEngine.getEligibleOpportunities(userId);
-}
-
-async function registerFollowMeLink({
-  userId,
-  opportunityId,
-  assignedSponsorLink,
-  personalLink,
-  realParentLink
-}) {
-  const opportunity = await opportunityRepository.findById(opportunityId);
+/**
+ * Récupère les exigences de provision d'une opportunité
+ */
+async function getProvisionRequirements(opportunityId) {
+  const opportunity = await getOpportunityById(opportunityId);
 
   if (!opportunity) {
-    throw new Error("Opportunité introuvable.");
+    return { requires: false, amount: null, message: null };
   }
 
-  // V10 : utiliser status au lieu de active
-  if (opportunity.status !== "ACTIVE") {
-    throw new Error("Cette opportunité est désactivée.");
-  }
-
-  if (opportunity.requires_user_link === false) {
-    throw new Error(
-      "Cette opportunité ne demande pas de lien personnel."
-    );
-  }
-
-  return opportunityEngine.registerFollowMeLink({
-    userId,
-    opportunityId,
-    assignedSponsorLink,
-    personalLink,
-    realParentLink
-  });
+  return {
+    requires: opportunity.requiresProvision === true,
+    amount: opportunity.provisionAmount || null,
+    message: opportunity.provisionMessage || null
+  };
 }
 
 module.exports = {
-  getActiveOpportunities,
-  getActiveEntryOpportunity,
   getAllOpportunities,
-  getOpportunityById,
-  getOpportunityBySlug,
+  getActiveOpportunities,
+  getEntryOpportunity,
+  getGeneratorOpportunity,
   getNextOpportunity,
-  getEligibleOpportunities,
-  registerFollowMeLink
+  getOpportunityBySlug,
+  registerFollowMeLink,
+  canGeneratePointFocalLink,
+  getProvisionRequirements
 };
