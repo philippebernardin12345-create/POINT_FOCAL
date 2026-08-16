@@ -1,194 +1,161 @@
- const opportunitiesRepository = require('./opportunities.repository');
-const opportunityService = require("./opportunities.service");
+/**
+ * POINT FOCAL V10.4 - Contrôleur Opportunités
+ * 
+ * RÉFÉRENCE : Constitution Technique V10.4 - Article 4, 5, 6
+ */
 
-// ─── Toutes les opportunités ─────────────────────────────────────────────────
+const opportunitiesService = require("./opportunities.service");
+const { success, error, notFound, validationError } = require("../../utils/response");
+const { logger } = require("../../utils/logger");
+
+/**
+ * Liste toutes les opportunités disponibles
+ */
 async function getAll(req, res) {
   try {
-    const opportunities = await opportunityService.getAllOpportunities();
+    const opportunities = await opportunitiesService.getAllOpportunities();
 
-    return res.json({
-      success: true,
-      data: opportunities,
-    });
+    return success(res, opportunities, "Opportunités récupérées avec succès");
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors du chargement des opportunités.",
-    });
+    logger.error("[Opportunities] Erreur getAll:", error);
+    return error(res, error.message || "Erreur lors de la récupération des opportunités");
   }
 }
 
-// ─── Opportunités actives seulement ─────────────────────────────────────────
+/**
+ * Liste les opportunités actives
+ */
 async function getActive(req, res) {
   try {
-    const opportunities = await opportunityService.getActiveOpportunities();
+    const opportunities = await opportunitiesService.getActiveOpportunities();
 
-    return res.json({
-      success: true,
-      data: opportunities,
-    });
+    return success(res, opportunities, "Opportunités actives récupérées avec succès");
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors du chargement des opportunités actives.",
-    });
+    logger.error("[Opportunities] Erreur getActive:", error);
+    return error(res, error.message || "Erreur lors de la récupération des opportunités actives");
   }
 }
 
-// ─── Opportunité d'entrée du parcours ───────────────────────────────────────
+/**
+ * Récupère l'opportunité d'entrée dynamique
+ */
 async function getEntry(req, res) {
   try {
-    const opportunity = await opportunityService.getActiveEntryOpportunity();
+    const userId = req.user.id;
+    const opportunity = await opportunitiesService.getEntryOpportunity(userId);
 
-    return res.json({
-      success: true,
-      data: opportunity,
-    });
+    if (!opportunity) {
+      return notFound(res, "Aucune opportunité d'entrée disponible");
+    }
+
+    return success(res, opportunity, "Opportunité d'entrée récupérée avec succès");
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors du chargement de l'opportunité d'entrée.",
-    });
+    logger.error("[Opportunities] Erreur getEntry:", error);
+    return error(res, error.message || "Erreur lors de la récupération de l'opportunité d'entrée");
   }
 }
 
-// ─── Prochaine opportunité selon position ───────────────────────────────────
+/**
+ * Récupère le générateur du lien PF dynamique
+ */
+async function getGenerator(req, res) {
+  try {
+    const userId = req.user.id;
+    const generator = await opportunitiesService.getGeneratorOpportunity(userId);
+
+    if (!generator) {
+      return notFound(res, "Aucun générateur de lien PF disponible");
+    }
+
+    return success(res, generator, "Générateur de lien PF récupéré avec succès");
+  } catch (error) {
+    logger.error("[Opportunities] Erreur getGenerator:", error);
+    return error(res, error.message || "Erreur lors de la récupération du générateur");
+  }
+}
+
+/**
+ * Récupère la prochaine opportunité pour un utilisateur
+ */
 async function getNext(req, res) {
   try {
-    const position = Number(req.params.position);
+    const userId = req.user.id;
+    const { currentOpportunityId } = req.query;
 
-    if (isNaN(position)) {
-      return res.status(400).json({
-        success: false,
-        message: "Position invalide.",
-      });
+    if (!currentOpportunityId) {
+      return validationError(res, "L'ID de l'opportunité actuelle est obligatoire");
     }
 
-    const nextOpportunity = await opportunityService.getNextOpportunity(position);
+    const next = await opportunitiesService.getNextOpportunity(userId, currentOpportunityId);
 
-    return res.json({
-      success: true,
-      data: nextOpportunity,
-    });
+    if (!next) {
+      return notFound(res, "Aucune opportunité suivante disponible");
+    }
+
+    return success(res, next, "Prochaine opportunité récupérée avec succès");
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors de la recherche de la prochaine opportunité.",
-    });
+    logger.error("[Opportunities] Erreur getNext:", error);
+    return error(res, error.message || "Erreur lors de la récupération de la prochaine opportunité");
   }
 }
 
-// ─── Opportunité par ID ──────────────────────────────────────────────────────
-async function getById(req, res) {
-  try {
-    const opportunity = await opportunityService.getOpportunityById(req.params.id);
-
-    if (!opportunity) {
-      return res.status(404).json({
-        success: false,
-        message: "Opportunité introuvable.",
-      });
-    }
-
-    return res.json({
-      success: true,
-      data: opportunity,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors du chargement de l'opportunité.",
-    });
-  }
-}
-
-// ─── Opportunité par slug ────────────────────────────────────────────────────
- 
+/**
+ * Récupère une opportunité par son slug
+ */
 async function getBySlug(req, res) {
   try {
-    const opportunity = await opportunityService.getOpportunityBySlug(req.params.slug);
+    const { slug } = req.params;
+
+    const opportunity = await opportunitiesService.getOpportunityBySlug(slug);
 
     if (!opportunity) {
-      return res.status(404).json({
-        success: false,
-        message: "Opportunité introuvable."
-      });
+      return notFound(res, "Opportunité introuvable");
     }
 
-    return res.json({
-      success: true,
-      data: opportunity,
-    });
+    return success(res, opportunity, "Opportunité récupérée avec succès");
   } catch (error) {
-    console.error('[opportunities.controller.getBySlug]', error);
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors du chargement de l'opportunité.",
-    });
+    logger.error("[Opportunities] Erreur getBySlug:", error);
+    return error(res, error.message || "Erreur lors de la récupération de l'opportunité");
   }
 }
 
-// ─── Opportunités éligibles pour l'utilisateur connecté ─────────────────────
-async function getEligible(req, res) {
-  try {
-    const opportunities = await opportunityService.getEligibleOpportunities(
-      req.user.id
-    );
-
-    return res.json({
-      success: true,
-      data: opportunities,
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-// ─── Enregistrement d'un lien Follow Me ─────────────────────────────────────
+/**
+ * Enregistre le lien Follow Me pour une opportunité
+ */
 async function registerFollowMeLink(req, res) {
   try {
-    const {
-      opportunityId,
-      assignedSponsorLink,
-      personalLink,
-      realParentLink,
-    } = req.body;
+    const userId = req.user.id;
+    const { opportunityId, referralLink, targetAddress, paymentHash } = req.body;
 
-    const result = await opportunityService.registerFollowMeLink({
-      userId: req.user.id,
+    if (!opportunityId) {
+      return validationError(res, "L'ID de l'opportunité est obligatoire");
+    }
+
+    if (!referralLink) {
+      return validationError(res, "Le lien de parrainage est obligatoire");
+    }
+
+    const result = await opportunitiesService.registerFollowMeLink({
+      userId,
       opportunityId,
-      assignedSponsorLink,
-      personalLink,
-      realParentLink,
+      referralLink,
+      targetAddress,
+      paymentHash
     });
 
-    return res.json({
-      success: true,
-      data: result,
-    });
+    return success(res, result, "Lien Follow Me enregistré avec succès");
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+    logger.error("[Opportunities] Erreur registerFollowMeLink:", error);
+    return error(res, error.message || "Erreur lors de l'enregistrement du lien");
   }
 }
 
-// ─── Exports ─────────────────────────────────────────────────────────────────
 module.exports = {
   getAll,
   getActive,
   getEntry,
+  getGenerator,
   getNext,
-  getById,
   getBySlug,
-  getEligible,
-  registerFollowMeLink,
+  registerFollowMeLink
 };
- 
-
- 
-
