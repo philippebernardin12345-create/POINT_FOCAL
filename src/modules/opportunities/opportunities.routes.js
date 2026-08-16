@@ -1,54 +1,64 @@
+/**
+ * POINT FOCAL V10.4 - Routes Opportunités
+ * 
+ * RÉFÉRENCE : Constitution Technique V10.4 - Article 4, 5, 6
+ */
+
 const express = require("express");
 const router = express.Router();
 
-const opportunityController = require(
-  "./opportunities.controller"
-);
+const { authenticate } = require("../../middlewares/auth.middleware");
+const opportunitiesController = require("./opportunities.controller");
 
-const authMiddleware = require(
-  "../../middlewares/auth.middleware"
-);
+/**
+ * GET /api/opportunities
+ * Liste toutes les opportunités disponibles
+ */
+router.get("/", opportunitiesController.getAll);
 
-// Liste complète des opportunités
-router.get(
-  "/",
-  opportunityController.getAll
-);
+/**
+ * GET /api/opportunities/active
+ * Liste les opportunités actives
+ */
+router.get("/active", opportunitiesController.getActive);
 
-// Opportunités actives seulement
-router.get(
-  "/active",
-  opportunityController.getActive
-);
+/**
+ * GET /api/opportunities/entry
+ * Récupère l'opportunité d'entrée dynamique
+ */
+router.get("/entry", authenticate, opportunitiesController.getEntry);
 
-// Opportunité d'entrée Follow Me
-router.get(
-  "/entry",
-  opportunityController.getEntry
-);
+/**
+ * GET /api/opportunities/generator
+ * Récupère le générateur du lien PF dynamique
+ */
+router.get("/generator", authenticate, opportunitiesController.getGenerator);
 
-// Prochaine opportunité après une position donnée
-router.get(
-  "/next/:position",
-  opportunityController.getNext
-);
+/**
+ * GET /api/opportunities/next
+ * Récupère la prochaine opportunité pour un utilisateur
+ * 
+ * Query:
+ * - currentOpportunityId: string (ID de l'opportunité actuelle)
+ */
+router.get("/next", authenticate, opportunitiesController.getNext);
 
-// Opportunités éligibles pour l'utilisateur connecté (moteur générique)
-router.get(
-  "/eligible",
-  authMiddleware,
-  opportunityController.getEligible
-);
+/**
+ * GET /api/opportunities/:slug
+ * Récupère une opportunité par son slug
+ */
+router.get("/:slug", opportunitiesController.getBySlug);
 
-// Enregistrement d’un lien Follow Me
-router.post(
-  "/follow-me/register",
-  authMiddleware,
-  opportunityController.registerFollowMeLink
-);
-
-// Route paramétrée : récupérer une opportunité par son slug
-// Doit être placée *après* toutes les routes statiques pour éviter les collisions
-router.get('/:slug', opportunityController.getBySlug);
+/**
+ * POST /api/opportunities/followme
+ * Enregistre le lien Follow Me pour une opportunité
+ * 
+ * Body:
+ * - opportunityId: string
+ * - referralLink: string
+ * - targetAddress: string (optionnel)
+ * - paymentHash: string (optionnel)
+ */
+router.post("/followme", authenticate, opportunitiesController.registerFollowMeLink);
 
 module.exports = router;
