@@ -100,15 +100,22 @@ async function getEligibleOpportunities(userId) {
     // Si éligible, assembler l'objet d'opportunité à renvoyer
     if (opportunity) {
       // On peut enrichir l'objet renvoyé si besoin (metadata, module info...)
-      ✋const result = {
-        id: opportunity.id,
-        name: opportunity.name,
-        slug: opportunity.slug,
-        status: opportunity.status || opportunity.state || "ACTIVE",
-        requires_user_link: opportunity.requires_user_link,
-        position: opportunity.position,
-        metadata: eligibility.metadata || {},
-      };
+      const result = {
+  id: opportunity.id,
+  name: opportunity.name,
+  slug: opportunity.slug,
+  status: opportunity.status || opportunity.state || "ACTIVE",
+
+  // V10.4 — champs canoniques
+  requiresUserLink: opportunity.requires_user_link !== false,
+  priority: opportunity.priority ?? 1,
+
+  // Compatibilité legacy — conservée temporairement
+  requires_user_link: opportunity.requires_user_link,
+  position: opportunity.position,
+
+  metadata: eligibility.metadata || {},
+};
       eligibleOpportunities.push(result);
     } else {
       // Module présent mais pas d'enregistrement DB - renvoyer une forme minimale
