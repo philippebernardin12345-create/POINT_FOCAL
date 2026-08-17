@@ -184,7 +184,7 @@ function getOpportunityBySlug(slug) {
  */
 function getOpportunityById(opportunityId) {
   try {
-    ✋ return registry.get(opportunityId) || null;✋✋
+    return registry.getById(opportunityId) || null;
 
   } catch (error) {
     console.error('[OpportunityEngine] Erreur getOpportunityById:', error);
