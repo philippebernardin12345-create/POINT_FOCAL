@@ -7,8 +7,8 @@
  * RÉFÉRENCE : Constitution Technique V10.4 - Article 25
  */
 
+const { findUserById } = require("../modules/auth/auth.repository");
 const { verifyToken } = require("../config/jwt");
-const { findUserById } = require("../modules/users/users.repository");
 
 /**
  * Middleware d'authentification principal
