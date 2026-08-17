@@ -221,7 +221,7 @@ function findOpportunitiesByCapacity(capacity, value = true) {
  */
 function canGeneratePointFocalLink(opportunityId) {
   try {
-    const opp = registry.get(opportunityId);
+    const opp = registry.getById(opportunityId);
 
     if (!opp) {
       return false;
@@ -243,7 +243,7 @@ function canGeneratePointFocalLink(opportunityId) {
  */
 function getProvisionRequirements(opportunityId) {
   try {
-    const opp = registry.get(opportunityId);
+    const opp = registry.getById(opportunityId);
 
     if (!opp) {
       return { requires: false, amount: null, message: null };
