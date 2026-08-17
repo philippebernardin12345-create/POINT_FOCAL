@@ -141,7 +141,7 @@ async function getNextOpportunity(userId, currentOpportunityId, options = {}) {
  */
 async function isOpportunityAvailable(opportunityId) {
   try {
-    const opp = registry.getById(opportunityId);✋
+    const opp = registry.getById(opportunityId);
 
     if (!opp) {
       return false;
