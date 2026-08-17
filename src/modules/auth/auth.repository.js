@@ -175,6 +175,9 @@ async function countRootLeaders() {
     SELECT COUNT(*)::int AS total
     FROM users
     WHERE is_leader = true
+      AND is_prelaunch_leader = true
+      AND email_confirmed = true
+      AND status = 'active'
       AND sponsor_id = (
         SELECT id
         FROM users
@@ -198,7 +201,6 @@ async function countPrelaunchLeaders() {
 
   return result.rows[0]?.total || 0;
 }
-
 async function findOldestAvailableSponsorForFifo() {
   const result = await db.query(
     `
@@ -228,22 +230,57 @@ async function findOldestAvailableSponsorForFifo() {
 
   return result.rows[0] || null;
 }
-
-async function activatePrelaunchLeaders() {
+async function activatePrelaunchLeadersIfLimitReached() {
   const result = await db.query(
+    `
+    SELECT COUNT(*)::int AS total
+    FROM users
+    WHERE is_leader = true
+      AND is_prelaunch_leader = true
+      AND email_confirmed = true
+      AND status = 'active'
+      AND sponsor_id = (
+        SELECT id
+        FROM users
+        WHERE is_root = true
+        LIMIT 1
+      )
+    `
+  );
+
+  const total = result.rows[0]?.total || 0;
+
+  if (total < 50) {
+    return {
+      activated: false,
+      total
+    };
+  }
+
+  const activation = await db.query(
     `
     UPDATE users
     SET
       is_prelaunch_leader = false,
       link_active = true
-    WHERE is_prelaunch_leader = true
-      AND is_leader = true
+    WHERE is_leader = true
+      AND is_prelaunch_leader = true
       AND link_active = false
+      AND sponsor_id = (
+        SELECT id
+        FROM users
+        WHERE is_root = true
+        LIMIT 1
+      )
     RETURNING id
     `
   );
 
-  return result.rows;
+  return {
+    activated: true,
+    total,
+    activatedCount: activation.rows.length
+  };
 }
 
 async function savePasswordResetToken(
@@ -326,7 +363,8 @@ module.exports = {
   countRootLeaders,
   countPrelaunchLeaders,
   findOldestAvailableSponsorForFifo,
-  activatePrelaunchLeaders,
+
+  activatePrelaunchLeadersIfLimitReached,
   savePasswordResetToken,
   findUserByPasswordResetToken,
   updatePasswordAndClearResetToken

@@ -156,7 +156,10 @@ async function register(payload) {
       language,
       status: "pending",
       sponsorId: sponsor.id,
-      campaignId: campaign.id
+      campaignId: campaign.id,
+      isLeader,
+      isPrelaunchLeader,
+      linkActive
     });
 
   if (!user) {
@@ -394,6 +397,23 @@ async function confirmOtp(payload) {
   if (!user) {
     throw new Error(
       "Code OTP invalide ou expiré."
+    );
+  }
+
+  /*
+    Après confirmation du compte, on vérifie
+    si les 50 leaders sont maintenant constitués.
+
+    Lorsque le 50e leader confirme son email,
+    tous les leaders prélaunch sont activés.
+  */
+  const activation =
+    await authRepository
+      .activatePrelaunchLeadersIfLimitReached();
+
+  if (activation.activated) {
+    console.log(
+      `[prelaunch] ${activation.activatedCount} leaders activés après atteinte du seuil de 50.`
     );
   }
 
