@@ -291,7 +291,7 @@ function countActiveOpportunities() {
  * @param {boolean} filters.includeUnavailable - Inclure les opportunités non disponibles
  * @returns {Array} - Liste des opportunités
  */
-✋✋function getAvailableOpportunities(filters = {}) {
+function getAvailableOpportunities(filters = {}) {
   try {
     const allOpportunities = registry.list();
 
