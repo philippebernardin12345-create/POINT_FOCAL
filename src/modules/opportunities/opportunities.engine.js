@@ -100,7 +100,7 @@ async function getEligibleOpportunities(userId) {
     // Si éligible, assembler l'objet d'opportunité à renvoyer
     if (opportunity) {
       // On peut enrichir l'objet renvoyé si besoin (metadata, module info...)
-      const result = {
+      ✋const result = {
         id: opportunity.id,
         name: opportunity.name,
         slug: opportunity.slug,
