@@ -1,10 +1,6 @@
 const repository = require("./payments.repository");
 
-const {
-  web3,
-  USDT_CONTRACT,
-  ERC20_TRANSFER_TOPIC
-} = require("../../config/blockchain");
+const blockchain = require("../../config/blockchain");
 
 const MIN_USDT_AMOUNT = 2.03;
 const USDT_DECIMALS = 18;
@@ -91,7 +87,7 @@ function decodeTransferLog(log) {
 
 async function getTransactionTimestamp(blockNumber) {
   const block =
-    await web3.eth.getBlock(blockNumber);
+    await blockchain.web3.eth.getBlock(blockNumber);
 
   if (!block) {
     throw new Error(
@@ -181,7 +177,7 @@ function validateTargetAddress(adresseCible) {
     !/^0x[a-f0-9]{40}$/.test(
       normalizedAddress
     ) ||
-    !web3.utils.isAddress(
+    !blockchain.web3.utils.isAddress(
       normalizedAddress
     )
   ) {
@@ -205,7 +201,7 @@ function validateTransactionHash(txHash) {
     !/^0x[a-f0-9]{64}$/.test(
       normalizedTxHash
     ) ||
-    !web3.utils.isHexStrict(
+    !blockchain.web3.utils.isHexStrict(
       normalizedTxHash
     )
   ) {
@@ -223,7 +219,7 @@ async function verifyUsdtPayment(
   victoryAssignedAt
 ) {
   const receipt =
-    await web3.eth.getTransactionReceipt(
+    await blockchain.web3.eth.getTransactionReceipt(
       txHash
     );
 
@@ -240,7 +236,7 @@ async function verifyUsdtPayment(
   }
 
   const latestBlockNumber =
-    await web3.eth.getBlockNumber();
+    await blockchain.web3.eth.getBlockNumber();
 
   const confirmations =
     Number(latestBlockNumber) -
@@ -319,11 +315,11 @@ async function verifyUsdtPayment(
       return (
         logContract ===
           normalizeAddress(
-            USDT_CONTRACT
+            blockchain.USDT_CONTRACT
           ) &&
         transferTopic ===
           String(
-            ERC20_TRANSFER_TOPIC
+            blockchain.ERC20_TRANSFER_TOPIC
           ).toLowerCase() &&
         logTargetAddress ===
           adresseCible
