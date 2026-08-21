@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('./user-opportunities.controller');
-const authenticate = require('../../../middlewares/auth.middleware');
+const { authenticate } = require('../../../middlewares/auth.middleware');
 
 // Sauvegarder son lien pour une opportunité
 router.post('/link', authenticate, controller.saveLink);
