@@ -1,6 +1,6 @@
 const express = require("express");
 const authController = require("./auth.controllers");
-const authMiddleware = require("../../middlewares/auth.middleware");
+const { authenticate } = require("../../middlewares/auth.middleware");
 
 const router = express.Router();
 
@@ -23,6 +23,6 @@ router.post("/forgot-password", authController.forgotPassword);
 router.post("/reset-password", authController.resetPassword);
 
 // Utilisateur connecté
-router.get("/me", authMiddleware, authController.me);
+router.get("/me", authenticate, authController.me);
 
 module.exports = router;
