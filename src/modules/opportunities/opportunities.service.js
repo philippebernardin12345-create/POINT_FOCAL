@@ -5,12 +5,12 @@
  */
 
 const registry = require("./registry");
-const { 
-  getEntryOpportunity, 
-  getGeneratorOpportunity, 
-  getNextOpportunity,
-  getOpportunityBySlug,
-  getOpportunityById,
+const {
+  getEntryOpportunity: engineGetEntryOpportunity,
+  getGeneratorOpportunity: engineGetGeneratorOpportunity,
+  getNextOpportunity: engineGetNextOpportunity,
+  getOpportunityBySlug: engineGetOpportunityBySlug,
+  getOpportunityById: engineGetOpportunityById,
   getAvailableOpportunities
 } = require("../../core/opportunity.engine");
 const followmeService = require("../followme/followme.service");
@@ -34,28 +34,28 @@ async function getActiveOpportunities() {
  * Récupère l'opportunité d'entrée dynamique
  */
 async function getEntryOpportunity(userId) {
-  return await getEntryOpportunity({ userId });
+  return await engineGetEntryOpportunity({ userId });
 }
 
 /**
  * Récupère le générateur du lien PF dynamique
  */
 async function getGeneratorOpportunity(userId) {
-  return await getGeneratorOpportunity({ userId });
+  return await engineGetGeneratorOpportunity({ userId });
 }
 
 /**
  * Récupère la prochaine opportunité
  */
 async function getNextOpportunity(userId, currentOpportunityId) {
-  return await getNextOpportunity(userId, currentOpportunityId);
+  return await engineGetNextOpportunity(userId, currentOpportunityId);
 }
 
 /**
  * Récupère une opportunité par son slug
  */
 async function getOpportunityBySlug(slug) {
-  return getOpportunityBySlug(slug);
+  return engineGetOpportunityBySlug(slug);
 }
 
 /**
@@ -64,7 +64,7 @@ async function getOpportunityBySlug(slug) {
 async function registerFollowMeLink({ userId, opportunityId, referralLink, targetAddress, paymentHash }) {
   try {
     // Vérifier que l'opportunité existe
-    const opportunity = await getOpportunityById(opportunityId);
+    const opportunity = await engineGetOpportunityById(opportunityId);
 
     if (!opportunity) {
       throw new Error("Opportunité introuvable");
@@ -95,7 +95,7 @@ async function registerFollowMeLink({ userId, opportunityId, referralLink, targe
  * Vérifie si une opportunité peut générer le lien PF
  */
 async function canGeneratePointFocalLink(opportunityId) {
-  const opportunity = await getOpportunityById(opportunityId);
+  const opportunity = await engineGetOpportunityById(opportunityId);
 
   if (!opportunity) {
     return false;
@@ -108,7 +108,7 @@ async function canGeneratePointFocalLink(opportunityId) {
  * Récupère les exigences de provision d'une opportunité
  */
 async function getProvisionRequirements(opportunityId) {
-  const opportunity = await getOpportunityById(opportunityId);
+  const opportunity = await engineGetOpportunityById(opportunityId);
 
   if (!opportunity) {
     return { requires: false, amount: null, message: null };
