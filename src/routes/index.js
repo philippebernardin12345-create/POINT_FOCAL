@@ -12,7 +12,7 @@ const express = require("express");
 const videoRoutes = require("../modules/video/video.routes");
 const paymentsRoutes = require("../modules/payments/payments.routes");
 const opportunitiesRoutes = require("../modules/opportunities/opportunities.routes");
-const userOpportunitiesRoutes = require("../modules/user-opportunities/user-opportunities.routes");
+const userOpportunitiesRoutes = require("../modules/users/user-opportunities/user-opportunities.routes");
 
 // NOUVEAUX MODULES V10.4
 const authRoutes = require("../modules/auth/auth.routes");
