@@ -7,7 +7,6 @@
 const adminService = require("./admin.service");
 const { success, error, unauthorized, forbidden, notFound, validationError } = require("../../utils/response");
 const { logger } = require("../../utils/logger");
-const { ERROR_CODES } = require("../../utils/errors");
 
 /**
  * Connexion administrateur
