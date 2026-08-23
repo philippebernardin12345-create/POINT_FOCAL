@@ -5,7 +5,22 @@
  */
 
 require("dotenv").config();
+require("dotenv").config();
 
+const dbUrl = process.env.DATABASE_URL
+  ? new URL(process.env.DATABASE_URL)
+  : null;
+
+console.log("[DB CONFIG]", {
+  host: dbUrl?.hostname,
+  port: dbUrl?.port,
+  username: dbUrl?.username,
+  database: dbUrl?.pathname,
+  password_present: !!dbUrl?.password,
+  password_length: dbUrl?.password?.length
+});
+
+const app = require("./app");
 // Bloc de configuration DB ajouté ici
 const dbUrl = process.env.DATABASE_URL
   ? new URL(process.env.DATABASE_URL)
