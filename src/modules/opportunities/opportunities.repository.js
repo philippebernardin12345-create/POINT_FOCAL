@@ -29,8 +29,7 @@ async function findAllActive() {
     `
     SELECT *
     FROM opportunities
-    WHERE status = 'active'
-      AND is_available = true
+    WHERE UPPER(status) = 'ACTIVE'
     ORDER BY priority ASC, created_at ASC
     `
   );
@@ -78,10 +77,9 @@ async function findEntryOpportunity() {
     `
     SELECT *
     FROM opportunities
-    WHERE status = 'active'
-      AND is_available = true
+    WHERE UPPER(status) = 'ACTIVE'
       AND is_entry = true
-    ORDER BY priority ASC
+    ORDER BY priority ASC, created_at ASC
     LIMIT 1
     `
   );
@@ -97,10 +95,9 @@ async function findGeneratorOpportunity() {
     `
     SELECT *
     FROM opportunities
-    WHERE status = 'active'
-      AND is_available = true
-      AND can_generate_point_focal_link = true
-    ORDER BY priority ASC
+    WHERE UPPER(status) = 'ACTIVE'
+      AND generates_link = true
+    ORDER BY priority ASC, created_at ASC
     LIMIT 1
     `
   );
@@ -122,7 +119,7 @@ async function create(data) {
       is_available,
       priority,
       is_entry,
-      can_generate_point_focal_link,
+      generates_link,
       requires_provision,
       provision_amount,
       provision_message,
@@ -198,7 +195,7 @@ async function update(id, data) {
   }
 
   if (data.canGeneratePointFocalLink !== undefined) {
-    fields.push(`can_generate_point_focal_link = $${paramIndex++}`);
+    fields.push(`generates_link = $${paramIndex++}`);
     values.push(data.canGeneratePointFocalLink);
   }
 

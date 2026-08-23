@@ -1,6 +1,6 @@
 /**
  * POINT FOCAL V10.4 - Service Opportunités
- * 
+ *
  * RÉFÉRENCE : Constitution Technique V10.4 - Article 4, 5, 6
  */
 
@@ -124,10 +124,10 @@ async function getProvisionRequirements(opportunityId) {
 module.exports = {
   getAllOpportunities,
   getActiveOpportunities,
-  getEntryOpportunity,
-  getGeneratorOpportunity,
-  getNextOpportunity,
-  getOpportunityBySlug,
+  getEntryOpportunity: engineGetEntryOpportunity,
+  getGeneratorOpportunity: engineGetGeneratorOpportunity,
+  getNextOpportunity: engineGetNextOpportunity,
+  getOpportunityBySlug: engineGetOpportunityBySlug,
   registerFollowMeLink,
   canGeneratePointFocalLink,
   getProvisionRequirements
