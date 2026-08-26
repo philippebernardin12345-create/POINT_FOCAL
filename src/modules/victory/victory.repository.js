@@ -98,24 +98,6 @@ async function findRootVictoryLink() {
   return result.rows[0] || null;
 }
 
-async function findVictoryOpportunityRootLink() {
-  const result = await db.query(
-    `
-    SELECT
-      id,
-      name,
-      root_sponsor_link
-    FROM opportunities
-    WHERE position = 1
-      AND is_active = true
-      AND root_sponsor_link IS NOT NULL
-      AND root_sponsor_link <> ''
-    LIMIT 1
-    `
-  );
-
-  return result.rows[0] || null;
-}
 
 async function markVictoryAssigned(
   userId,
@@ -274,7 +256,6 @@ module.exports = {
   findUserWithSponsor,
   findOldestAvailableVictorySponsor,
   findRootVictoryLink,
-  findVictoryOpportunityRootLink,
   markVictoryAssigned,
   reactivateVictoryUser,
   saveVictoryParentIdentifier,

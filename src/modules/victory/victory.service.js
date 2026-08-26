@@ -6,6 +6,8 @@ const opportunityService = require(
   "../opportunities/opportunities.service"
 );
 
+const { getEntryOpportunity } = require("../../core/opportunity.engine");
+
 function normalizeVictoryLink(victoryLink) {
   return String(victoryLink || "")
     .trim()
@@ -188,21 +190,14 @@ async function assignVictoryLink(userId) {
     PRIORITÉ 4 :
     lien racine enregistré dans opportunities.
   */
-  if (!assignedVictoryLink) {
-    const rootOpportunity =
-      await repository
-        .findVictoryOpportunityRootLink();
+    if (!assignedVictoryLink) {
+      const entryOpportunity = await getEntryOpportunity({ userId });
 
-    if (
-      rootOpportunity &&
-      rootOpportunity.root_sponsor_link
-    ) {
-      assignedVictoryLink =
-        rootOpportunity.root_sponsor_link;
-
-      source = "root-opportunity";
+      if (entryOpportunity && entryOpportunity.rootSponsorLink) {
+        assignedVictoryLink = entryOpportunity.rootSponsorLink;
+        source = "root-opportunity";
+      }
     }
-  }
 
   if (!assignedVictoryLink) {
     throw new Error(
@@ -373,14 +368,10 @@ async function saveVictoryPersonalLink(
     );
   }
 
-  const opportunity =
-    await repository
-      .findVictoryOpportunityRootLink();
+  const opportunity = await getEntryOpportunity({ userId });
 
   if (!opportunity) {
-    throw new Error(
-      "L’opportunité Victory Automatic est introuvable ou désactivée."
-    );
+    throw new Error("Aucune opportunité d’entrée active et disponible.");
   }
 
   /*
