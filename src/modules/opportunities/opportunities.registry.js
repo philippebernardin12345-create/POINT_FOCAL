@@ -90,35 +90,6 @@ class OpportunityRegistry {
     return results;
   }
 
-  /**
-   * Récupère l'opportunité d'entrée
-   */
-  getEntryOpportunity() {
-    const entries = this.findByCapacity("isEntry", true);
-    const available = entries.filter(m => 
-      (m.status === "active" || m.isActive === true) &&
-      m.isAvailable !== false
-    );
-
-    available.sort((a, b) => (a.priority || 999) - (b.priority || 999));
-
-    return available[0] || null;
-  }
-
-  /**
-   * Récupère le générateur du lien PF
-   */
-  getGeneratorOpportunity() {
-    const generators = this.findByCapacity("canGeneratePointFocalLink", true);
-    const available = generators.filter(m =>
-      (m.status === "active" || m.isActive === true) &&
-      m.isAvailable !== false
-    );
-
-    available.sort((a, b) => (a.priority || 999) - (b.priority || 999));
-
-    return available[0] || null;
-  }
 
   /**
    * Charge les opportunités depuis la base de données

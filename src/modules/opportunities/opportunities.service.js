@@ -30,33 +30,6 @@ async function getActiveOpportunities() {
   return getAvailableOpportunities();
 }
 
-/**
- * Récupère l'opportunité d'entrée dynamique
- */
-async function getEntryOpportunity(userId) {
-  return await engineGetEntryOpportunity({ userId });
-}
-
-/**
- * Récupère le générateur du lien PF dynamique
- */
-async function getGeneratorOpportunity(userId) {
-  return await engineGetGeneratorOpportunity({ userId });
-}
-
-/**
- * Récupère la prochaine opportunité
- */
-async function getNextOpportunity(userId, currentOpportunityId) {
-  return await engineGetNextOpportunity(userId, currentOpportunityId);
-}
-
-/**
- * Récupère une opportunité par son slug
- */
-async function getOpportunityBySlug(slug) {
-  return engineGetOpportunityBySlug(slug);
-}
 
 /**
  * Enregistre le lien Follow Me pour une opportunité
