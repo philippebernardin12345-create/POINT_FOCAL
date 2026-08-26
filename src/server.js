@@ -20,7 +20,7 @@ console.log("[DB CONFIG]", {
 });
 
 const app = require("./app");
-const registry = require("./modules/opportunities/registry");
+const registry = require("./modules/opportunities/opportunities.registry");
 const opportunityRepository = require("./modules/opportunities/opportunities.repository");
 const { logger } = require("./utils/logger");
 

@@ -16,7 +16,6 @@ const { errorMiddleware, notFoundHandler } = require("./middlewares/error.middle
 const { logger } = require("./utils/logger");
 
 // Registre des modules d'opportunité (chargé au démarrage dans server.js)
-const registry = require("./modules/opportunities/registry");
 
 const app = express();
 

@@ -1,8 +1,8 @@
 const repo = require('./user-opportunities.repository');
-const { findOpportunityBySlug } = require('../../opportunities/opportunities.repository');
+const { getOpportunityBySlug } = require('../../../core/opportunity.engine');
 
 const saveUserLink = async (userId, { opportunitySlug, referralLink, targetAddress, paymentHash }) => {
-  const opportunity = await findOpportunityBySlug(opportunitySlug);
+  const opportunity = getOpportunityBySlug(opportunitySlug);
   if (!opportunity) throw new Error('Opportunité introuvable');
 
   if (opportunity.slug === 'victory-automatic') {
@@ -25,7 +25,7 @@ const saveUserLink = async (userId, { opportunitySlug, referralLink, targetAddre
 };
 
 const getAvailableLink = async (opportunitySlug) => {
-  const opportunity = await findOpportunityBySlug(opportunitySlug);
+  const opportunity = getOpportunityBySlug(opportunitySlug);
   if (!opportunity) throw new Error('Opportunité introuvable');
   return await repo.getAvailableLinkForOpportunity(opportunity.id);
 };

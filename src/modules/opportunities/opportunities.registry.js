@@ -139,7 +139,7 @@ class OpportunityRegistry {
             description: opportunity.description,
             status: opportunity.status,
             isActive: String(opportunity.status).toUpperCase() === "ACTIVE",
-            isAvailable: true,
+            isAvailable: opportunity.is_available !== false,
             priority: opportunity.priority || 1,
             isEntry: opportunity.is_entry || false,
             canGeneratePointFocalLink: opportunity.generates_link === true,

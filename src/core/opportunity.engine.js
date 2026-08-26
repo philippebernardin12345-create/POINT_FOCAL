@@ -7,7 +7,7 @@
  * RÉFÉRENCE : Constitution Technique V10.4 - Article 4, 5, 6, 30
  */
 
-const registry = require("../modules/opportunities/registry");
+const registry = require("../modules/opportunities/opportunities.registry");
 const { findUserById } = require("../modules/users/users.repository");
 
 /**

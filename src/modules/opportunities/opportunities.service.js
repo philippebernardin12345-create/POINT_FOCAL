@@ -4,7 +4,7 @@
  * RÉFÉRENCE : Constitution Technique V10.4 - Article 4, 5, 6
  */
 
-const registry = require("./registry");
+const registry = require("./opportunities.registry");
 const {
   getEntryOpportunity: engineGetEntryOpportunity,
   getGeneratorOpportunity: engineGetGeneratorOpportunity,

@@ -69,41 +69,6 @@ async function findBySlug(slug) {
   return result.rows[0] || null;
 }
 
-/**
- * Récupère l'opportunité d'entrée
- */
-async function findEntryOpportunity() {
-  const result = await query(
-    `
-    SELECT *
-    FROM opportunities
-    WHERE UPPER(status) = 'ACTIVE'
-      AND is_entry = true
-    ORDER BY priority ASC, created_at ASC
-    LIMIT 1
-    `
-  );
-
-  return result.rows[0] || null;
-}
-
-/**
- * Récupère le générateur du lien PF
- */
-async function findGeneratorOpportunity() {
-  const result = await query(
-    `
-    SELECT *
-    FROM opportunities
-    WHERE UPPER(status) = 'ACTIVE'
-      AND generates_link = true
-    ORDER BY priority ASC, created_at ASC
-    LIMIT 1
-    `
-  );
-
-  return result.rows[0] || null;
-}
 
 /**
  * Crée une nouvelle opportunité
@@ -265,8 +230,6 @@ module.exports = {
   findAllActive,
   findById,
   findBySlug,
-  findEntryOpportunity,
-  findGeneratorOpportunity,
   create,
   update,
   remove

@@ -1,4 +1,5 @@
 const repository = require("./followme.repository");
+const { getOpportunityBySlug } = require("../../core/opportunity.engine");
 
 async function getSponsorLinkForOpportunity(userId, opportunitySlug) {
   if (!userId) {
@@ -14,7 +15,7 @@ async function getSponsorLinkForOpportunity(userId, opportunitySlug) {
     throw new Error("Utilisateur introuvable.");
   }
 
-  const opportunity = await repository.findOpportunityBySlug(opportunitySlug);
+  const opportunity = getOpportunityBySlug(opportunitySlug);
   if (!opportunity) {
     throw new Error("Aucune opportunité active trouvée.");
   }
@@ -64,9 +65,9 @@ async function getSponsorLinkForOpportunity(userId, opportunitySlug) {
       id: opportunity.id,
       name: opportunity.name,
       slug: opportunity.slug,
-      position: opportunity.position,
-      isEntry: opportunity.is_entry,
-      generatesLink: opportunity.generates_link
+      priority: opportunity.priority,
+      isEntry: opportunity.isEntry,
+      generatesLink: opportunity.canGeneratePointFocalLink
     },
     sponsorUserId,
     sponsorLink,
