@@ -28,7 +28,7 @@ const saveUserOpportunityLink = async ({
 
 const getAvailableLinkForOpportunity = async (opportunityId) => {
   const result = await pool.query(
-    `SELECT uo.*, u.username
+    `SELECT uo.*, u.email
      FROM user_opportunities uo
      JOIN users u ON u.id = uo.user_id
      WHERE uo.opportunity_id = $1

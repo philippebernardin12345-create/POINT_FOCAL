@@ -213,7 +213,7 @@ async function addUserToOpportunity(userId, opportunityId, parentId = null) {
     INSERT INTO user_opportunities (
       user_id,
       opportunity_id,
-      sponsor_id_for_opportunity,
+      sponsor_user_id,
       status,
       joined_at,
       updated_at
@@ -221,7 +221,7 @@ async function addUserToOpportunity(userId, opportunityId, parentId = null) {
     VALUES ($1, $2, $3, 'active', NOW(), NOW())
     ON CONFLICT (user_id, opportunity_id)
     DO UPDATE SET
-      sponsor_id_for_opportunity = COALESCE(EXCLUDED.sponsor_id_for_opportunity, user_opportunities.sponsor_id_for_opportunity),
+      sponsor_user_id = COALESCE(EXCLUDED.sponsor_user_id, user_opportunities.sponsor_user_id),
       status = 'active',
       updated_at = NOW()
     RETURNING *
@@ -276,11 +276,11 @@ async function getOpportunityParent(userId, opportunityId) {
   const result = await query(
     `
     SELECT
-      uo.sponsor_id_for_opportunity,
+      uo.sponsor_user_id,
       u.id as parent_id,
       u.email as parent_email
     FROM user_opportunities uo
-    LEFT JOIN users u ON u.id = uo.sponsor_id_for_opportunity
+    LEFT JOIN users u ON u.id = uo.sponsor_user_id
     WHERE uo.user_id = $1 AND uo.opportunity_id = $2 AND uo.status = 'active'
     `,
     [userId, opportunityId]

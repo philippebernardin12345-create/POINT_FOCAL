@@ -147,7 +147,7 @@ async function registerUserLink({
         referral_link,
         target_address,
         payment_hash,
-        sponsor_id_for_opportunity,
+        sponsor_user_id,
         status,
         joined_at,
         updated_at
@@ -164,16 +164,6 @@ async function registerUserLink({
         extractedSponsorId || sponsorId || user.sponsor_id
       ]
     );
-
-    // 12. Si l'opportunité peut générer le lien PF, vérifier si c'est le cas
-    if (opportunity.canGeneratePointFocalLink === true) {
-      // Vérifier si l'utilisateur a déjà un lien PF
-      if (!user.point_focal_link) {
-        // Le module d'opportunité générera le lien PF via son propre processus
-        // Cette partie est gérée par le module spécifique
-        logger.info(`[FollowMe] Utilisateur ${userId} éligible pour générer le lien PF via ${opportunity.slug}`);
-      }
-    }
 
     // 13. Appliquer le roll-up si nécessaire
     let rollupResult = null;
@@ -246,7 +236,7 @@ async function updateUserLink(userId, opportunityId, data) {
   }
 
   if (data.sponsorId) {
-    fields.push(`sponsor_id_for_opportunity = $${paramIndex++}`);
+    fields.push(`sponsor_user_id = $${paramIndex++}`);
     values.push(data.sponsorId);
   }
 

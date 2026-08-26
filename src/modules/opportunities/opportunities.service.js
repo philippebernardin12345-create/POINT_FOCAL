@@ -13,7 +13,7 @@ const {
   getOpportunityById: engineGetOpportunityById,
   getAvailableOpportunities
 } = require("../../core/opportunity.engine");
-const followmeService = require("../followme/followme.service");
+const followmeEngine = require("../../core/followme.engine");
 const { logger } = require("../../utils/logger");
 
 /**
@@ -49,7 +49,7 @@ async function registerFollowMeLink({ userId, opportunityId, referralLink, targe
     }
 
     // Enregistrer le lien via le service Follow Me
-    const result = await followmeService.registerUserLink({
+    const result = await followmeEngine.registerUserLink({
       userId,
       opportunityId,
       referralLink,
