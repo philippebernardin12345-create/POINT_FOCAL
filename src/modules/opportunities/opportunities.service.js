@@ -34,7 +34,7 @@ async function getActiveOpportunities() {
 /**
  * Enregistre le lien Follow Me pour une opportunité
  */
-async function registerFollowMeLink({ userId, opportunityId, referralLink, targetAddress, paymentHash }) {
+async function registerFollowMeLink({ userId, opportunityId, referralLink, targetAddress = null, paymentHash = null, sponsorId = null }) {
   try {
     // Vérifier que l'opportunité existe
     const opportunity = await engineGetOpportunityById(opportunityId);
@@ -54,7 +54,8 @@ async function registerFollowMeLink({ userId, opportunityId, referralLink, targe
       opportunityId,
       referralLink,
       targetAddress,
-      paymentHash
+      paymentHash,
+      sponsorId
     });
 
     return result;
