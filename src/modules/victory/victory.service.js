@@ -375,25 +375,26 @@ async function saveVictoryPersonalLink(
   }
 
   /*
-    Le moteur Follow Me vérifie ici que
-    le lien du parrain est déjà présent
-    dans opportunity_assignments.
+    Le moteur Follow Me enregistre le lien personnel
+    dans user_opportunities avec le sponsor Victory attribué.
   */
+  const parentUser =
+    await repository.findUserByVictoryPersonalLink(
+      realParentLink
+    );
+
+  const sponsorId =
+    parentUser ? parentUser.id : null;
+
   const assignment =
-    await opportunityService
-      .registerFollowMeLink({
-        userId,
-        opportunityId:
-          opportunity.id,
-
-        assignedSponsorLink:
-          realParentLink,
-
-        personalLink:
-          normalizedPersonalLink,
-
-        realParentLink
-      });
+    await opportunityService.registerFollowMeLink({
+      userId,
+      opportunityId: opportunity.id,
+      referralLink: normalizedPersonalLink,
+      targetAddress: null,
+      paymentHash: null,
+      sponsorId
+    });
 
   const savedUser =
     await repository.saveVictoryPersonalLink(
@@ -414,14 +415,8 @@ async function saveVictoryPersonalLink(
     victoryParentLink:
       realParentLink,
 
-    assignmentId:
-      assignment.id,
-
     opportunityId:
-      opportunity.id,
-
-    assignmentSource:
-      assignment.assignment_source
+      opportunity.id
   };
 }
 
