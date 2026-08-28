@@ -46,12 +46,31 @@ function resolveCommand(command) {
     candidates.push(path.join(candidatePath, command));
   }
 
-  candidates.push(
-    path.join(
-      "/usr/lib/postgresql/16/bin",
-      command
-    )
-  );
+  if (fs.existsSync("/usr/lib/postgresql")) {
+    const versionedDirectories = fs
+      .readdirSync("/usr/lib/postgresql", {
+        withFileTypes: true
+      })
+      .filter((entry) => entry.isDirectory())
+      .sort((left, right) =>
+        right.name.localeCompare(
+          left.name,
+          undefined,
+          { numeric: true }
+        )
+      );
+
+    for (const versionDirectory of versionedDirectories) {
+      candidates.push(
+        path.join(
+          "/usr/lib/postgresql",
+          versionDirectory.name,
+          "bin",
+          command
+        )
+      );
+    }
+  }
 
   return candidates.find((candidate) =>
     fs.existsSync(candidate)

@@ -52,7 +52,6 @@ CREATE TABLE IF NOT EXISTS v106_global_sponsorships (
   slot_no smallint NOT NULL,
   assignment_source text NOT NULL DEFAULT 'V10_6',
   created_at timestamptz NOT NULL DEFAULT NOW(),
-  updated_at timestamptz NOT NULL DEFAULT NOW(),
   CONSTRAINT v106_global_sponsorships_pkey
     PRIMARY KEY (child_user_id),
   CONSTRAINT v106_global_sponsorships_slot_check
@@ -122,6 +121,9 @@ WHERE runtime.root_user_id IS NOT NULL
   AND users.email_confirmed = true
   AND users.status = 'active'
   AND users.sponsor_id = runtime.root_user_id;
+
+COMMENT ON VIEW v106_prelaunch_leader_candidates IS
+  'Étape 1 conserve le critère legacy actuel: seuls les leaders prelaunch rattachés directement au root explicite sont comptés pour la transition 49→50.';
 
 CREATE OR REPLACE FUNCTION v106_assign_global_sponsor(
   p_sponsor_user_id uuid,
@@ -310,7 +312,7 @@ BEGIN
     leader_count_snapshot
   )
   VALUES (
-    'LEADER_LAUNCH',
+    v_runtime.current_phase,
     'NORMAL_OPERATION',
     COALESCE(
       NULLIF(BTRIM(p_trigger_reason), ''),
