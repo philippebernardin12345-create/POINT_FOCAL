@@ -6,7 +6,7 @@ const { Pool } = require("pg");
 if (!process.env.TEST_DATABASE_URL) {
   test(
     "v10.6 step 1 PostgreSQL tests",
-    { skip: "TEST_DATABASE_URL absente" },
+    { skip: "TEST_DATABASE_URL non définie" },
     () => {}
   );
 
@@ -119,7 +119,18 @@ async function insertUser(client, overrides = {}) {
 }
 
 async function countRows(client, tableName) {
-  const result = await client.query(`SELECT COUNT(*)::int AS count FROM ${tableName}`);
+  const allowedTables = new Set([
+    "v106_global_sponsorships",
+    "v106_phase_transition_events"
+  ]);
+
+  if (!allowedTables.has(tableName)) {
+    throw new Error(`Unsupported table: ${tableName}`);
+  }
+
+  const result = await client.query(
+    `SELECT COUNT(*)::int AS count FROM "${tableName}"`
+  );
   return result.rows[0].count;
 }
 

@@ -47,58 +47,44 @@ async function runMigrationFile(client, filePath, version) {
   );
 }
 
+async function applyPendingMigrations(client, migrationsDir) {
+  await ensureSchemaMigrations(client);
+  const appliedVersions = await getAppliedVersions(client);
+  const applied = [];
+
+  for (const filename of listMigrationFiles(migrationsDir)) {
+    const version = path.basename(filename, ".sql");
+
+    if (appliedVersions.has(version)) {
+      continue;
+    }
+
+    await runMigrationFile(
+      client,
+      path.join(migrationsDir, filename),
+      version
+    );
+    applied.push(version);
+  }
+
+  return applied;
+}
+
 async function runPendingMigrations(options = {}) {
   const migrationsDir = options.migrationsDir || DEFAULT_MIGRATIONS_DIR;
 
   if (options.client) {
-    await ensureSchemaMigrations(options.client);
-    const appliedVersions = await getAppliedVersions(options.client);
-    const applied = [];
-
-    for (const filename of listMigrationFiles(migrationsDir)) {
-      const version = path.basename(filename, ".sql");
-
-      if (appliedVersions.has(version)) {
-        continue;
-      }
-
-      await runMigrationFile(
-        options.client,
-        path.join(migrationsDir, filename),
-        version
-      );
-      applied.push(version);
-    }
-
-    return applied;
+    return applyPendingMigrations(options.client, migrationsDir);
   }
 
-  return db.withTransaction(async (client) => {
-    await ensureSchemaMigrations(client);
-    const appliedVersions = await getAppliedVersions(client);
-    const applied = [];
-
-    for (const filename of listMigrationFiles(migrationsDir)) {
-      const version = path.basename(filename, ".sql");
-
-      if (appliedVersions.has(version)) {
-        continue;
-      }
-
-      await runMigrationFile(
-        client,
-        path.join(migrationsDir, filename),
-        version
-      );
-      applied.push(version);
-    }
-
-    return applied;
-  });
+  return db.withTransaction((client) =>
+    applyPendingMigrations(client, migrationsDir)
+  );
 }
 
 module.exports = {
   DEFAULT_MIGRATIONS_DIR,
+  applyPendingMigrations,
   ensureSchemaMigrations,
   listMigrationFiles,
   runPendingMigrations
