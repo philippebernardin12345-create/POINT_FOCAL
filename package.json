@@ -5,7 +5,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "test": "node --test src/tests/v106-step1.test.js"
   },
   "keywords": [
     "point-focal",
@@ -40,4 +41,3 @@
     "nodemon": "^3.1.4"
   }
 }
-
