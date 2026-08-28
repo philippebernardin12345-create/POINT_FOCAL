@@ -38,13 +38,24 @@ function runCommand(command, args, options = {}) {
   });
 }
 
-function commandExists(command) {
+function resolveCommand(command) {
   const paths = (process.env.PATH || "").split(path.delimiter);
+  const candidates = [];
 
-  return paths.some((candidatePath) => {
-    const candidate = path.join(candidatePath, command);
-    return fs.existsSync(candidate);
-  });
+  for (const candidatePath of paths) {
+    candidates.push(path.join(candidatePath, command));
+  }
+
+  candidates.push(
+    path.join(
+      "/usr/lib/postgresql/16/bin",
+      command
+    )
+  );
+
+  return candidates.find((candidate) =>
+    fs.existsSync(candidate)
+  );
 }
 
 function findFreePort() {
@@ -61,10 +72,10 @@ function findFreePort() {
 }
 
 async function startTemporaryPostgres() {
-  if (
-    !commandExists("initdb") ||
-    !commandExists("pg_ctl")
-  ) {
+  const initdb = resolveCommand("initdb");
+  const pgCtl = resolveCommand("pg_ctl");
+
+  if (!initdb || !pgCtl) {
     return null;
   }
 
@@ -84,7 +95,7 @@ async function startTemporaryPostgres() {
   });
 
   await runCommand(
-    "initdb",
+    initdb,
     [
       "-A",
       "trust",
@@ -96,7 +107,7 @@ async function startTemporaryPostgres() {
     ]
   );
 
-  await runCommand("pg_ctl", [
+  await runCommand(pgCtl, [
     "-D",
     dataDir,
     "-o",
@@ -111,7 +122,7 @@ async function startTemporaryPostgres() {
   return {
     connectionString,
     async stop() {
-      await runCommand("pg_ctl", [
+      await runCommand(pgCtl, [
         "-D",
         dataDir,
         "-m",

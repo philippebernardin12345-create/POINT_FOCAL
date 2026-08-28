@@ -105,19 +105,43 @@ async function countAssignmentsForSponsor(sponsorUserId) {
   return result.rows[0].total;
 }
 
-test.before(async () => {
-  cluster = await startTemporaryPostgres();
+function withDatabase(name, fn) {
+  test(name, async (context) => {
+    if (!pool) {
+      context.skip(
+        "initdb/pg_ctl indisponibles: tests PostgreSQL V10.6 ignorés."
+      );
+      return;
+    }
 
-  if (!cluster) {
-    return;
+    await fn();
+  });
+}
+
+test.before(async () => {
+  const externalDatabaseUrl =
+    process.env.TEST_DATABASE_URL ||
+    process.env.DATABASE_URL;
+
+  if (externalDatabaseUrl) {
+    process.env.DATABASE_URL =
+      externalDatabaseUrl;
+  } else {
+    cluster = await startTemporaryPostgres();
+
+    if (!cluster) {
+      return;
+    }
+
+    process.env.DATABASE_URL =
+      cluster.connectionString;
   }
 
-  process.env.DATABASE_URL =
-    cluster.connectionString;
+  const connectionString =
+    process.env.DATABASE_URL;
 
   pool = new Pool({
-    connectionString:
-      cluster.connectionString
+    connectionString
   });
 
   db = require("../config/db");
@@ -140,17 +164,14 @@ test.after(async () => {
 });
 
 test.beforeEach(async (context) => {
-  if (!cluster) {
-    context.skip(
-      "initdb/pg_ctl indisponibles: tests PostgreSQL V10.6 ignorés."
-    );
+  if (!pool) {
     return;
   }
 
   await resetDatabase();
 });
 
-test("Test 1 - création/résolution du root", async () => {
+withDatabase("Test 1 - création/résolution du root", async () => {
   const root = await insertUser({
     isRoot: true,
     emailConfirmed: true
@@ -169,7 +190,7 @@ test("Test 1 - création/résolution du root", async () => {
   assert.equal(resolvedAfter.is_explicit, true);
 });
 
-test("Test 2 - sponsor valide", async () => {
+withDatabase("Test 2 - sponsor valide", async () => {
   const sponsor = await insertUser();
   const child = await insertUser();
 
@@ -185,7 +206,7 @@ test("Test 2 - sponsor valide", async () => {
   assert.equal(assignment.slot_no, 1);
 });
 
-test("Test 3 - un sponsor peut avoir 1 direct", async () => {
+withDatabase("Test 3 - un sponsor peut avoir 1 direct", async () => {
   const sponsor = await insertUser();
   const child = await insertUser();
 
@@ -203,7 +224,7 @@ test("Test 3 - un sponsor peut avoir 1 direct", async () => {
   assert.equal(assignments[0].slot_no, 1);
 });
 
-test("Test 4 - un sponsor peut avoir 2 directs", async () => {
+withDatabase("Test 4 - un sponsor peut avoir 2 directs", async () => {
   const sponsor = await insertUser();
   const child1 = await insertUser();
   const child2 = await insertUser();
@@ -224,7 +245,7 @@ test("Test 4 - un sponsor peut avoir 2 directs", async () => {
   assert.equal(second.slot_no, 2);
 });
 
-test("Test 5 - le troisième direct est refusé", async () => {
+withDatabase("Test 5 - le troisième direct est refusé", async () => {
   const sponsor = await insertUser();
   const child1 = await insertUser();
   const child2 = await insertUser();
@@ -250,7 +271,7 @@ test("Test 5 - le troisième direct est refusé", async () => {
   );
 });
 
-test("Test 6 - deux demandes concurrentes ne peuvent pas produire 3 directs", async () => {
+withDatabase("Test 6 - deux demandes concurrentes ne peuvent pas produire 3 directs", async () => {
   const sponsor = await insertUser();
   const child1 = await insertUser();
   const child2 = await insertUser();
@@ -286,7 +307,7 @@ test("Test 6 - deux demandes concurrentes ne peuvent pas produire 3 directs", as
   );
 });
 
-test("Test 7 - phase initiale LEADER_LAUNCH", async () => {
+withDatabase("Test 7 - phase initiale LEADER_LAUNCH", async () => {
   const root = await insertUser({
     isRoot: true,
     emailConfirmed: true
@@ -304,7 +325,7 @@ test("Test 7 - phase initiale LEADER_LAUNCH", async () => {
   assert.equal(phaseState.leader_count, 0);
 });
 
-test("Test 8 - transition 49 vers 50 sans double transition concurrente", async () => {
+withDatabase("Test 8 - transition 49 vers 50 sans double transition concurrente", async () => {
   const root = await insertUser({
     isRoot: true,
     emailConfirmed: true
@@ -366,7 +387,7 @@ test("Test 8 - transition 49 vers 50 sans double transition concurrente", async 
   assert.equal(transitions.length, 1);
 });
 
-test("Test 9 - rollback complet en cas d'échec", async () => {
+withDatabase("Test 9 - rollback complet en cas d'échec", async () => {
   const sponsor = await insertUser();
   const child1 = await insertUser();
   const child2 = await insertUser();

@@ -172,8 +172,8 @@ BEGIN
 
   SELECT *
   INTO v_existing
-  FROM v106_global_sponsorships
-  WHERE child_user_id = p_child_user_id;
+  FROM v106_global_sponsorships existing_assignment
+  WHERE existing_assignment.child_user_id = p_child_user_id;
 
   IF FOUND THEN
     IF v_existing.sponsor_user_id <> p_sponsor_user_id THEN
