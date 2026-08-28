@@ -1,0 +1,28 @@
+name: Supabase Deploy
+
+on:
+  push:
+    branches:
+      - main   # déclenche quand tu pushes sur la branche principale
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production   # ton environnement où le secret est défini
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v3
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Installer Supabase CLI
+        run: npm install -g supabase
+
+      - name: Lancer migration Supabase
+        run: supabase db push
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
