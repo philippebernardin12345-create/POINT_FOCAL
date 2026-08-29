@@ -44,10 +44,12 @@ async function getAppliedMigrations(client) {
 
 async function applyMigration(client, migration) {
   const sql = await fs.readFile(migration.path, "utf8");
-
-  await client.query("BEGIN");
+  let transactionStarted = false;
 
   try {
+    await client.query("BEGIN");
+    transactionStarted = true;
+
     if (sql.trim()) {
       await client.query(sql);
     }
@@ -59,7 +61,10 @@ async function applyMigration(client, migration) {
 
     await client.query("COMMIT");
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (transactionStarted) {
+      await client.query("ROLLBACK");
+    }
+
     error.message = `Migration failed (${migration.name}): ${error.message}`;
     throw error;
   }
@@ -90,7 +95,6 @@ async function runMigrations(options = {}) {
       }
 
       await applyMigration(client, migration);
-      appliedMigrations.add(migration.name);
       executedMigrations.push(migration.name);
     }
 
