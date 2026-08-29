@@ -148,6 +148,10 @@ async function register(payload) {
   const passwordHash =
     await bcrypt.hash(password, 10);
 
+  const isLeader = false;
+  const isPrelaunchLeader = false;
+  const linkActive = false;
+
   const user =
     await authRepository.createUser({
       email: normalizedEmail,
