@@ -94,15 +94,15 @@ RETURNS TABLE (slot_no INTEGER) AS $$
 DECLARE
   v_slot INTEGER;
 BEGIN
+  -- Vérification : pas d'auto-parrainage (fail-fast avant tout verrouillage)
+  IF p_sponsor_id = p_child_id THEN
+    RAISE EXCEPTION 'sponsor_id et child_id doivent être différents';
+  END IF;
+
   -- Verrouiller le sponsor pour éviter les races sur ses slots
   PERFORM id FROM users WHERE id = p_sponsor_id FOR UPDATE;
   -- Verrouiller l'enfant pour éviter une double attribution
   PERFORM id FROM users WHERE id = p_child_id   FOR UPDATE;
-
-  -- Vérification : pas d'auto-parrainage
-  IF p_sponsor_id = p_child_id THEN
-    RAISE EXCEPTION 'sponsor_id et child_id doivent être différents';
-  END IF;
 
   -- Rechercher le premier slot libre (1 puis 2)
   SELECT s INTO v_slot

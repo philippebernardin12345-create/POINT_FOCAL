@@ -8,7 +8,7 @@
 
 const fs   = require("fs");
 const path = require("path");
-const { withTransaction } = require("../config/db");
+const { query, withTransaction } = require("../config/db");
 
 const MIGRATIONS_DIR = path.join(__dirname, "../migrations");
 
@@ -47,7 +47,6 @@ async function runMigrations() {
 
   // Lire les versions appliquées (hors transaction pour ne pas bloquer)
   try {
-    const { query } = require("../config/db");
     const res = await query("SELECT version FROM schema_migrations");
     res.rows.forEach(r => applied.add(r.version));
   } catch (_) {

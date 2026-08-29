@@ -13,44 +13,42 @@
 
 try { require("dotenv").config(); } catch (_) { /* dotenv optionnel */ }
 
-const { test, describe, before, after } = require("node:test");
+const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const SKIP = !process.env.TEST_DATABASE_URL;
 const SKIP_MSG = "TEST_DATABASE_URL non défini — tests PostgreSQL ignorés";
 
-if (SKIP) {
-  test(SKIP_MSG, { skip: true }, () => {});
-  // Sortir proprement sans exécuter le reste
-  // (les blocs describe/test ci-dessous sont enregistrés de façon synchrone,
-  //  mais node:test ne les exécutera pas si le processus se termine après).
-  process.exit(0);
-}
-
 // ── Connexion dédiée à la base de test ──────────────────────────────────────
-const { Pool } = require("pg");
-const pool = new Pool({
-  connectionString: process.env.TEST_DATABASE_URL,
-  ssl: process.env.TEST_DATABASE_URL.includes("localhost") ? false : { rejectUnauthorized: false }
-});
+// Initialisée uniquement si TEST_DATABASE_URL est défini
+let pool;
+let db;
 
-const db = {
-  query:           (...a)  => pool.query(...a),
-  withTransaction: async (fn) => {
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      const r = await fn(client);
-      await client.query("COMMIT");
-      return r;
-    } catch (e) {
-      await client.query("ROLLBACK");
-      throw e;
-    } finally {
-      client.release();
+if (!SKIP) {
+  const { Pool } = require("pg");
+  pool = new Pool({
+    connectionString: process.env.TEST_DATABASE_URL,
+    ssl: process.env.TEST_DATABASE_URL.includes("localhost") ? false : { rejectUnauthorized: false }
+  });
+
+  db = {
+    query: (...a) => pool.query(...a),
+    withTransaction: async (fn) => {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const r = await fn(client);
+        await client.query("COMMIT");
+        return r;
+      } catch (e) {
+        await client.query("ROLLBACK");
+        throw e;
+      } finally {
+        client.release();
+      }
     }
-  }
-};
+  };
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 async function createUser(suffix) {
@@ -84,19 +82,22 @@ async function cleanupTestData() {
   );
 }
 
-// ── Suite de tests ────────────────────────────────────────────────────────────
-
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
 before(async () => {
-  await cleanupTestData();
+  if (!SKIP) await cleanupTestData();
 });
 
 after(async () => {
-  await cleanupTestData();
-  await pool.end();
+  if (!SKIP) {
+    await cleanupTestData();
+    await pool.end();
+  }
 });
 
+// ── Suite de tests ────────────────────────────────────────────────────────────
+
 // 1. Root ─────────────────────────────────────────────────────────────────────
-test("1 — setRootUser persiste root_user_id dans le singleton", async () => {
+test("1 — setRootUser persiste root_user_id dans le singleton", { skip: SKIP ? SKIP_MSG : false }, async () => {
   const rootId = await createUser("root_1");
   await db.query(
     `UPDATE v106_runtime_state SET root_user_id = $1, updated_at = NOW() WHERE singleton_id = 1`,
@@ -107,7 +108,7 @@ test("1 — setRootUser persiste root_user_id dans le singleton", async () => {
 });
 
 // 2. Sponsor valide ────────────────────────────────────────────────────────────
-test("2 — assignation d'un sponsor valide (slot 1)", async () => {
+test("2 — assignation d'un sponsor valide (slot 1)", { skip: SKIP ? SKIP_MSG : false }, async () => {
   const sponsor = await createUser("sponsor_2");
   const child   = await createUser("child_2");
   const res = await db.query(
@@ -118,7 +119,7 @@ test("2 — assignation d'un sponsor valide (slot 1)", async () => {
 });
 
 // 3. Premier direct ───────────────────────────────────────────────────────────
-test("3 — premier direct occupe le slot 1", async () => {
+test("3 — premier direct occupe le slot 1", { skip: SKIP ? SKIP_MSG : false }, async () => {
   const sponsor = await createUser("sponsor_3");
   const child   = await createUser("child_3");
   const res = await db.query(
@@ -129,7 +130,7 @@ test("3 — premier direct occupe le slot 1", async () => {
 });
 
 // 4. Deuxième direct ──────────────────────────────────────────────────────────
-test("4 — deuxième direct occupe le slot 2", async () => {
+test("4 — deuxième direct occupe le slot 2", { skip: SKIP ? SKIP_MSG : false }, async () => {
   const sponsor = await createUser("sponsor_4");
   const c1      = await createUser("child_4a");
   const c2      = await createUser("child_4b");
@@ -142,7 +143,7 @@ test("4 — deuxième direct occupe le slot 2", async () => {
 });
 
 // 5. Troisième direct refusé ───────────────────────────────────────────────────
-test("5 — troisième direct est refusé (sponsor_full)", async () => {
+test("5 — troisième direct est refusé (sponsor_full)", { skip: SKIP ? SKIP_MSG : false }, async () => {
   const sponsor = await createUser("sponsor_5");
   const c1      = await createUser("child_5a");
   const c2      = await createUser("child_5b");
@@ -156,7 +157,7 @@ test("5 — troisième direct est refusé (sponsor_full)", async () => {
 });
 
 // 6. Concurrence — maximum 2 directs ──────────────────────────────────────────
-test("6 — concurrence : exactement 2 slots assignés sur 5 tentatives simultanées", async () => {
+test("6 — concurrence : exactement 2 slots assignés sur 5 tentatives simultanées", { skip: SKIP ? SKIP_MSG : false }, async () => {
   const sponsor = await createUser("sponsor_6");
   const children = await Promise.all(
     [1, 2, 3, 4, 5].map(i => createUser(`child_6_${i}`))
@@ -176,20 +177,18 @@ test("6 — concurrence : exactement 2 slots assignés sur 5 tentatives simultan
 });
 
 // 7. Phase initiale ───────────────────────────────────────────────────────────
-test("7 — phase initiale est LEADER_LAUNCH", async () => {
+test("7 — phase initiale est LEADER_LAUNCH", { skip: SKIP ? SKIP_MSG : false }, async () => {
   const res = await db.query("SELECT phase FROM v106_runtime_state WHERE singleton_id = 1");
   assert.equal(res.rows[0].phase, "LEADER_LAUNCH");
 });
 
 // 8. 49 leaders => pas de transition ─────────────────────────────────────────
-test("8 — 49 leaders => threshold_not_reached", async () => {
-  // Nettoyage de la phase
+test("8 — 49 leaders => threshold_not_reached", { skip: SKIP ? SKIP_MSG : false }, async () => {
   await db.query(
     "UPDATE v106_runtime_state SET phase = 'LEADER_LAUNCH', leader_count = 0, updated_at = NOW() WHERE singleton_id = 1"
   );
   await db.query("DELETE FROM v106_phase_transition_events");
 
-  // Créer 49 leaders de test
   const leaders49 = await Promise.all(
     Array.from({ length: 49 }, (_, i) => createUser(`leader8_${i}`))
   );
@@ -198,12 +197,11 @@ test("8 — 49 leaders => threshold_not_reached", async () => {
   const res = await db.query("SELECT v106_transition_phase_to_normal_operation() AS r");
   assert.equal(res.rows[0].r, "threshold_not_reached");
 
-  // Cleanup leaders
   await db.query("UPDATE users SET is_leader = FALSE WHERE email LIKE 'test_leader8_%@v106.test'");
 });
 
 // 9. 50 leaders => NORMAL_OPERATION ──────────────────────────────────────────
-test("9 — 50 leaders => NORMAL_OPERATION", async () => {
+test("9 — 50 leaders => NORMAL_OPERATION", { skip: SKIP ? SKIP_MSG : false }, async () => {
   await db.query(
     "UPDATE v106_runtime_state SET phase = 'LEADER_LAUNCH', leader_count = 0, updated_at = NOW() WHERE singleton_id = 1"
   );
@@ -220,12 +218,11 @@ test("9 — 50 leaders => NORMAL_OPERATION", async () => {
   const state = await db.query("SELECT phase FROM v106_runtime_state WHERE singleton_id = 1");
   assert.equal(state.rows[0].phase, "NORMAL_OPERATION");
 
-  // Cleanup
   await db.query("UPDATE users SET is_leader = FALSE WHERE email LIKE 'test_leader9_%@v106.test'");
 });
 
 // 10. Appels concurrents de transition => une seule transition ─────────────────
-test("10 — appels concurrents : une seule transition enregistrée", async () => {
+test("10 — appels concurrents : une seule transition enregistrée", { skip: SKIP ? SKIP_MSG : false }, async () => {
   await db.query(
     "UPDATE v106_runtime_state SET phase = 'LEADER_LAUNCH', leader_count = 0, updated_at = NOW() WHERE singleton_id = 1"
   );
@@ -236,7 +233,6 @@ test("10 — appels concurrents : une seule transition enregistrée", async () =
   );
   await Promise.all(leaders.map(id => setLeader(id)));
 
-  // 5 appels simultanés
   const results = await Promise.allSettled(
     Array.from({ length: 5 }, () =>
       db.query("SELECT v106_transition_phase_to_normal_operation() AS r")
@@ -249,12 +245,11 @@ test("10 — appels concurrents : une seule transition enregistrée", async () =
   const eventsRes = await db.query("SELECT COUNT(*) AS c FROM v106_phase_transition_events WHERE to_phase = 'NORMAL_OPERATION'");
   assert.equal(Number(eventsRes.rows[0].c), 1, "Une seule transition doit être journalisée");
 
-  // Cleanup
   await db.query("UPDATE users SET is_leader = FALSE WHERE email LIKE 'test_leader10_%@v106.test'");
 });
 
 // 11. Rollback complet ─────────────────────────────────────────────────────────
-test("11 — rollback : aucune donnée persistée si la transaction échoue", async () => {
+test("11 — rollback : aucune donnée persistée si la transaction échoue", { skip: SKIP ? SKIP_MSG : false }, async () => {
   const sponsor = await createUser("sponsor_11");
   const child   = await createUser("child_11");
 
