@@ -36,7 +36,7 @@ async function register(payload) {
       .toUpperCase();
 
   /*
-    Le code d’invitation n’est plus obligatoire.
+    Le code d'invitation n'est plus obligatoire.
 
     - Code présent : parrain réel.
     - Code absent : attribution FIFO.
@@ -75,8 +75,8 @@ async function register(payload) {
 
   /*
     CAS 1 :
-    L’utilisateur possède déjà le code
-    d’invitation de son parrain.
+    L'utilisateur possède déjà le code
+    d'invitation de son parrain.
   */
   if (providedSponsorCode) {
     sponsor =
@@ -86,7 +86,7 @@ async function register(payload) {
 
     /*
       Le code racine peut être accepté même si
-      aucun compte racine correspondant n’est
+      aucun compte racine correspondant n'est
       encore enregistré dans users.
     */
     if (
@@ -109,7 +109,7 @@ async function register(payload) {
   } else {
     /*
       CAS 2 :
-      Aucun code d’invitation.
+      Aucun code d'invitation.
 
       Le FIFO recherche le plus ancien utilisateur
       actif ayant moins de deux filleuls au total.
@@ -147,6 +147,10 @@ async function register(payload) {
 
   const passwordHash =
     await bcrypt.hash(password, 10);
+
+  const isLeader = false;
+  const isPrelaunchLeader = false;
+  const linkActive = false;
 
   const user =
     await authRepository.createUser({
@@ -637,4 +641,3 @@ module.exports = {
   resetPassword,
   me
 };
-
