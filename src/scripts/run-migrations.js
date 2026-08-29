@@ -2,9 +2,9 @@ const { runMigrations } = require("../db/migration-runner");
 
 async function main() {
   try {
-    await runMigrations();
+    await runMigrations({ closePool: true });
   } catch (error) {
-    console.error(error);
+    console.error(error.message);
     process.exitCode = 1;
   }
 }

@@ -74,7 +74,7 @@ async function runMigrations(options = {}) {
   const {
     migrationsDir = MIGRATIONS_DIR,
     dbPool = pool,
-    closePool = true
+    closePool = false
   } = options;
 
   let client;
