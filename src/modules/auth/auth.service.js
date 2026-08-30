@@ -1,6 +1,8 @@
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const authRepository = require("./auth.repository");
+const db = require("../../config/db");
+const v106Runtime = require("../../db/v106-runtime");
 const { signToken } = require("../../config/jwt");
 const { sendEmail } = require("../../config/email");
 
@@ -392,36 +394,51 @@ async function confirmOtp(payload) {
     );
   }
 
-  const user =
-    await authRepository.confirmEmailByOtp(
-      normalizedEmail,
-      otp
-    );
+  return db.withTransaction(async (client) => {
+    const user =
+      await authRepository.confirmEmailByOtp(
+        normalizedEmail,
+        otp,
+        { client }
+      );
 
-  if (!user) {
-    throw new Error(
-      "Code OTP invalide ou expiré."
-    );
-  }
+    if (!user) {
+      throw new Error(
+        "Code OTP invalide ou expiré."
+      );
+    }
 
-  /*
-    Après confirmation du compte, on vérifie
-    si les 50 leaders sont maintenant constitués.
+    const transition =
+      await v106Runtime.transitionPhaseToNormalOperation({
+        client
+      });
 
-    Lorsque le 50e leader confirme son email,
-    tous les leaders prélaunch sont activés.
-  */
-  const activation =
-    await authRepository
-      .activatePrelaunchLeadersIfLimitReached();
+    if (transition.transitioned) {
+      console.log(
+        `[v106] Transition automatique vers NORMAL_OPERATION : ${transition.leader_count}/${transition.leader_threshold} leaders.`
+      );
+    }
 
-  if (activation.activated) {
-    console.log(
-      `[prelaunch] ${activation.activatedCount} leaders activés après atteinte du seuil de 50.`
-    );
-  }
+    const activation =
+      await authRepository
+        .activatePrelaunchLeadersIfLimitReached({
+          client
+        });
 
-  return user;
+    if (activation.activated) {
+      console.log(
+        `[prelaunch] ${activation.activatedCount} leaders activés après atteinte du seuil de 50.`
+      );
+    }
+
+    return {
+      ...user,
+      v106Phase: transition.phase,
+      v106LeaderCount: transition.leader_count,
+      v106LeaderThreshold: transition.leader_threshold,
+      v106Transitioned: transition.transitioned
+    };
+  });
 }
 
 async function me(userId) {

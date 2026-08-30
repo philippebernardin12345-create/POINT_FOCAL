@@ -152,17 +152,82 @@ async function confirmEmail(userId) {
   return result.rows[0] || null;
 }
 
-async function confirmEmailByOtp(email, otp) {
-  const result = await db.query(
-    `UPDATE users
-     SET email_confirmed = true,
-         status = 'active',
-         email_otp = NULL,
-         email_otp_expires_at = NULL
-     WHERE email = $1
-       AND email_otp = $2
-       AND email_otp_expires_at > NOW()
-     RETURNING id, email, status, email_confirmed`,
+async function confirmEmailByOtp(email, otp, options = {}) {
+  const client = options.client;
+
+  const result = await (client || db).query(
+    `
+    WITH confirmed AS (
+      UPDATE users
+      SET
+        email_confirmed = true,
+        status = 'active',
+        email_otp = NULL,
+        email_otp_expires_at = NULL
+      WHERE email = $1
+        AND email_otp = $2
+        AND email_otp_expires_at > NOW()
+      RETURNING *
+    ),
+    leader_slot AS (
+      SELECT
+        EXISTS (
+          SELECT 1
+          FROM confirmed
+        ) AS confirmed_ok,
+        (
+          SELECT leader_threshold
+          FROM v106_runtime_state
+          WHERE singleton_id = true
+          FOR UPDATE
+        ) AS leader_threshold,
+        (
+          SELECT COUNT(*)::int
+          FROM users
+          WHERE is_leader = true
+            AND is_prelaunch_leader = true
+            AND email_confirmed = true
+            AND status = 'active'
+        ) AS current_leaders
+    ),
+    promoted AS (
+      UPDATE users u
+      SET
+        is_leader = true,
+        is_prelaunch_leader = true,
+        link_active = false
+      FROM confirmed c, leader_slot l
+      WHERE u.id = c.id
+        AND l.confirmed_ok = true
+        AND l.current_leaders < l.leader_threshold
+      RETURNING u.*
+    )
+    SELECT
+      id,
+      email,
+      status,
+      email_confirmed,
+      is_leader,
+      is_prelaunch_leader,
+      link_active
+    FROM promoted
+
+    UNION ALL
+
+    SELECT
+      id,
+      email,
+      status,
+      email_confirmed,
+      is_leader,
+      is_prelaunch_leader,
+      link_active
+    FROM confirmed
+    WHERE NOT EXISTS (
+      SELECT 1 FROM promoted
+    )
+    LIMIT 1
+    `,
     [email, otp]
   );
 
@@ -230,8 +295,10 @@ async function findOldestAvailableSponsorForFifo() {
 
   return result.rows[0] || null;
 }
-async function activatePrelaunchLeadersIfLimitReached() {
-  const result = await db.query(
+async function activatePrelaunchLeadersIfLimitReached(options = {}) {
+  const client = options.client;
+
+  const result = await (client || db).query(
     `
     SELECT COUNT(*)::int AS total
     FROM users
@@ -253,11 +320,12 @@ async function activatePrelaunchLeadersIfLimitReached() {
   if (total < 50) {
     return {
       activated: false,
-      total
+      total,
+      activatedCount: 0
     };
   }
 
-  const activation = await db.query(
+  const activation = await (client || db).query(
     `
     UPDATE users
     SET
