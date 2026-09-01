@@ -22,9 +22,7 @@ async function findUserByInvitationCode(code) {
   const result = await db.query(
     `SELECT *
      FROM users
-     WHERE invitation_code_series_1 = $1
-        OR invitation_code_series_2 = $1
-        OR invitation_code_series_3 = $1
+     WHERE invitation_code = $1
      LIMIT 1`,
     [code]
   );
@@ -64,9 +62,7 @@ async function createUser(user) {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
@@ -82,8 +78,6 @@ async function createUser(user) {
       $6,
       $7,
       NULL,
-      NULL,
-      NULL,
       false,
       $8,
       $9,
@@ -98,9 +92,7 @@ async function createUser(user) {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
@@ -272,7 +264,7 @@ async function findOldestAvailableSponsorForFifo() {
     SELECT
       u.id,
       u.email,
-      u.invitation_code_series_1,
+      u.invitation_code,
       u.created_at,
       COUNT(children.id)::int AS total_referrals
     FROM users u
@@ -285,7 +277,7 @@ async function findOldestAvailableSponsorForFifo() {
     GROUP BY
       u.id,
       u.email,
-      u.invitation_code_series_1,
+      u.invitation_code,
       u.created_at
     HAVING COUNT(children.id) < 2
     ORDER BY u.created_at ASC

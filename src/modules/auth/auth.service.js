@@ -328,14 +328,8 @@ async function login(payload) {
       campaignId:
         user.campaign_id,
 
-      invitationCodeSeries1:
-        user.invitation_code_series_1,
-
-      invitationCodeSeries2:
-        user.invitation_code_series_2,
-
-      invitationCodeSeries3:
-        user.invitation_code_series_3,
+      invitationCode:
+        user.invitation_code,
 
       isRoot:
         user.is_root,
@@ -472,14 +466,8 @@ async function me(userId) {
     sponsorId:
       user.sponsor_id,
 
-    invitationCodeSeries1:
-      user.invitation_code_series_1,
-
-    invitationCodeSeries2:
-      user.invitation_code_series_2,
-
-    invitationCodeSeries3:
-      user.invitation_code_series_3,
+    invitationCode:
+      user.invitation_code,
 
     isRoot:
       user.is_root,

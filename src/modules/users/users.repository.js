@@ -1,12 +1,11 @@
 /**
- * POINT FOCAL V10.4 - Repository Utilisateurs
+ * POINT FOCAL V10.6 - Repository Utilisateurs
  *
  * Repository CORE minimal.
  *
  * IMPORTANT :
- * - Le schéma users V10.4 est la source de vérité.
- * - Les anciens champs invitation_code, point_focal_link
- *   et updated_at ne sont plus utilisés ici.
+ * - Le schéma users V10.6 est la source de vérité.
+ * - Un utilisateur possède un seul code d'invitation : invitation_code.
  * - La gestion d'authentification appartient à auth.repository.js.
  * - La gestion administrative appartient à admin.repository.js.
  */
@@ -24,9 +23,7 @@ const { query } = require("../../config/db");
  * - status
  * - sponsor_id
  * - campaign_id
- * - invitation_code_series_1
- * - invitation_code_series_2
- * - invitation_code_series_3
+ * - invitation_code
  * - is_root
  * - is_leader
  * - is_prelaunch_leader
@@ -45,9 +42,7 @@ async function findUserById(userId) {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
@@ -87,9 +82,7 @@ async function findUserByInvitationCode(invitationCode) {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
@@ -97,9 +90,7 @@ async function findUserByInvitationCode(invitationCode) {
       email_confirmed,
       created_at
     FROM users
-    WHERE invitation_code_series_1 = $1
-       OR invitation_code_series_2 = $1
-       OR invitation_code_series_3 = $1
+    WHERE invitation_code = $1
     LIMIT 1
     `,
     [code]
@@ -124,9 +115,7 @@ async function getChildren(userId) {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
@@ -175,9 +164,7 @@ async function findRoot() {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,

@@ -5,9 +5,7 @@ async function findUserByInvitationCode(code) {
     `
     SELECT id
     FROM users
-    WHERE invitation_code_series_1 = $1
-       OR invitation_code_series_2 = $1
-       OR invitation_code_series_3 = $1
+    WHERE invitation_code = $1
     LIMIT 1
     `,
     [code]
@@ -29,9 +27,7 @@ async function findUserPaymentStart(userId) {
       victory_expired,
       victory_personal_link,
       victory_identifier,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       link_active
     FROM users
     WHERE id = $1
@@ -159,17 +155,17 @@ async function markUserVictoryExpired(userId) {
   return result.rows[0] || null;
 }
 
-async function activateSeries1PointFocalLink(
+async function activatePointFocalLink(
   userId,
-  invitationCodeSeries1
+  invitationCode
 ) {
   const result = await db.query(
     `
     UPDATE users
     SET
-      invitation_code_series_1 =
+      invitation_code =
         COALESCE(
-          invitation_code_series_1,
+          invitation_code,
           $2
         ),
       status = 'active',
@@ -181,16 +177,14 @@ async function activateSeries1PointFocalLink(
       email,
       victory_personal_link,
       victory_identifier,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       status,
       victory_expired,
       link_active
     `,
     [
       userId,
-      invitationCodeSeries1
+      invitationCode
     ]
   );
 
@@ -205,5 +199,5 @@ module.exports = {
   savePayment,
   saveVictoryPersonalLink,
   markUserVictoryExpired,
-  activateSeries1PointFocalLink
+  activatePointFocalLink
 };

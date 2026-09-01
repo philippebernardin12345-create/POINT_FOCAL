@@ -46,9 +46,7 @@ async function setupDatabase() {
       is_prelaunch_leader boolean NOT NULL DEFAULT false,
       email_confirmed boolean NOT NULL DEFAULT false,
       status text NOT NULL DEFAULT 'pending',
-      invitation_code_series_1 text NULL,
-      invitation_code_series_2 text NULL,
-      invitation_code_series_3 text NULL,
+      invitation_code text UNIQUE,
       created_at timestamptz NOT NULL DEFAULT NOW(),
       updated_at timestamptz NOT NULL DEFAULT NOW(),
       CONSTRAINT users_sponsor_fk
