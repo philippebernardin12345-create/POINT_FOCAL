@@ -1,38 +1,25 @@
+
 /**
- * POINT FOCAL V10.4 - Repository Utilisateurs
+ * POINT FOCAL V10.6 - Repository Utilisateurs
  *
  * Repository CORE minimal.
  *
- * IMPORTANT :
- * - Le schéma users V10.4 est la source de vérité.
- * - Les anciens champs invitation_code, point_focal_link
- *   et updated_at ne sont plus utilisés ici.
+ * MODÈLE V10.6 :
+ * - Un seul code d'invitation par utilisateur : invitation_code.
+ * - Le sponsor réel est users.sponsor_id.
  * - La gestion d'authentification appartient à auth.repository.js.
  * - La gestion administrative appartient à admin.repository.js.
+ *
+ * IMPORTANT :
+ * Les anciennes colonnes invitation_code_series_1/2/3 peuvent
+ * encore exister physiquement dans PostgreSQL pendant la migration,
+ * mais elles ne sont plus utilisées par le code applicatif.
  */
 
 const { query } = require("../../config/db");
 
 /**
  * Trouve un utilisateur par son ID.
- *
- * Champs utilisés par le CORE :
- * - id
- * - email
- * - whatsapp
- * - language
- * - status
- * - sponsor_id
- * - campaign_id
- * - invitation_code_series_1
- * - invitation_code_series_2
- * - invitation_code_series_3
- * - is_root
- * - is_leader
- * - is_prelaunch_leader
- * - link_active
- * - email_confirmed
- * - created_at
  */
 async function findUserById(userId) {
   const result = await query(
@@ -45,9 +32,7 @@ async function findUserById(userId) {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
@@ -65,13 +50,15 @@ async function findUserById(userId) {
 }
 
 /**
- * Trouve un utilisateur par un code d'invitation.
+ * Trouve un utilisateur par son code d'invitation.
  *
- * V10.4 :
- * Un utilisateur peut posséder jusqu'à trois séries configurables.
+ * V10.6 :
+ * Un utilisateur possède un seul code canonique.
  */
 async function findUserByInvitationCode(invitationCode) {
-  const code = String(invitationCode || "").trim();
+  const code = String(invitationCode || "")
+    .trim()
+    .toUpperCase();
 
   if (!code) {
     return null;
@@ -87,9 +74,7 @@ async function findUserByInvitationCode(invitationCode) {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
@@ -97,9 +82,7 @@ async function findUserByInvitationCode(invitationCode) {
       email_confirmed,
       created_at
     FROM users
-    WHERE invitation_code_series_1 = $1
-       OR invitation_code_series_2 = $1
-       OR invitation_code_series_3 = $1
+    WHERE invitation_code = $1
     LIMIT 1
     `,
     [code]
@@ -124,9 +107,7 @@ async function getChildren(userId) {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
@@ -175,9 +156,7 @@ async function findRoot() {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
