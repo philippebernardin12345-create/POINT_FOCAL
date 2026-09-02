@@ -1,7 +1,32 @@
 const db = require("../../config/db");
+const {
+  generateInvitationCode,
+  normalizeInvitationCode
+} = require("../../utils/codeGenerator");
 
-async function findUserByEmail(email) {
-  const result = await db.query(
+const ROOT_INVITATION_CODE = "ABCD1000";
+const MAX_INVITATION_CODE_ATTEMPTS = 30;
+
+function runQuery(client, text, params = []) {
+  return db.query(text, params, client);
+}
+
+function isInvitationCodeUniqueViolation(error) {
+  const details = [
+    error?.constraint,
+    error?.detail,
+    error?.message
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return error?.code === "23505" &&
+    /invitation[_ ]code/i.test(details);
+}
+
+async function findUserByEmail(email, options = {}) {
+  const result = await runQuery(
+    options.client,
     "SELECT * FROM users WHERE email = $1 LIMIT 1",
     [email]
   );
@@ -9,8 +34,9 @@ async function findUserByEmail(email) {
   return result.rows[0] || null;
 }
 
-async function findUserById(id) {
-  const result = await db.query(
+async function findUserById(id, options = {}) {
+  const result = await runQuery(
+    options.client,
     "SELECT * FROM users WHERE id = $1 LIMIT 1",
     [id]
   );
@@ -18,114 +44,172 @@ async function findUserById(id) {
   return result.rows[0] || null;
 }
 
-async function findUserByInvitationCode(code) {
-  const result = await db.query(
-    `SELECT *
-     FROM users
-     WHERE invitation_code_series_1 = $1
-        OR invitation_code_series_2 = $1
-        OR invitation_code_series_3 = $1
-     LIMIT 1`,
-    [code]
+async function findUserByInvitationCode(code, options = {}) {
+  const normalizedCode = normalizeInvitationCode(code);
+
+  if (!normalizedCode) {
+    return null;
+  }
+
+  const result = await runQuery(
+    options.client,
+    `
+    SELECT *
+    FROM users
+    WHERE invitation_code = $1
+    LIMIT 1
+    `,
+    [normalizedCode]
   );
 
   return result.rows[0] || null;
 }
 
-async function getActiveCampaign() {
-  const result = await db.query(
+async function getActiveCampaign(options = {}) {
+  const result = await runQuery(
+    options.client,
     "SELECT * FROM campaigns WHERE status = 'active' LIMIT 1"
   );
 
   return result.rows[0] || null;
 }
 
-async function findRootUser() {
-  const result = await db.query(
+async function invitationCodeExists(code, options = {}) {
+  const normalizedCode = normalizeInvitationCode(code);
+
+  if (!normalizedCode) {
+    return false;
+  }
+
+  const result = await runQuery(
+    options.client,
     `
-    SELECT *
+    SELECT 1
     FROM users
-    WHERE is_root = true
-    ORDER BY created_at ASC
+    WHERE invitation_code = $1
     LIMIT 1
-    `
+    `,
+    [normalizedCode]
   );
 
-  return result.rows[0] || null;
+  return result.rows.length > 0;
 }
 
-async function createUser(user) {
-  const result = await db.query(
-    `INSERT INTO users (
-      email,
-      whatsapp,
-      password_hash,
-      language,
-      status,
-      sponsor_id,
-      campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
-      is_root,
-      is_leader,
-      is_prelaunch_leader,
-      link_active,
-      email_confirmed
-    )
-    VALUES (
-      $1,
-      $2,
-      $3,
-      $4,
-      $5,
-      $6,
-      $7,
-      NULL,
-      NULL,
-      NULL,
-      false,
-      $8,
-      $9,
-      $10,
-      false
-    )
-    RETURNING
-      id,
-      email,
-      whatsapp,
-      language,
-      status,
-      sponsor_id,
-      campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
-      is_root,
-      is_leader,
-      is_prelaunch_leader,
-      link_active,
-      email_confirmed,
-      created_at`,
-    [
-      user.email,
-      user.whatsapp,
-      user.passwordHash,
-      user.language,
-      user.status,
-      user.sponsorId,
-      user.campaignId,
-      user.isLeader === true,
-      user.isPrelaunchLeader === true,
-      user.linkActive === true
-    ]
+async function generateUniqueInvitationCode(options = {}) {
+  for (let attempt = 0; attempt < MAX_INVITATION_CODE_ATTEMPTS; attempt += 1) {
+    const invitationCode = normalizeInvitationCode(
+      generateInvitationCode()
+    );
+
+    if (
+      invitationCode &&
+      invitationCode !== ROOT_INVITATION_CODE &&
+      !(await invitationCodeExists(invitationCode, options))
+    ) {
+      return invitationCode;
+    }
+  }
+
+  throw new Error(
+    "Impossible de générer un code d'invitation unique."
+  );
+}
+
+async function createUser(user, options = {}) {
+  const client = options.client;
+  const providedInvitationCode = normalizeInvitationCode(
+    user.invitationCode
   );
 
-  return result.rows[0];
+  for (
+    let attempt = 0;
+    attempt < MAX_INVITATION_CODE_ATTEMPTS;
+    attempt += 1
+  ) {
+    const invitationCode = providedInvitationCode ||
+      await generateUniqueInvitationCode({ client });
+
+    try {
+      const result = await runQuery(
+        client,
+        `INSERT INTO users (
+          email,
+          whatsapp,
+          password_hash,
+          language,
+          status,
+          sponsor_id,
+          campaign_id,
+          invitation_code,
+          is_root,
+          is_leader,
+          is_prelaunch_leader,
+          link_active,
+          email_confirmed
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          false,
+          $9,
+          $10,
+          $11,
+          false
+        )
+        RETURNING
+          id,
+          email,
+          whatsapp,
+          language,
+          status,
+          sponsor_id,
+          campaign_id,
+          invitation_code,
+          is_root,
+          is_leader,
+          is_prelaunch_leader,
+          link_active,
+          email_confirmed,
+          created_at`,
+        [
+          user.email,
+          user.whatsapp,
+          user.passwordHash,
+          user.language,
+          user.status,
+          user.sponsorId,
+          user.campaignId,
+          invitationCode,
+          user.isLeader === true,
+          user.isPrelaunchLeader === true,
+          user.linkActive === true
+        ]
+      );
+
+      return result.rows[0];
+    } catch (error) {
+      if (!providedInvitationCode && isInvitationCodeUniqueViolation(error)) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error(
+    "Impossible de créer le compte avec un code d'invitation unique."
+  );
 }
 
-async function saveEmailOtp(userId, otp, expiresAt) {
-  const result = await db.query(
+async function saveEmailOtp(userId, otp, expiresAt, options = {}) {
+  const result = await runQuery(
+    options.client,
     `UPDATE users
      SET email_otp = $1,
          email_otp_expires_at = $2
@@ -137,8 +221,9 @@ async function saveEmailOtp(userId, otp, expiresAt) {
   return result.rows[0] || null;
 }
 
-async function confirmEmail(userId) {
-  const result = await db.query(
+async function confirmEmail(userId, options = {}) {
+  const result = await runQuery(
+    options.client,
     `UPDATE users
      SET email_confirmed = true,
          status = 'active',
@@ -153,11 +238,16 @@ async function confirmEmail(userId) {
 }
 
 async function confirmEmailByOtp(email, otp, options = {}) {
-  const client = options.client;
-
-  const result = await (client || db).query(
+  const result = await runQuery(
+    options.client,
     `
-    WITH confirmed AS (
+    WITH runtime_state AS (
+      SELECT phase, leader_threshold
+      FROM v106_runtime_state
+      WHERE singleton_id = true
+      FOR UPDATE
+    ),
+    confirmed AS (
       UPDATE users
       SET
         email_confirmed = true,
@@ -175,17 +265,18 @@ async function confirmEmailByOtp(email, otp, options = {}) {
           SELECT 1
           FROM confirmed
         ) AS confirmed_ok,
-        (
-          SELECT leader_threshold
-          FROM v106_runtime_state
-          WHERE singleton_id = true
-          FOR UPDATE
+        COALESCE(
+          (SELECT phase FROM runtime_state),
+          'NORMAL_OPERATION'
+        ) AS current_phase,
+        COALESCE(
+          (SELECT leader_threshold FROM runtime_state),
+          50
         ) AS leader_threshold,
         (
           SELECT COUNT(*)::int
           FROM users
           WHERE is_leader = true
-            AND is_prelaunch_leader = true
             AND email_confirmed = true
             AND status = 'active'
         ) AS current_leaders
@@ -199,6 +290,7 @@ async function confirmEmailByOtp(email, otp, options = {}) {
       FROM confirmed c, leader_slot l
       WHERE u.id = c.id
         AND l.confirmed_ok = true
+        AND l.current_phase = 'LEADER_LAUNCH'
         AND l.current_leaders < l.leader_threshold
       RETURNING u.*
     )
@@ -207,6 +299,9 @@ async function confirmEmailByOtp(email, otp, options = {}) {
       email,
       status,
       email_confirmed,
+      sponsor_id,
+      invitation_code,
+      is_root,
       is_leader,
       is_prelaunch_leader,
       link_active
@@ -219,6 +314,9 @@ async function confirmEmailByOtp(email, otp, options = {}) {
       email,
       status,
       email_confirmed,
+      sponsor_id,
+      invitation_code,
+      is_root,
       is_leader,
       is_prelaunch_leader,
       link_active
@@ -234,98 +332,87 @@ async function confirmEmailByOtp(email, otp, options = {}) {
   return result.rows[0] || null;
 }
 
-async function countRootLeaders() {
-  const result = await db.query(
-    `
-    SELECT COUNT(*)::int AS total
-    FROM users
-    WHERE is_leader = true
-      AND is_prelaunch_leader = true
-      AND email_confirmed = true
-      AND status = 'active'
-      AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
-        LIMIT 1
-      )
-    `
-  );
+async function findOldestAvailableSponsorForFifo(options = {}) {
+  const {
+    client,
+    excludeUserId = null,
+    requireVictoryLink = false
+  } = options;
 
-  return result.rows[0]?.total || 0;
-}
-
-async function countPrelaunchLeaders() {
-  const result = await db.query(
+  const result = await runQuery(
+    client,
     `
-    SELECT COUNT(*)::int AS total
-    FROM users
-    WHERE is_prelaunch_leader = true
-    `
-  );
-
-  return result.rows[0]?.total || 0;
-}
-async function findOldestAvailableSponsorForFifo() {
-  const result = await db.query(
-    `
+    WITH candidate AS (
+      SELECT
+        u.id,
+        u.email,
+        u.invitation_code,
+        u.victory_personal_link,
+        u.created_at
+      FROM users u
+      WHERE u.is_root = false
+        AND u.link_active = true
+        AND u.email_confirmed = true
+        AND u.status = 'active'
+        AND ($1 IS NULL OR u.id <> $1)
+        AND (
+          $2 = false
+          OR (
+            u.victory_personal_link IS NOT NULL
+            AND u.victory_personal_link <> ''
+          )
+        )
+        AND (
+          SELECT COUNT(*)
+          FROM users children
+          WHERE children.sponsor_id = u.id
+        ) < 2
+      ORDER BY u.created_at ASC, u.id ASC
+      FOR UPDATE OF u SKIP LOCKED
+      LIMIT 1
+    )
     SELECT
-      u.id,
-      u.email,
-      u.invitation_code_series_1,
-      u.created_at,
-      COUNT(children.id)::int AS total_referrals
-    FROM users u
-    LEFT JOIN users children
-      ON children.sponsor_id = u.id
-    WHERE u.is_root = false
-      AND u.link_active = true
-      AND u.email_confirmed = true
-      AND u.status = 'active'
-    GROUP BY
-      u.id,
-      u.email,
-      u.invitation_code_series_1,
-      u.created_at
-    HAVING COUNT(children.id) < 2
-    ORDER BY u.created_at ASC
-    LIMIT 1
-    `
+      candidate.*,
+      (
+        SELECT COUNT(*)::int
+        FROM users children
+        WHERE children.sponsor_id = candidate.id
+      ) AS total_referrals
+    FROM candidate
+    `,
+    [
+      excludeUserId,
+      requireVictoryLink
+    ]
   );
 
   return result.rows[0] || null;
 }
+
 async function activatePrelaunchLeadersIfLimitReached(options = {}) {
   const client = options.client;
-
-  const result = await (client || db).query(
+  const stateResult = await runQuery(
+    client,
     `
-    SELECT COUNT(*)::int AS total
-    FROM users
-    WHERE is_leader = true
-      AND is_prelaunch_leader = true
-      AND email_confirmed = true
-      AND status = 'active'
-      AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
-        LIMIT 1
-      )
+    SELECT phase
+    FROM v106_runtime_state
+    WHERE singleton_id = true
+    LIMIT 1
     `
   );
 
-  const total = result.rows[0]?.total || 0;
+  const phase = stateResult.rows[0]?.phase;
 
-  if (total < 50) {
+  if (phase !== "NORMAL_OPERATION") {
     return {
       activated: false,
-      total,
+      phase: phase || null,
       activatedCount: 0
     };
   }
 
-  const activation = await (client || db).query(
+  const activation = await runQuery(
+    client,
     `
     UPDATE users
     SET
@@ -333,20 +420,15 @@ async function activatePrelaunchLeadersIfLimitReached(options = {}) {
       link_active = true
     WHERE is_leader = true
       AND is_prelaunch_leader = true
-      AND link_active = false
-      AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
-        LIMIT 1
-      )
+      AND email_confirmed = true
+      AND status = 'active'
     RETURNING id
     `
   );
 
   return {
-    activated: true,
-    total,
+    activated: activation.rows.length > 0,
+    phase,
     activatedCount: activation.rows.length
   };
 }
@@ -423,15 +505,13 @@ module.exports = {
   findUserById,
   findUserByInvitationCode,
   getActiveCampaign,
-  findRootUser,
+  invitationCodeExists,
+  generateUniqueInvitationCode,
   createUser,
   saveEmailOtp,
   confirmEmail,
   confirmEmailByOtp,
-  countRootLeaders,
-  countPrelaunchLeaders,
   findOldestAvailableSponsorForFifo,
-
   activatePrelaunchLeadersIfLimitReached,
   savePasswordResetToken,
   findUserByPasswordResetToken,

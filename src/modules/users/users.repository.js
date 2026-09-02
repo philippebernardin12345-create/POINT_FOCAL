@@ -11,9 +11,7 @@
  * - La gestion administrative appartient à admin.repository.js.
  *
  * IMPORTANT :
- * Les anciennes colonnes invitation_code_series_1/2/3 peuvent
- * encore exister physiquement dans PostgreSQL pendant la migration,
- * mais elles ne sont plus utilisées par le code applicatif.
+ * Le code applicatif V10.6 utilise uniquement users.invitation_code.
  */
 
 const { query } = require("../../config/db");
@@ -21,7 +19,7 @@ const { query } = require("../../config/db");
 /**
  * Trouve un utilisateur par son ID.
  */
-async function findUserById(userId) {
+async function findUserById(userId, options = {}) {
   const result = await query(
     `
     SELECT
@@ -43,7 +41,8 @@ async function findUserById(userId) {
     WHERE id = $1
     LIMIT 1
     `,
-    [userId]
+    [userId],
+    options.client || null
   );
 
   return result.rows[0] || null;
@@ -55,7 +54,7 @@ async function findUserById(userId) {
  * V10.6 :
  * Un utilisateur possède un seul code canonique.
  */
-async function findUserByInvitationCode(invitationCode) {
+async function findUserByInvitationCode(invitationCode, options = {}) {
   const code = String(invitationCode || "")
     .trim()
     .toUpperCase();
@@ -85,7 +84,8 @@ async function findUserByInvitationCode(invitationCode) {
     WHERE invitation_code = $1
     LIMIT 1
     `,
-    [code]
+    [code],
+    options.client || null
   );
 
   return result.rows[0] || null;
@@ -96,7 +96,7 @@ async function findUserByInvitationCode(invitationCode) {
  *
  * Le sponsor réel est users.sponsor_id.
  */
-async function getChildren(userId) {
+async function getChildren(userId, options = {}) {
   const result = await query(
     `
     SELECT
@@ -118,7 +118,8 @@ async function getChildren(userId) {
     WHERE sponsor_id = $1
     ORDER BY created_at ASC
     `,
-    [userId]
+    [userId],
+    options.client || null
   );
 
   return result.rows;
@@ -127,14 +128,15 @@ async function getChildren(userId) {
 /**
  * Compte les filleuls directs d'un utilisateur.
  */
-async function countChildren(userId) {
+async function countChildren(userId, options = {}) {
   const result = await query(
     `
     SELECT COUNT(*)::int AS count
     FROM users
     WHERE sponsor_id = $1
     `,
-    [userId]
+    [userId],
+    options.client || null
   );
 
   return result.rows[0]?.count || 0;
@@ -145,7 +147,7 @@ async function countChildren(userId) {
  *
  * La racine est déterminée exclusivement par is_root.
  */
-async function findRoot() {
+async function findRoot(options = {}) {
   const result = await query(
     `
     SELECT
@@ -168,6 +170,8 @@ async function findRoot() {
     ORDER BY created_at ASC
     LIMIT 1
     `
+    [],
+    options.client || null
   );
 
   return result.rows[0] || null;

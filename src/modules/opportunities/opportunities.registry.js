@@ -118,9 +118,7 @@ class OpportunityRegistry {
             provisionAmount: opportunity.provision_amount || null,
             provisionMessage: opportunity.provision_message || null,
             registrationUrl: opportunity.registration_url || null,
-              rootSponsorLink: opportunity.root_sponsor_link || null,
-            dependsOn: opportunity.depends_on || null,
-            requiresUserLink: opportunity.requires_user_link !== false
+            dependsOn: opportunity.depends_on || null
           });
         }
       });
@@ -136,4 +134,3 @@ class OpportunityRegistry {
 }
 
 module.exports = new OpportunityRegistry();
-

@@ -1,7 +1,13 @@
 const db = require("../../config/db");
+const authRepository = require("../auth/auth.repository");
 
-async function findUserWithSponsor(userId) {
-  const result = await db.query(
+function runQuery(client, text, params = []) {
+  return db.query(text, params, client);
+}
+
+async function findUserWithSponsor(userId, options = {}) {
+  const result = await runQuery(
+    options.client,
     `
     SELECT
       u.id,
@@ -12,19 +18,15 @@ async function findUserWithSponsor(userId) {
       u.victory_started_at,
       u.victory_expires_at,
       u.victory_expired,
-      
-u.victory_personal_link,
-u.victory_parent_identifier,
-u.link_active,
+      u.victory_personal_link,
+      u.victory_parent_identifier,
+      u.link_active,
       sponsor.id AS sponsor_user_id,
       sponsor.email AS sponsor_email,
       sponsor.victory_personal_link AS sponsor_victory_link
-
     FROM users u
-
     LEFT JOIN users sponsor
       ON sponsor.id = u.sponsor_id
-
     WHERE u.id = $1
     LIMIT 1
     `,
@@ -34,91 +36,35 @@ u.link_active,
   return result.rows[0] || null;
 }
 
-async function findOldestAvailableVictorySponsor(
-  excludedSponsorId = null
+async function findVictoryPlacementSponsor(
+  excludedSponsorId = null,
+  options = {}
 ) {
-  const result = await db.query(
-    `
-    SELECT
-      u.id,
-      u.email,
-      u.victory_personal_link,
-      u.created_at,
-      COUNT(children.id)::int AS total_referrals
-
-    FROM users u
-
-    LEFT JOIN users children
-      ON children.sponsor_id = u.id
-
-    WHERE u.is_root = false
-      AND u.status = 'active'
-      AND u.email_confirmed = true
-      AND u.link_active = true
-      AND u.victory_personal_link IS NOT NULL
-      AND u.victory_personal_link <> ''
-      AND (
-        $1::uuid IS NULL
-        OR u.id <> $1::uuid
-      )
-
-    GROUP BY
-      u.id,
-      u.email,
-      u.victory_personal_link,
-      u.created_at
-
-    HAVING COUNT(children.id) < 2
-
-    ORDER BY u.created_at ASC
-
-    LIMIT 1
-    `,
-    [excludedSponsorId]
-  );
-
-  return result.rows[0] || null;
+  return authRepository.findOldestAvailableSponsorForFifo({
+    client: options.client,
+    excludeUserId: excludedSponsorId,
+    requireVictoryLink: true
+  });
 }
-
-async function findRootVictoryLink() {
-  const result = await db.query(
-    `
-    SELECT
-      id,
-      email,
-      victory_personal_link
-    FROM users
-    WHERE is_root = true
-      AND victory_personal_link IS NOT NULL
-      AND victory_personal_link <> ''
-    LIMIT 1
-    `
-  );
-
-  return result.rows[0] || null;
-}
-
 
 async function markVictoryAssigned(
   userId,
   startedAt,
-  expiresAt
+  expiresAt,
+  options = {}
 ) {
-  const result = await db.query(
+  const result = await runQuery(
+    options.client,
     `
     UPDATE users
     SET
       victory_assigned_at =
         COALESCE(victory_assigned_at, NOW()),
-
       victory_started_at =
         COALESCE(victory_started_at, $2),
-
       victory_expires_at =
         COALESCE(victory_expires_at, $3)
-
     WHERE id = $1
-
     RETURNING
       id,
       email,
@@ -153,13 +99,11 @@ async function reactivateVictoryUser(userId) {
       victory_started_at = NOW(),
       victory_expires_at =
         NOW() + INTERVAL '24 hours'
-
     WHERE id = $1
       AND (
         victory_expired = true
         OR status = 'expired'
       )
-
     RETURNING
       id,
       email,
@@ -180,9 +124,11 @@ async function reactivateVictoryUser(userId) {
 
 async function saveVictoryParentIdentifier(
   userId,
-  victoryParentIdentifier
+  victoryParentIdentifier,
+  options = {}
 ) {
-  const result = await db.query(
+  const result = await runQuery(
+    options.client,
     `
     UPDATE users
     SET victory_parent_identifier = $2
@@ -202,9 +148,11 @@ async function saveVictoryParentIdentifier(
 
 async function saveVictoryPersonalLink(
   userId,
-  victoryPersonalLink
+  victoryPersonalLink,
+  options = {}
 ) {
-  const result = await db.query(
+  const result = await runQuery(
+    options.client,
     `
     UPDATE users
     SET
@@ -232,9 +180,11 @@ async function saveVictoryPersonalLink(
 }
 
 async function findUserByVictoryPersonalLink(
-  victoryPersonalLink
+  victoryPersonalLink,
+  options = {}
 ) {
-  const result = await db.query(
+  const result = await runQuery(
+    options.client,
     `
     SELECT
       id,
@@ -252,13 +202,13 @@ async function findUserByVictoryPersonalLink(
 
   return result.rows[0] || null;
 }
+
 module.exports = {
+  findVictoryPlacementSponsor,
+  findUserByVictoryPersonalLink,
   findUserWithSponsor,
-  findOldestAvailableVictorySponsor,
-  findRootVictoryLink,
   markVictoryAssigned,
   reactivateVictoryUser,
   saveVictoryParentIdentifier,
-  saveVictoryPersonalLink,
-  findUserByVictoryPersonalLink
+  saveVictoryPersonalLink
 };

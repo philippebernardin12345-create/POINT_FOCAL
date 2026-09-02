@@ -38,7 +38,19 @@ async function getEntryOpportunity(context = {}) {
     });
 
     // Trier par priorité (plus petit = plus prioritaire)
-    eligible.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+    eligible.sort((a, b) => {
+      const priorityDiff =
+        (a.priority || 999) -
+        (b.priority || 999);
+
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
+
+      return String(a.id || "").localeCompare(
+        String(b.id || "")
+      );
+    });
 
     // Retourner la première opportunité trouvée
     return eligible[0] || null;
@@ -75,7 +87,19 @@ async function getGeneratorOpportunity(context = {}) {
     });
 
     // Trier par priorité
-    eligible.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+    eligible.sort((a, b) => {
+      const priorityDiff =
+        (a.priority || 999) -
+        (b.priority || 999);
+
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
+
+      return String(a.id || "").localeCompare(
+        String(b.id || "")
+      );
+    });
 
     return eligible[0] || null;
 
@@ -114,7 +138,19 @@ async function getNextOpportunity(userId, currentOpportunityId, options = {}) {
     });
 
     // Trier par priorité
-    available.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+    available.sort((a, b) => {
+      const priorityDiff =
+        (a.priority || 999) -
+        (b.priority || 999);
+
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
+
+      return String(a.id || "").localeCompare(
+        String(b.id || "")
+      );
+    });
 
     // Trouver l'index de l'opportunité actuelle
     const currentIndex = available.findIndex(opp => opp.id === currentOpportunityId);

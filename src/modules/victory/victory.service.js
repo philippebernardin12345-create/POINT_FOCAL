@@ -1,6 +1,8 @@
 const repository = require(
   "./victory.repository"
 );
+const db = require("../../config/db");
+const v106Runtime = require("../../db/v106-runtime");
 
 const opportunityService = require(
   "../opportunities/opportunities.service"
@@ -145,7 +147,7 @@ async function assignVictoryLink(userId) {
   if (!assignedVictoryLink) {
     const fifoSponsor =
       await repository
-        .findOldestAvailableVictorySponsor(
+        .findVictoryPlacementSponsor(
           userWithSponsor.sponsor_user_id ||
             null
         );
@@ -170,7 +172,7 @@ async function assignVictoryLink(userId) {
   */
   if (!assignedVictoryLink) {
     const rootUser =
-      await repository.findRootVictoryLink();
+      await v106Runtime.resolveRootUser();
 
     if (
       rootUser &&
@@ -185,19 +187,6 @@ async function assignVictoryLink(userId) {
       source = "root-user";
     }
   }
-
-  /*
-    PRIORITÉ 4 :
-    lien racine enregistré dans opportunities.
-  */
-    if (!assignedVictoryLink) {
-      const entryOpportunity = await getEntryOpportunity({ userId });
-
-      if (entryOpportunity && entryOpportunity.rootSponsorLink) {
-        assignedVictoryLink = entryOpportunity.rootSponsorLink;
-        source = "root-opportunity";
-      }
-    }
 
   if (!assignedVictoryLink) {
     throw new Error(
@@ -378,29 +367,34 @@ async function saveVictoryPersonalLink(
     Le moteur Follow Me enregistre le lien personnel
     dans user_opportunities avec le sponsor Victory attribué.
   */
-  const parentUser =
-    await repository.findUserByVictoryPersonalLink(
-      realParentLink
-    );
+  const savedUser = await db.withTransaction(
+    async (client) => {
+      const parentUser =
+        await repository.findUserByVictoryPersonalLink(
+          realParentLink,
+          { client }
+        );
 
-  const sponsorId =
-    parentUser ? parentUser.id : null;
+      const sponsorId =
+        parentUser ? parentUser.id : null;
 
-  const assignment =
-    await opportunityService.registerFollowMeLink({
-      userId,
-      opportunityId: opportunity.id,
-      referralLink: normalizedPersonalLink,
-      targetAddress: null,
-      paymentHash: null,
-      sponsorId
-    });
+      await opportunityService.registerFollowMeLink({
+        userId,
+        opportunityId: opportunity.id,
+        referralLink: normalizedPersonalLink,
+        targetAddress: null,
+        paymentHash: null,
+        sponsorId,
+        client
+      });
 
-  const savedUser =
-    await repository.saveVictoryPersonalLink(
-      userId,
-      normalizedPersonalLink
-    );
+      return repository.saveVictoryPersonalLink(
+        userId,
+        normalizedPersonalLink,
+        { client }
+      );
+    }
+  );
 
   if (!savedUser) {
     throw new Error(

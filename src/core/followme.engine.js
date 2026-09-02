@@ -1,413 +1,357 @@
-/**
- * POINT FOCAL V10.4 - Moteur Follow Me
- * 
- * Cœur du système Follow Me.
- * Gère l'enregistrement, la validation et la recherche des liens d'opportunités.
- * 
- * RÉFÉRENCE : Constitution Technique V10.4 - Article 6, 7, 8, 9, 10, 11, 31
- * 
- * PRINCIPE :
- * Toutes les opportunités sont compatibles avec Follow Me.
- * Le moteur collecte les liens personnels des utilisateurs pour chaque opportunité.
- * Ces liens alimentent la base et permettent le suivi généalogique.
- */
-
-const { query } = require("../config/db");
-const { findUserById, findUserByInvitationCode } = require("../modules/users/users.repository");
+const db = require("../config/db");
+const repository = require("../modules/followme/followme.repository");
+const usersRepository = require("../modules/users/users.repository");
+const v106Runtime = require("../db/v106-runtime");
 const { getOpportunityById, getOpportunityBySlug } = require("./opportunity.engine");
-const { applyRollup, hasUserJoinedOpportunity, isRollupNeeded } = require("./rollup.service");
+const rollupService = require("./rollup.service");
 const { logger } = require("../utils/logger");
 const { isValidUrl } = require("../utils/validators");
 
-/**
- * Enregistre le lien personnel d'un utilisateur pour une opportunité
- * 
- * @param {Object} data - Données d'enregistrement
- * @param {string|number} data.userId - ID de l'utilisateur
- * @param {string|number} data.opportunityId - ID de l'opportunité
- * @param {string} data.referralLink - Lien personnel de l'utilisateur
- * @param {string} data.targetAddress - Adresse cible (optionnel)
- * @param {string} data.paymentHash - Hash de paiement (optionnel)
- * @param {string} data.sponsorId - ID du sponsor pour cette opportunité (optionnel)
- * @returns {Promise<Object>} - Résultat de l'enregistrement
- */
+async function getSponsorLinkForOpportunity(userId, opportunitySlug) {
+  if (!userId) {
+    throw new Error("Utilisateur non authentifié.");
+  }
+
+  if (!opportunitySlug) {
+    throw new Error("Slug d'opportunité obligatoire.");
+  }
+
+  const user = await repository.findUserById(userId);
+
+  if (!user) {
+    throw new Error("Utilisateur introuvable.");
+  }
+
+  const opportunity = getOpportunityBySlug(opportunitySlug);
+
+  if (!opportunity) {
+    throw new Error("Aucune opportunité active trouvée.");
+  }
+
+  let sponsorLink = null;
+  let sponsorUserId = user.sponsor_id || null;
+  let source = "sponsor";
+
+  if (sponsorUserId) {
+    const sponsorOpportunity =
+      await repository.findUserOpportunity(
+        sponsorUserId,
+        opportunity.id
+      );
+
+    if (sponsorOpportunity?.referral_link) {
+      sponsorLink = sponsorOpportunity.referral_link;
+    }
+  }
+
+  if (!sponsorLink) {
+    const rootUser = await v106Runtime.resolveRootUser();
+
+    if (!rootUser?.id) {
+      throw new Error("Compte racine introuvable.");
+    }
+
+    const rootOpportunity =
+      await repository.findUserOpportunity(
+        rootUser.id,
+        opportunity.id
+      );
+
+    if (rootOpportunity?.referral_link) {
+      sponsorLink = rootOpportunity.referral_link;
+      sponsorUserId = rootUser.id;
+      source = "root";
+    }
+  }
+
+  if (!sponsorLink) {
+    throw new Error("Aucun lien disponible pour cette opportunité.");
+  }
+
+  return {
+    opportunity: {
+      id: opportunity.id,
+      name: opportunity.name,
+      slug: opportunity.slug,
+      priority: opportunity.priority,
+      isEntry: opportunity.isEntry,
+      generatesLink: opportunity.canGeneratePointFocalLink
+    },
+    sponsorUserId,
+    sponsorLink,
+    source
+  };
+}
+
 async function registerUserLink({
   userId,
   opportunityId,
   referralLink,
   targetAddress = null,
   paymentHash = null,
-  sponsorId = null
+  sponsorId = null,
+  client: externalClient = null
 }) {
   try {
-    // 1. Valider les paramètres
     if (!userId) {
-      throw new Error('Utilisateur non authentifié');
+      throw new Error("Utilisateur non authentifié");
     }
 
     if (!opportunityId) {
-      throw new Error('Opportunité non spécifiée');
+      throw new Error("Opportunité non spécifiée");
     }
 
     if (!referralLink) {
-      throw new Error('Lien de parrainage obligatoire');
+      throw new Error("Lien de parrainage obligatoire");
     }
 
-    // 2. Vérifier l'utilisateur
-    const user = await findUserById(userId);
+    const execute = externalClient
+      ? async (callback) => callback(externalClient)
+      : db.withTransaction;
 
-    if (!user) {
-      throw new Error('Utilisateur introuvable');
-    }
+    return execute(async (client) => {
+      const user = await repository.findUserById(
+        userId,
+        { client }
+      );
 
-    // 3. Vérifier l'opportunité
-    const opportunity = await getOpportunityById(opportunityId);
-
-    if (!opportunity) {
-      throw new Error('Opportunité introuvable');
-    }
-
-    // 4. Vérifier que l'opportunité est active et disponible
-    const isActive = opportunity.status === 'active' || opportunity.isActive === true;
-    const isAvailable = opportunity.isAvailable !== false;
-
-    if (!isActive || !isAvailable) {
-      throw new Error('Opportunité non disponible');
-    }
-
-    // 5. Valider le format du lien (si validateur spécifique)
-    if (opportunity.validationRules) {
-      const isValid = await validateLink(referralLink, opportunity.validationRules);
-
-      if (!isValid) {
-        throw new Error('Format de lien invalide pour cette opportunité');
+      if (!user) {
+        throw new Error("Utilisateur introuvable");
       }
-    }
 
-    // 6. Vérifier que le sponsor associé au lien existe (si nécessaire)
-    let extractedSponsorId = sponsorId;
+      const opportunity = await getOpportunityById(
+        opportunityId
+      );
 
-    if (opportunity.requiresSponsorValidation !== false) {
-      const extracted = await extractSponsorFromLink(referralLink, opportunity);
-
-      if (extracted) {
-        extractedSponsorId = extracted;
+      if (!opportunity) {
+        throw new Error("Opportunité introuvable");
       }
-    }
 
-    // 7. Vérifier que le sponsor est présent dans la base (si requis)
-    if (opportunity.requiresSponsorInDb === true && extractedSponsorId) {
-      const sponsor = await findUserById(extractedSponsorId);
+      const isActive =
+        opportunity.status === "active" ||
+        opportunity.isActive === true;
 
-      if (!sponsor) {
-        throw new Error('Le sponsor associé à ce lien n\'est pas enregistré dans Point Focal');
+      const isAvailable =
+        opportunity.isAvailable !== false;
+
+      if (!isActive || !isAvailable) {
+        throw new Error("Opportunité non disponible");
       }
-    }
 
-    // 8. Vérifier les doublons
-    const existing = await findUserLink(userId, opportunityId);
+      if (opportunity.validationRules) {
+        const isValid = await validateLink(
+          referralLink,
+          opportunity.validationRules
+        );
 
-    if (existing) {
-      // Mettre à jour le lien existant
-      const updated = await updateUserLink(userId, opportunityId, {
-        referralLink,
-        targetAddress,
-        paymentHash,
-        sponsorId: extractedSponsorId || sponsorId
-      });
+        if (!isValid) {
+          throw new Error(
+            "Format de lien invalide pour cette opportunité"
+          );
+        }
+      }
+
+      const linkValidation =
+        await validateLinkStructure(
+          referralLink,
+          opportunity
+        );
+
+      if (!linkValidation.valid) {
+        throw new Error(
+          linkValidation.message || "Lien invalide"
+        );
+      }
+
+      const existing =
+        await repository.findUserOpportunity(
+          userId,
+          opportunityId,
+          { client }
+        );
+
+      const linkOwner =
+        await repository.findUserByLink(
+          referralLink,
+          opportunityId,
+          { client }
+        );
+
+      if (
+        linkOwner &&
+        String(linkOwner.user_id) !== String(userId)
+      ) {
+        throw new Error(
+          "Ce lien est déjà utilisé par un autre compte"
+        );
+      }
+
+      let extractedSponsorId = null;
+
+      if (opportunity.requiresSponsorValidation !== false) {
+        extractedSponsorId =
+          await extractSponsorFromLink(
+            referralLink
+          );
+      }
+
+      if (
+        opportunity.requiresSponsorInDb === true &&
+        extractedSponsorId
+      ) {
+        const extractedSponsor =
+          await repository.findUserById(
+            extractedSponsorId,
+            { client }
+          );
+
+        if (!extractedSponsor) {
+          throw new Error(
+            "Le sponsor associé à ce lien n'est pas enregistré dans Point Focal"
+          );
+        }
+      }
+
+      const requestedSponsorId =
+        sponsorId ??
+        extractedSponsorId ??
+        user.sponsor_id ??
+        null;
+
+      const placement =
+        await rollupService.applyRollup(
+          userId,
+          opportunityId,
+          {
+            client,
+            requestedSponsorId,
+            referralLink,
+            targetAddress,
+            paymentHash
+          }
+        );
 
       return {
         success: true,
-        action: 'updated',
-        message: 'Lien mis à jour avec succès',
-        data: updated
+        action: existing ? "updated" : "created",
+        message: existing
+          ? "Lien mis à jour avec succès"
+          : "Lien enregistré avec succès",
+        data: placement.data,
+        sponsorUserId: placement.sponsorId,
+        rollupApplied:
+          placement.rollupApplied,
+        rollupResult: placement
       };
-    }
-
-    // 9. Vérifier si le lien est déjà utilisé par un autre utilisateur
-    const linkOwner = await findUserByLink(referralLink, opportunityId);
-
-    if (linkOwner && String(linkOwner.user_id) !== String(userId)) {
-      throw new Error('Ce lien est déjà utilisé par un autre compte');
-    }
-
-    // 10. Vérifier si le lien est valide (domaine, format)
-    const linkValidation = await validateLinkStructure(referralLink, opportunity);
-
-    if (!linkValidation.valid) {
-      throw new Error(linkValidation.message || 'Lien invalide');
-    }
-
-    // 11. Enregistrer le lien
-    const result = await query(
-      `
-      INSERT INTO user_opportunities (
-        user_id,
-        opportunity_id,
-        referral_link,
-        target_address,
-        payment_hash,
-        sponsor_user_id,
-        status,
-        joined_at,
-        updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW(), NOW())
-      RETURNING *
-      `,
-      [
-        userId,
-        opportunityId,
-        referralLink,
-        targetAddress,
-        paymentHash,
-        extractedSponsorId || sponsorId || user.sponsor_id
-      ]
-    );
-
-    // 13. Appliquer le roll-up si nécessaire
-    let rollupResult = null;
-
-    if (await isRollupNeeded(userId, opportunityId)) {
-      rollupResult = await applyRollup(userId, opportunityId);
-    }
-
-    return {
-      success: true,
-      action: 'created',
-      message: 'Lien enregistré avec succès',
-      data: result.rows[0],
-      rollupApplied: rollupResult ? rollupResult.rollupApplied : false,
-      rollupResult
-    };
-
+    });
   } catch (error) {
-    logger.error('[FollowMe] Erreur registerUserLink:', error);
+    logger.error("[FollowMe] Erreur registerUserLink:", error);
     throw error;
   }
 }
 
-/**
- * Trouve un lien d'utilisateur pour une opportunité
- * 
- * @param {string|number} userId - ID de l'utilisateur
- * @param {string|number} opportunityId - ID de l'opportunité
- * @returns {Promise<Object|null>} - Lien trouvé ou null
- */
-async function findUserLink(userId, opportunityId) {
-  const result = await query(
-    `
-    SELECT *
-    FROM user_opportunities
-    WHERE user_id = $1 AND opportunity_id = $2 AND status = 'active'
-    `,
-    [userId, opportunityId]
+async function findUserLink(
+  userId,
+  opportunityId,
+  options = {}
+) {
+  const link =
+    await repository.findUserOpportunity(
+      userId,
+      opportunityId,
+      options
+    );
+
+  if (link?.status !== "active") {
+    return null;
+  }
+
+  return link;
+}
+
+async function getUserLinks(userId, options = {}) {
+  return repository.getUserLinks(userId, options);
+}
+
+async function getAvailableLink(
+  opportunityId,
+  excludeUserId = null,
+  options = {}
+) {
+  return repository.getAvailableLink(
+    opportunityId,
+    excludeUserId,
+    options
   );
-
-  return result.rows[0] || null;
 }
 
-/**
- * Met à jour un lien d'utilisateur
- * 
- * @param {string|number} userId - ID de l'utilisateur
- * @param {string|number} opportunityId - ID de l'opportunité
- * @param {Object} data - Données à mettre à jour
- * @returns {Promise<Object|null>} - Lien mis à jour
- */
-async function updateUserLink(userId, opportunityId, data) {
-  const fields = [];
-  const values = [];
-  let paramIndex = 1;
-
-  if (data.referralLink) {
-    fields.push(`referral_link = $${paramIndex++}`);
-    values.push(data.referralLink);
-  }
-
-  if (data.targetAddress) {
-    fields.push(`target_address = $${paramIndex++}`);
-    values.push(data.targetAddress);
-  }
-
-  if (data.paymentHash) {
-    fields.push(`payment_hash = $${paramIndex++}`);
-    values.push(data.paymentHash);
-  }
-
-  if (data.sponsorId) {
-    fields.push(`sponsor_user_id = $${paramIndex++}`);
-    values.push(data.sponsorId);
-  }
-
-  fields.push(`updated_at = NOW()`);
-
-  values.push(userId);
-  values.push(opportunityId);
-
-  const result = await query(
-    `
-    UPDATE user_opportunities
-    SET ${fields.join(', ')}
-    WHERE user_id = $${paramIndex++} AND opportunity_id = $${paramIndex++}
-    RETURNING *
-    `,
-    values
-  );
-
-  return result.rows[0] || null;
-}
-
-/**
- * Trouve un utilisateur par son lien pour une opportunité
- * 
- * @param {string} link - Lien à rechercher
- * @param {string|number} opportunityId - ID de l'opportunité
- * @returns {Promise<Object|null>} - Utilisateur trouvé ou null
- */
-async function findUserByLink(link, opportunityId) {
-  const result = await query(
-    `
-    SELECT user_id
-    FROM user_opportunities
-    WHERE referral_link = $1 AND opportunity_id = $2 AND status = 'active'
-    `,
-    [link, opportunityId]
-  );
-
-  return result.rows[0] || null;
-}
-
-/**
- * Récupère tous les liens d'un utilisateur
- * 
- * @param {string|number} userId - ID de l'utilisateur
- * @returns {Promise<Array>} - Liste des liens
- */
-async function getUserLinks(userId) {
-  const result = await query(
-    `
-    SELECT
-      uo.*,
-      o.name as opportunity_name,
-      o.slug as opportunity_slug
-    FROM user_opportunities uo
-    LEFT JOIN opportunities o ON o.id = uo.opportunity_id
-    WHERE uo.user_id = $1 AND uo.status = 'active'
-    ORDER BY uo.joined_at ASC
-    `,
-    [userId]
-  );
-
-  return result.rows;
-}
-
-/**
- * Récupère le lien disponible le plus ancien pour une opportunité (FIFO)
- * 
- * @param {string|number} opportunityId - ID de l'opportunité
- * @param {string|number} excludeUserId - ID de l'utilisateur à exclure
- * @returns {Promise<Object|null>} - Lien disponible ou null
- */
-async function getAvailableLink(opportunityId, excludeUserId = null) {
-  let queryText = `
-    SELECT
-      uo.*,
-      u.email,
-      u.whatsapp
-    FROM user_opportunities uo
-    JOIN users u ON u.id = uo.user_id
-    WHERE uo.opportunity_id = $1
-      AND uo.status = 'active'
-  `;
-
-  const params = [opportunityId];
-
-  if (excludeUserId) {
-    queryText += ` AND uo.user_id != $${params.length + 1}`;
-    params.push(excludeUserId);
-  }
-
-  queryText += `
-    ORDER BY uo.joined_at ASC
-    LIMIT 1
-  `;
-
-  const result = await query(queryText, params);
-
-  return result.rows[0] || null;
-}
-
-/**
- * Valide la structure d'un lien pour une opportunité
- * 
- * @param {string} link - Lien à valider
- * @param {Object} opportunity - Opportunité concernée
- * @returns {Promise<Object>} - Résultat de la validation
- */
 async function validateLinkStructure(link, opportunity) {
-  // Validation de base
-  if (!link || typeof link !== 'string') {
-    return { valid: false, message: 'Lien invalide' };
+  if (!link || typeof link !== "string") {
+    return { valid: false, message: "Lien invalide" };
   }
 
-  // Vérifier que c'est une URL valide
   if (!isValidUrl(link)) {
-    return { valid: false, message: 'Format d\'URL invalide' };
+    return {
+      valid: false,
+      message: "Format d'URL invalide"
+    };
   }
 
   try {
     const url = new URL(link);
 
-    // Vérifier le domaine si spécifié
-    if (opportunity.allowedDomains && opportunity.allowedDomains.length > 0) {
-      const isDomainAllowed = opportunity.allowedDomains.some(domain =>
-        url.hostname === domain || url.hostname.endsWith(`.${domain}`)
-      );
+    if (
+      opportunity.allowedDomains &&
+      opportunity.allowedDomains.length > 0
+    ) {
+      const isDomainAllowed =
+        opportunity.allowedDomains.some(
+          (domain) =>
+            url.hostname === domain ||
+            url.hostname.endsWith(`.${domain}`)
+        );
 
       if (!isDomainAllowed) {
         return {
           valid: false,
-          message: `Domaine non autorisé. Domaines acceptés : ${opportunity.allowedDomains.join(', ')}`
+          message:
+            `Domaine non autorisé. Domaines acceptés : ${opportunity.allowedDomains.join(", ")}`
         };
       }
     }
 
     return { valid: true };
   } catch (error) {
-    return { valid: false, message: 'URL mal formée' };
+    return {
+      valid: false,
+      message: "URL mal formée"
+    };
   }
 }
 
-/**
- * Extrait le sponsor depuis un lien d'opportunité
- * 
- * @param {string} link - Lien à analyser
- * @param {Object} opportunity - Opportunité concernée
- * @returns {Promise<string|number|null>} - ID du sponsor ou null
- */
-async function extractSponsorFromLink(link, opportunity) {
+async function extractSponsorFromLink(link) {
   try {
     const url = new URL(link);
-
-    // Extraire le code d'invitation depuis les paramètres
     const params = new URLSearchParams(url.search);
-    const code = params.get('ref') || params.get('code') || params.get('invitation');
+    const code =
+      params.get("ref") ||
+      params.get("code") ||
+      params.get("invitation");
 
     if (code) {
-      const user = await findUserByInvitationCode(code);
+      const user =
+        await usersRepository.findUserByInvitationCode(code);
 
       if (user) {
         return user.id;
       }
     }
 
-    // Si pas de code dans les paramètres, essayer d'extraire depuis l'URL
-    const pathParts = url.pathname.split('/').filter(Boolean);
-    const lastPart = pathParts[pathParts.length - 1];
+    const pathParts = url.pathname.split("/").filter(Boolean);
 
-    if (lastPart) {
-      const user = await findUserByInvitationCode(lastPart);
+    for (const part of pathParts) {
+      const user =
+        await usersRepository.findUserByInvitationCode(part);
 
       if (user) {
         return user.id;
@@ -416,23 +360,19 @@ async function extractSponsorFromLink(link, opportunity) {
 
     return null;
   } catch (error) {
+    logger.warn(
+      "[FollowMe] Impossible d'extraire le sponsor depuis le lien",
+      error
+    );
     return null;
   }
 }
 
-/**
- * Valide un lien selon les règles de validation de l'opportunité
- * 
- * @param {string} link - Lien à valider
- * @param {Object} rules - Règles de validation
- * @returns {Promise<boolean>} - True si le lien est valide
- */
 async function validateLink(link, rules) {
   if (!rules) {
     return true;
   }
 
-  // Validation par regex
   if (rules.pattern) {
     const regex = new RegExp(rules.pattern);
 
@@ -441,13 +381,15 @@ async function validateLink(link, rules) {
     }
   }
 
-  // Validation par domaine
   if (rules.domain) {
     try {
       const url = new URL(link);
       const domain = url.hostname;
 
-      if (domain !== rules.domain && !domain.endsWith(`.${rules.domain}`)) {
+      if (
+        domain !== rules.domain &&
+        !domain.endsWith(`.${rules.domain}`)
+      ) {
         return false;
       }
     } catch (error) {
@@ -458,34 +400,24 @@ async function validateLink(link, rules) {
   return true;
 }
 
-/**
- * Compte les liens actifs pour une opportunité
- * 
- * @param {string|number} opportunityId - ID de l'opportunité
- * @returns {Promise<number>} - Nombre de liens actifs
- */
-async function countActiveLinks(opportunityId) {
-  const result = await query(
-    `
-    SELECT COUNT(*) as count
-    FROM user_opportunities
-    WHERE opportunity_id = $1 AND status = 'active'
-    `,
-    [opportunityId]
+async function countActiveLinks(
+  opportunityId,
+  options = {}
+) {
+  return repository.countActiveLinks(
+    opportunityId,
+    options
   );
-
-  return parseInt(result.rows[0]?.count || 0, 10);
 }
 
 module.exports = {
-  registerUserLink,
-  findUserLink,
-  updateUserLink,
-  findUserByLink,
-  getUserLinks,
-  getAvailableLink,
-  validateLinkStructure,
+  countActiveLinks,
   extractSponsorFromLink,
+  findUserLink,
+  getAvailableLink,
+  getSponsorLinkForOpportunity,
+  getUserLinks,
+  registerUserLink,
   validateLink,
-  countActiveLinks
+  validateLinkStructure
 };
