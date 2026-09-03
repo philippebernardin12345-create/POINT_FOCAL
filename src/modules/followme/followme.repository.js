@@ -51,7 +51,6 @@ async function findRootUser() {
 module.exports = {
   findUserById,
   findOpportunityBySlug,
-  findUserOpportunity,
-  findRootUser
+  findUserOpportunity
 };
  

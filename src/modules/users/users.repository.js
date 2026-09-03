@@ -140,43 +140,9 @@ async function countChildren(userId) {
   return result.rows[0]?.count || 0;
 }
 
-/**
- * Trouve la racine du système.
- *
- * La racine est déterminée exclusivement par is_root.
- */
-async function findRoot() {
-  const result = await query(
-    `
-    SELECT
-      id,
-      email,
-      whatsapp,
-      language,
-      status,
-      sponsor_id,
-      campaign_id,
-      invitation_code,
-      is_root,
-      is_leader,
-      is_prelaunch_leader,
-      link_active,
-      email_confirmed,
-      created_at
-    FROM users
-    WHERE is_root = true
-    ORDER BY created_at ASC
-    LIMIT 1
-    `
-  );
-
-  return result.rows[0] || null;
-}
-
 module.exports = {
   findUserById,
   findUserByInvitationCode,
   getChildren,
-  countChildren,
-  findRoot
+  countChildren
 };
