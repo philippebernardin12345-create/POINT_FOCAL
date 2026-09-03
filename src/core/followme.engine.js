@@ -12,7 +12,7 @@
  * Ces liens alimentent la base et permettent le suivi généalogique.
  */
 
-const { query } = require("../config/db");
+const db = require("../config/db");
 const { findUserById, findUserByInvitationCode } = require("../modules/users/users.repository");
 const { getOpportunityById, getOpportunityBySlug } = require("./opportunity.engine");
 const { applyRollup, hasUserJoinedOpportunity, isRollupNeeded } = require("./rollup.service");
@@ -31,14 +31,14 @@ const { isValidUrl } = require("../utils/validators");
  * @param {string} data.sponsorId - ID du sponsor pour cette opportunité (optionnel)
  * @returns {Promise<Object>} - Résultat de l'enregistrement
  */
-async function registerUserLink({
+async function registerUserLinkInTransaction({
   userId,
   opportunityId,
   referralLink,
   targetAddress = null,
   paymentHash = null,
   sponsorId = null
-}) {
+}, client) {
   try {
     // 1. Valider les paramètres
     if (!userId) {
@@ -105,7 +105,7 @@ async function registerUserLink({
     }
 
     // 8. Vérifier les doublons
-    const existing = await findUserLink(userId, opportunityId);
+    const existing = await findUserLink(userId, opportunityId, { client });
 
     if (existing) {
       // Mettre à jour le lien existant
@@ -114,7 +114,7 @@ async function registerUserLink({
         targetAddress,
         paymentHash,
         sponsorId: extractedSponsorId || sponsorId
-      });
+      }, { client });
 
       return {
         success: true,
@@ -125,7 +125,7 @@ async function registerUserLink({
     }
 
     // 9. Vérifier si le lien est déjà utilisé par un autre utilisateur
-    const linkOwner = await findUserByLink(referralLink, opportunityId);
+    const linkOwner = await findUserByLink(referralLink, opportunityId, { client });
 
     if (linkOwner && String(linkOwner.user_id) !== String(userId)) {
       throw new Error('Ce lien est déjà utilisé par un autre compte');
@@ -139,7 +139,7 @@ async function registerUserLink({
     }
 
     // 11. Enregistrer le lien
-    const result = await query(
+    const result = await db.query(
       `
       INSERT INTO user_opportunities (
         user_id,
@@ -162,14 +162,15 @@ async function registerUserLink({
         targetAddress,
         paymentHash,
         extractedSponsorId || sponsorId || user.sponsor_id
-      ]
+      ],
+      client
     );
 
     // 13. Appliquer le roll-up si nécessaire
     let rollupResult = null;
 
-    if (await isRollupNeeded(userId, opportunityId)) {
-      rollupResult = await applyRollup(userId, opportunityId);
+    if (await isRollupNeeded(userId, opportunityId, { client })) {
+      rollupResult = await applyRollup(userId, opportunityId, { client });
     }
 
     return {
@@ -187,6 +188,14 @@ async function registerUserLink({
   }
 }
 
+async function registerUserLink(data, options = {}) {
+  if (options.client) {
+    return registerUserLinkInTransaction(data, options.client);
+  }
+
+  return db.withTransaction(async (client) => registerUserLinkInTransaction(data, client));
+}
+
 /**
  * Trouve un lien d'utilisateur pour une opportunité
  * 
@@ -194,14 +203,15 @@ async function registerUserLink({
  * @param {string|number} opportunityId - ID de l'opportunité
  * @returns {Promise<Object|null>} - Lien trouvé ou null
  */
-async function findUserLink(userId, opportunityId) {
-  const result = await query(
+async function findUserLink(userId, opportunityId, options = {}) {
+  const result = await db.query(
     `
     SELECT *
     FROM user_opportunities
     WHERE user_id = $1 AND opportunity_id = $2 AND status = 'active'
     `,
-    [userId, opportunityId]
+    [userId, opportunityId],
+    options.client || null
   );
 
   return result.rows[0] || null;
@@ -215,7 +225,7 @@ async function findUserLink(userId, opportunityId) {
  * @param {Object} data - Données à mettre à jour
  * @returns {Promise<Object|null>} - Lien mis à jour
  */
-async function updateUserLink(userId, opportunityId, data) {
+async function updateUserLink(userId, opportunityId, data, options = {}) {
   const fields = [];
   const values = [];
   let paramIndex = 1;
@@ -245,14 +255,15 @@ async function updateUserLink(userId, opportunityId, data) {
   values.push(userId);
   values.push(opportunityId);
 
-  const result = await query(
+  const result = await db.query(
     `
     UPDATE user_opportunities
     SET ${fields.join(', ')}
     WHERE user_id = $${paramIndex++} AND opportunity_id = $${paramIndex++}
     RETURNING *
     `,
-    values
+    values,
+    options.client || null
   );
 
   return result.rows[0] || null;
@@ -265,14 +276,15 @@ async function updateUserLink(userId, opportunityId, data) {
  * @param {string|number} opportunityId - ID de l'opportunité
  * @returns {Promise<Object|null>} - Utilisateur trouvé ou null
  */
-async function findUserByLink(link, opportunityId) {
-  const result = await query(
+async function findUserByLink(link, opportunityId, options = {}) {
+  const result = await db.query(
     `
     SELECT user_id
     FROM user_opportunities
     WHERE referral_link = $1 AND opportunity_id = $2 AND status = 'active'
     `,
-    [link, opportunityId]
+    [link, opportunityId],
+    options.client || null
   );
 
   return result.rows[0] || null;
@@ -285,7 +297,7 @@ async function findUserByLink(link, opportunityId) {
  * @returns {Promise<Array>} - Liste des liens
  */
 async function getUserLinks(userId) {
-  const result = await query(
+  const result = await db.query(
     `
     SELECT
       uo.*,
@@ -333,7 +345,7 @@ async function getAvailableLink(opportunityId, excludeUserId = null) {
     LIMIT 1
   `;
 
-  const result = await query(queryText, params);
+  const result = await db.query(queryText, params);
 
   return result.rows[0] || null;
 }
@@ -465,7 +477,7 @@ async function validateLink(link, rules) {
  * @returns {Promise<number>} - Nombre de liens actifs
  */
 async function countActiveLinks(opportunityId) {
-  const result = await query(
+  const result = await db.query(
     `
     SELECT COUNT(*) as count
     FROM user_opportunities
