@@ -40,20 +40,6 @@ async function getActiveCampaign() {
   return result.rows[0] || null;
 }
 
-async function findRootUser() {
-  const result = await db.query(
-    `
-    SELECT *
-    FROM users
-    WHERE is_root = true
-    ORDER BY created_at ASC
-    LIMIT 1
-    `
-  );
-
-  return result.rows[0] || null;
-}
-
 async function createUser(user) {
   const result = await db.query(
     `INSERT INTO users (
@@ -423,7 +409,6 @@ module.exports = {
   findUserById,
   findUserByInvitationCode,
   getActiveCampaign,
-  findRootUser,
   createUser,
   saveEmailOtp,
   confirmEmail,
