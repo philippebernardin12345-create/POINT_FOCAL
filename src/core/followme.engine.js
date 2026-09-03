@@ -14,8 +14,8 @@
 
 const db = require("../config/db");
 const { findUserById, findUserByInvitationCode } = require("../modules/users/users.repository");
-const { getOpportunityById, getOpportunityBySlug } = require("./opportunity.engine");
-const { applyRollup, hasUserJoinedOpportunity, isRollupNeeded } = require("./rollup.service");
+const { getOpportunityById } = require("./opportunity.engine");
+const { applyRollup, isRollupNeeded } = require("./rollup.service");
 const { logger } = require("../utils/logger");
 const { isValidUrl } = require("../utils/validators");
 
