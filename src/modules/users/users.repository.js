@@ -25,22 +25,22 @@ async function findUserById(userId) {
   const result = await query(
     `
     SELECT
-      id,
-      email,
-      whatsapp,
-      language,
-      status,
-      sponsor_id,
-      campaign_id,
-      invitation_code,
-      is_root,
-      is_leader,
-      is_prelaunch_leader,
-      link_active,
-      email_confirmed,
-      created_at
-    FROM users
-    WHERE id = $1
+      u.id,
+      u.email,
+      u.whatsapp,
+      u.language,
+      u.status,
+      u.sponsor_id,
+      u.campaign_id,
+      u.invitation_code,
+      u.is_root,
+      u.is_leader,
+      u.is_prelaunch_leader,
+      u.link_active,
+      u.email_confirmed,
+      u.created_at
+    FROM users u
+    WHERE u.id = $1
     LIMIT 1
     `,
     [userId]
@@ -67,20 +67,20 @@ async function findUserByInvitationCode(invitationCode) {
   const result = await query(
     `
     SELECT
-      id,
-      email,
-      whatsapp,
-      language,
-      status,
-      sponsor_id,
-      campaign_id,
-      invitation_code,
-      is_root,
-      is_leader,
-      is_prelaunch_leader,
-      link_active,
-      email_confirmed,
-      created_at
+      u.id,
+      u.email,
+      u.whatsapp,
+      u.language,
+      u.status,
+      u.sponsor_id,
+      u.campaign_id,
+      u.invitation_code,
+      u.is_root,
+      u.is_leader,
+      u.is_prelaunch_leader,
+      u.link_active,
+      u.email_confirmed,
+      u.created_at
     FROM users
     WHERE invitation_code = $1
     LIMIT 1
@@ -143,7 +143,7 @@ async function countChildren(userId) {
 /**
  * Trouve la racine du système.
  *
- * La racine est déterminée exclusivement par is_root.
+ * La racine est déterminée par v106_runtime_state.root_user_id.
  */
 async function findRoot() {
   const result = await query(
@@ -163,9 +163,11 @@ async function findRoot() {
       link_active,
       email_confirmed,
       created_at
-    FROM users
-    WHERE is_root = true
-    ORDER BY created_at ASC
+    FROM v106_runtime_state state
+    JOIN users u
+      ON u.id = state.root_user_id
+    WHERE state.singleton_id = true
+      AND state.root_user_id IS NOT NULL
     LIMIT 1
     `
   );

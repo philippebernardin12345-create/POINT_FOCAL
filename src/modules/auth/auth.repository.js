@@ -1,7 +1,12 @@
 const db = require("../../config/db");
 
-async function findUserByEmail(email) {
-  const result = await db.query(
+function runQuery(client, text, params = []) {
+  return (client || db).query(text, params);
+}
+
+async function findUserByEmail(email, options = {}) {
+  const result = await runQuery(
+    options.client,
     "SELECT * FROM users WHERE email = $1 LIMIT 1",
     [email]
   );
@@ -9,8 +14,9 @@ async function findUserByEmail(email) {
   return result.rows[0] || null;
 }
 
-async function findUserById(id) {
-  const result = await db.query(
+async function findUserById(id, options = {}) {
+  const result = await runQuery(
+    options.client,
     "SELECT * FROM users WHERE id = $1 LIMIT 1",
     [id]
   );
@@ -18,13 +24,12 @@ async function findUserById(id) {
   return result.rows[0] || null;
 }
 
-async function findUserByInvitationCode(code) {
-  const result = await db.query(
+async function findUserByInvitationCode(code, options = {}) {
+  const result = await runQuery(
+    options.client,
     `SELECT *
      FROM users
-     WHERE invitation_code_series_1 = $1
-        OR invitation_code_series_2 = $1
-        OR invitation_code_series_3 = $1
+     WHERE invitation_code = $1
      LIMIT 1`,
     [code]
   );
@@ -32,30 +37,40 @@ async function findUserByInvitationCode(code) {
   return result.rows[0] || null;
 }
 
-async function getActiveCampaign() {
-  const result = await db.query(
+async function getActiveCampaign(options = {}) {
+  const result = await runQuery(
+    options.client,
     "SELECT * FROM campaigns WHERE status = 'active' LIMIT 1"
   );
 
   return result.rows[0] || null;
 }
 
-async function findRootUser() {
-  const result = await db.query(
+async function findRootUser(options = {}) {
+  const lockClause = options.forUpdate
+    ? "FOR UPDATE"
+    : "";
+
+  const result = await runQuery(
+    options.client,
     `
-    SELECT *
-    FROM users
-    WHERE is_root = true
-    ORDER BY created_at ASC
+    SELECT u.*
+    FROM v106_runtime_state state
+    JOIN users u
+      ON u.id = state.root_user_id
+    WHERE state.singleton_id = true
+      AND state.root_user_id IS NOT NULL
     LIMIT 1
+    ${lockClause}
     `
   );
 
   return result.rows[0] || null;
 }
 
-async function createUser(user) {
-  const result = await db.query(
+async function createUser(user, options = {}) {
+  const result = await runQuery(
+    options.client,
     `INSERT INTO users (
       email,
       whatsapp,
@@ -235,7 +250,8 @@ async function confirmEmailByOtp(email, otp, options = {}) {
 }
 
 async function countRootLeaders() {
-  const result = await db.query(
+  const result = await runQuery(
+    null,
     `
     SELECT COUNT(*)::int AS total
     FROM users
@@ -244,9 +260,10 @@ async function countRootLeaders() {
       AND email_confirmed = true
       AND status = 'active'
       AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
+        SELECT root_user_id
+        FROM v106_runtime_state
+        WHERE singleton_id = true
+          AND root_user_id IS NOT NULL
         LIMIT 1
       )
     `
@@ -266,30 +283,53 @@ async function countPrelaunchLeaders() {
 
   return result.rows[0]?.total || 0;
 }
-async function findOldestAvailableSponsorForFifo() {
-  const result = await db.query(
+async function findOldestAvailableSponsorForFifo(options = {}) {
+  const client = options.client || null;
+  const lockClause = client
+    ? "FOR UPDATE OF u SKIP LOCKED"
+    : "";
+
+  const result = await runQuery(
+    client,
     `
+    WITH runtime AS (
+      SELECT (
+        SELECT root_user_id
+        FROM v106_runtime_state
+        WHERE singleton_id = true
+        LIMIT 1
+      ) AS root_user_id
+    ),
+    candidates AS (
+      SELECT
+        u.id,
+        COALESCE(COUNT(gs.child_user_id), 0)::int AS total_referrals
+      FROM users u
+      LEFT JOIN v106_global_sponsorships gs
+        ON gs.sponsor_user_id = u.id
+      CROSS JOIN runtime
+      WHERE u.link_active = true
+        AND u.email_confirmed = true
+        AND u.status = 'active'
+        AND (
+          runtime.root_user_id IS NULL
+          OR u.id <> runtime.root_user_id
+        )
+      GROUP BY u.id
+      HAVING COALESCE(COUNT(gs.child_user_id), 0) < 2
+    )
     SELECT
       u.id,
       u.email,
-      u.invitation_code_series_1,
+      u.invitation_code,
       u.created_at,
-      COUNT(children.id)::int AS total_referrals
-    FROM users u
-    LEFT JOIN users children
-      ON children.sponsor_id = u.id
-    WHERE u.is_root = false
-      AND u.link_active = true
-      AND u.email_confirmed = true
-      AND u.status = 'active'
-    GROUP BY
-      u.id,
-      u.email,
-      u.invitation_code_series_1,
-      u.created_at
-    HAVING COUNT(children.id) < 2
-    ORDER BY u.created_at ASC
+      c.total_referrals
+    FROM candidates c
+    JOIN users u
+      ON u.id = c.id
+    ORDER BY u.created_at ASC, u.id ASC
     LIMIT 1
+    ${lockClause}
     `
   );
 
@@ -298,7 +338,8 @@ async function findOldestAvailableSponsorForFifo() {
 async function activatePrelaunchLeadersIfLimitReached(options = {}) {
   const client = options.client;
 
-  const result = await (client || db).query(
+  const result = await runQuery(
+    client,
     `
     SELECT COUNT(*)::int AS total
     FROM users
@@ -307,9 +348,10 @@ async function activatePrelaunchLeadersIfLimitReached(options = {}) {
       AND email_confirmed = true
       AND status = 'active'
       AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
+        SELECT root_user_id
+        FROM v106_runtime_state
+        WHERE singleton_id = true
+          AND root_user_id IS NOT NULL
         LIMIT 1
       )
     `
@@ -325,7 +367,8 @@ async function activatePrelaunchLeadersIfLimitReached(options = {}) {
     };
   }
 
-  const activation = await (client || db).query(
+  const activation = await runQuery(
+    client,
     `
     UPDATE users
     SET
@@ -335,9 +378,10 @@ async function activatePrelaunchLeadersIfLimitReached(options = {}) {
       AND is_prelaunch_leader = true
       AND link_active = false
       AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
+        SELECT root_user_id
+        FROM v106_runtime_state
+        WHERE singleton_id = true
+          AND root_user_id IS NOT NULL
         LIMIT 1
       )
     RETURNING id

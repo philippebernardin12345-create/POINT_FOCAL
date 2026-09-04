@@ -6,8 +6,6 @@ const v106Runtime = require("../../db/v106-runtime");
 const { signToken } = require("../../config/jwt");
 const { sendEmail } = require("../../config/email");
 
-const ROOT_INVITATION_CODE = "ABCD1000";
-
 function generateOtp() {
   return Math.floor(
     100000 + Math.random() * 900000
@@ -75,78 +73,6 @@ async function register(payload) {
   let sponsor = null;
   let sponsorAssignment = "personal";
 
-  /*
-    CAS 1 :
-    L'utilisateur possède déjà le code
-    d'invitation de son parrain.
-  */
-  if (providedSponsorCode) {
-    sponsor =
-      await authRepository.findUserByInvitationCode(
-        providedSponsorCode
-      );
-
-    /*
-      Le code racine peut être accepté même si
-      aucun compte racine correspondant n'est
-      encore enregistré dans users.
-    */
-    if (
-      !sponsor &&
-      providedSponsorCode === ROOT_INVITATION_CODE
-    ) {
-      sponsor = {
-        id: null,
-        is_root: true
-      };
-
-      sponsorAssignment = "root";
-    }
-
-    if (!sponsor) {
-      throw new Error(
-        "Code d'invitation invalide."
-      );
-    }
-  } else {
-    /*
-      CAS 2 :
-      Aucun code d'invitation.
-
-      Le FIFO recherche le plus ancien utilisateur
-      actif ayant moins de deux filleuls au total.
-    */
-    sponsor =
-      await authRepository
-        .findOldestAvailableSponsorForFifo();
-
-    if (sponsor) {
-      sponsorAssignment = "fifo";
-    } else {
-      /*
-        CAS 3 :
-        Aucun parrain FIFO disponible.
-
-        Le surplus est rattaché à la racine.
-      */
-      sponsor = {
-        id: null,
-        is_root: true
-      };
-
-      sponsorAssignment = "root";
-    }
-  }
-
-  const campaign =
-    await authRepository.getActiveCampaign();
-
-  if (!campaign) {
-    throw new Error(
-      "Aucune campagne active disponible."
-    );
-  }
-
   const passwordHash =
     await bcrypt.hash(password, 10);
 
@@ -154,19 +80,85 @@ async function register(payload) {
   const isPrelaunchLeader = false;
   const linkActive = false;
 
-  const user =
-    await authRepository.createUser({
-      email: normalizedEmail,
-      whatsapp,
-      passwordHash,
-      language,
-      status: "pending",
-      sponsorId: sponsor.id,
-      campaignId: campaign.id,
-      isLeader,
-      isPrelaunchLeader,
-      linkActive
-    });
+  const user = await db.withTransaction(
+    async (client) => {
+      if (providedSponsorCode) {
+        sponsor =
+          await authRepository.findUserByInvitationCode(
+            providedSponsorCode,
+            { client }
+          );
+
+        if (!sponsor) {
+          throw new Error(
+            "Code d'invitation invalide."
+          );
+        }
+      } else {
+        sponsor =
+          await authRepository
+            .findOldestAvailableSponsorForFifo({
+              client
+            });
+
+        if (sponsor) {
+          sponsorAssignment = "fifo";
+        }
+      }
+
+      if (!sponsor) {
+        sponsor =
+          await authRepository.findRootUser({
+            client,
+            forUpdate: true
+          });
+
+        if (!sponsor) {
+          throw new Error(
+            "Compte racine introuvable."
+          );
+        }
+
+        sponsorAssignment = "root";
+      }
+
+      const campaign =
+        await authRepository.getActiveCampaign({
+          client
+        });
+
+      if (!campaign) {
+        throw new Error(
+          "Aucune campagne active disponible."
+        );
+      }
+
+      const createdUser =
+        await authRepository.createUser(
+          {
+            email: normalizedEmail,
+            whatsapp,
+            passwordHash,
+            language,
+            status: "pending",
+            sponsorId: sponsor.id,
+            campaignId: campaign.id,
+            isLeader,
+            isPrelaunchLeader,
+            linkActive
+          },
+          { client }
+        );
+
+      await v106Runtime.assignGlobalSponsorBfs(
+        sponsor.id,
+        createdUser.id,
+        { client }
+      );
+
+      return createdUser;
+    }
+  );
 
   if (!user) {
     throw new Error(

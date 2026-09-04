@@ -53,8 +53,13 @@ async function getRoot() {
  * @returns {Promise<boolean>} - True si l'utilisateur est la racine
  */
 async function isRoot(userId) {
-  const user = await findUserById(userId);
-  return user ? user.is_root === true : false;
+  const root = await getRoot();
+
+  if (!root) {
+    return false;
+  }
+
+  return String(root.id) === String(userId);
 }
 
 /**
@@ -97,7 +102,7 @@ async function applyRollup(userId, opportunityId, options = {}) {
     }
 
     // 4. Vérifier si l'utilisateur est la racine
-    if (user.is_root === true) {
+    if (await isRoot(userId)) {
       return {
         success: true,
         action: 'root_user',
@@ -352,7 +357,7 @@ async function isRollupNeeded(userId, opportunityId) {
     // 2. Récupérer l'utilisateur
     const user = await findUserById(userId);
 
-    if (!user || user.is_root === true) {
+    if (!user || await isRoot(userId)) {
       return false;
     }
 
