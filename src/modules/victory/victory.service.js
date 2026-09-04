@@ -138,33 +138,6 @@ async function assignVictoryLink(userId) {
   }
 
   /*
-    PRIORITÉ 2 :
-    rotation FIFO si le parrain réel
-    n'a aucun lien Victory disponible.
-  */
-  if (!assignedVictoryLink) {
-    const fifoSponsor =
-      await repository
-        .findOldestAvailableVictorySponsor(
-          userWithSponsor.sponsor_user_id ||
-            null
-        );
-
-    if (
-      fifoSponsor &&
-      fifoSponsor.victory_personal_link
-    ) {
-      assignedVictoryLink =
-        fifoSponsor.victory_personal_link;
-
-      assignedSponsorUserId =
-        fifoSponsor.id;
-
-      source = "fifo";
-    }
-  }
-
-  /*
     PRIORITÉ 3 :
     lien Victory du compte racine.
   */

@@ -1,37 +1,20 @@
 const db = require("../../config/db");
 
-async function findUserByInvitationCode(code) {
-  const result = await db.query(
-    `
-    SELECT id
-    FROM users
-    WHERE invitation_code_series_1 = $1
-       OR invitation_code_series_2 = $1
-       OR invitation_code_series_3 = $1
-    LIMIT 1
-    `,
-    [code]
-  );
-
-  return result.rows[0] || null;
-}
-
 async function findUserPaymentStart(userId) {
   const result = await db.query(
     `
     SELECT
       id,
       email,
-      status,campaign_id,
+      status,
+      campaign_id,
       victory_assigned_at,
       victory_started_at,
       victory_expires_at,
       victory_expired,
       victory_personal_link,
       victory_identifier,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       link_active
     FROM users
     WHERE id = $1
@@ -159,19 +142,11 @@ async function markUserVictoryExpired(userId) {
   return result.rows[0] || null;
 }
 
-async function activateSeries1PointFocalLink(
-  userId,
-  invitationCodeSeries1
-) {
+async function activatePointFocalLink(userId) {
   const result = await db.query(
     `
     UPDATE users
     SET
-      invitation_code_series_1 =
-        COALESCE(
-          invitation_code_series_1,
-          $2
-        ),
       status = 'active',
       victory_expired = false,
       link_active = true
@@ -179,31 +154,25 @@ async function activateSeries1PointFocalLink(
     RETURNING
       id,
       email,
+      invitation_code,
       victory_personal_link,
       victory_identifier,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
       status,
       victory_expired,
       link_active
     `,
-    [
-      userId,
-      invitationCodeSeries1
-    ]
+    [userId]
   );
 
   return result.rows[0] || null;
 }
 
 module.exports = {
-  findUserByInvitationCode,
   findUserPaymentStart,
   findPaymentByHash,
   findUserByVictoryIdentifier,
   savePayment,
   saveVictoryPersonalLink,
   markUserVictoryExpired,
-  activateSeries1PointFocalLink
+  activatePointFocalLink
 };

@@ -18,19 +18,30 @@ async function findUserById(id) {
   return result.rows[0] || null;
 }
 
-async function findUserByInvitationCode(code) {
-  const result = await db.query(
-    `SELECT *
-     FROM users
-     WHERE invitation_code_series_1 = $1
-        OR invitation_code_series_2 = $1
-        OR invitation_code_series_3 = $1
-     LIMIT 1`,
-    [code]
+async function findUserByInvitationCode(code, options = {}) {
+  const client = options.client;
+  const normalizedCode = String(code || "").trim().toUpperCase();
+
+  if (!normalizedCode) {
+    return null;
+  }
+
+  const lockClause = client ? "FOR UPDATE" : "";
+
+  const result = await (client || db).query(
+    `
+    SELECT *
+    FROM users
+    WHERE invitation_code = $1
+    LIMIT 1
+    ${lockClause}
+    `,
+    [normalizedCode]
   );
 
   return result.rows[0] || null;
 }
+
 
 async function getActiveCampaign() {
   const result = await db.query(
@@ -40,23 +51,28 @@ async function getActiveCampaign() {
   return result.rows[0] || null;
 }
 
+
 async function findRootUser() {
   const result = await db.query(
     `
-    SELECT *
-    FROM users
-    WHERE is_root = true
-    ORDER BY created_at ASC
-    LIMIT 1
+      SELECT u.*
+      FROM users u
+      JOIN v106_runtime_state rs
+        ON rs.root_user_id = u.id
+      WHERE rs.singleton_id = true
+      LIMIT 1
     `
   );
-
   return result.rows[0] || null;
 }
 
-async function createUser(user) {
-  const result = await db.query(
-    `INSERT INTO users (
+
+async function createUser(user, options = {}) {
+  const client = options.client || db;
+
+  const result = await client.query(
+    `
+    INSERT INTO users (
       email,
       whatsapp,
       password_hash,
@@ -64,9 +80,7 @@ async function createUser(user) {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
@@ -81,13 +95,11 @@ async function createUser(user) {
       $5,
       $6,
       $7,
-      NULL,
-      NULL,
-      NULL,
-      false,
       $8,
+      false,
       $9,
       $10,
+      $11,
       false
     )
     RETURNING
@@ -98,15 +110,14 @@ async function createUser(user) {
       status,
       sponsor_id,
       campaign_id,
-      invitation_code_series_1,
-      invitation_code_series_2,
-      invitation_code_series_3,
+      invitation_code,
       is_root,
       is_leader,
       is_prelaunch_leader,
       link_active,
       email_confirmed,
-      created_at`,
+      created_at
+    `,
     [
       user.email,
       user.whatsapp,
@@ -115,6 +126,7 @@ async function createUser(user) {
       user.status,
       user.sponsorId,
       user.campaignId,
+      user.invitationCode,
       user.isLeader === true,
       user.isPrelaunchLeader === true,
       user.linkActive === true
@@ -243,12 +255,6 @@ async function countRootLeaders() {
       AND is_prelaunch_leader = true
       AND email_confirmed = true
       AND status = 'active'
-      AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
-        LIMIT 1
-      )
     `
   );
 
@@ -261,66 +267,125 @@ async function countPrelaunchLeaders() {
     SELECT COUNT(*)::int AS total
     FROM users
     WHERE is_prelaunch_leader = true
+      AND email_confirmed = true
+      AND status = 'active'
     `
   );
 
   return result.rows[0]?.total || 0;
 }
-async function findOldestAvailableSponsorForFifo() {
-  const result = await db.query(
-    `
-    SELECT
-      u.id,
-      u.email,
-      u.invitation_code_series_1,
-      u.created_at,
-      COUNT(children.id)::int AS total_referrals
-    FROM users u
-    LEFT JOIN users children
-      ON children.sponsor_id = u.id
-    WHERE u.is_root = false
-      AND u.link_active = true
-      AND u.email_confirmed = true
-      AND u.status = 'active'
-    GROUP BY
-      u.id,
-      u.email,
-      u.invitation_code_series_1,
-      u.created_at
-    HAVING COUNT(children.id) < 2
-    ORDER BY u.created_at ASC
-    LIMIT 1
-    `
-  );
 
-  return result.rows[0] || null;
+async function findOldestAvailableSponsorForFifo(options = {}) {
+  const client = options.client;
+  const runner = client || db;
+  const excludedIds = [];
+
+  while (true) {
+    const candidateResult = await runner.query(
+      `
+        SELECT u.id
+        FROM users u
+        WHERE u.id <> (
+          SELECT root_user_id
+          FROM v106_runtime_state
+          WHERE singleton_id = true
+        )
+          AND u.link_active = true
+          AND u.email_confirmed = true
+          AND u.status = 'active'
+          AND NOT (u.id = ANY($1::uuid[]))
+          AND (
+            SELECT COUNT(*)
+            FROM v106_global_sponsorships gs
+            WHERE gs.sponsor_user_id = u.id
+          ) < 2
+        ORDER BY u.created_at ASC, u.id ASC
+        LIMIT 1
+      `,
+      [excludedIds]
+    );
+
+    if (candidateResult.rows.length === 0) {
+      return null;
+    }
+
+    const candidateId = candidateResult.rows[0].id;
+
+    const lockedResult = await runner.query(
+      `
+        SELECT
+          id,
+          email,
+          invitation_code,
+          created_at
+        FROM users
+        WHERE id = $1
+          AND id <> (
+            SELECT root_user_id
+            FROM v106_runtime_state
+            WHERE singleton_id = true
+          )
+          AND link_active = true
+          AND email_confirmed = true
+          AND status = 'active'
+        FOR UPDATE
+      `,
+      [candidateId]
+    );
+
+    if (lockedResult.rows.length === 0) {
+      excludedIds.push(candidateId);
+      continue;
+    }
+
+    const capacityResult = await runner.query(
+      `
+        SELECT COUNT(*)::int AS total_referrals
+        FROM v106_global_sponsorships
+        WHERE sponsor_user_id = $1
+      `,
+      [candidateId]
+    );
+
+    const totalReferrals =
+      capacityResult.rows[0]?.total_referrals ?? 0;
+
+    if (totalReferrals < 2) {
+      return {
+        ...lockedResult.rows[0],
+        total_referrals: totalReferrals
+      };
+    }
+
+    excludedIds.push(candidateId);
+  }
 }
+
 async function activatePrelaunchLeadersIfLimitReached(options = {}) {
   const client = options.client;
 
   const result = await (client || db).query(
     `
-    SELECT COUNT(*)::int AS total
-    FROM users
-    WHERE is_leader = true
-      AND is_prelaunch_leader = true
-      AND email_confirmed = true
-      AND status = 'active'
-      AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
-        LIMIT 1
-      )
+    SELECT
+      rs.phase,
+      rs.leader_count,
+      rs.leader_threshold
+    FROM v106_runtime_state rs
+    WHERE rs.singleton_id = true
+    FOR UPDATE
     `
   );
 
-  const total = result.rows[0]?.total || 0;
+  const state = result.rows[0];
 
-  if (total < 50) {
+  if (!state) {
+    throw new Error("V106_RUNTIME_STATE_NOT_CONFIGURED");
+  }
+
+  if (state.phase !== "NORMAL_OPERATION") {
     return {
       activated: false,
-      total,
+      total: state.leader_count,
       activatedCount: 0
     };
   }
@@ -333,23 +398,20 @@ async function activatePrelaunchLeadersIfLimitReached(options = {}) {
       link_active = true
     WHERE is_leader = true
       AND is_prelaunch_leader = true
+      AND email_confirmed = true
+      AND status = 'active'
       AND link_active = false
-      AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
-        LIMIT 1
-      )
     RETURNING id
     `
   );
 
   return {
-    activated: true,
-    total,
+    activated: activation.rows.length > 0,
+    total: state.leader_count,
     activatedCount: activation.rows.length
   };
 }
+
 
 async function savePasswordResetToken(
   userId,

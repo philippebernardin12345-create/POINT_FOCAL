@@ -12,7 +12,7 @@
  * Ces liens alimentent la base et permettent le suivi généalogique.
  */
 
-const { query } = require("../config/db");
+const { query, withTransaction } = require("../config/db");
 const { findUserById, findUserByInvitationCode } = require("../modules/users/users.repository");
 const { getOpportunityById, getOpportunityBySlug } = require("./opportunity.engine");
 const { applyRollup, hasUserJoinedOpportunity, isRollupNeeded } = require("./rollup.service");
@@ -38,7 +38,11 @@ async function registerUserLink({
   targetAddress = null,
   paymentHash = null,
   sponsorId = null
-}) {
+}, options = {}) {
+  const dbClient = options.client;
+  const executeTransaction = dbClient
+    ? async (callback) => callback(dbClient)
+    : withTransaction;
   try {
     // 1. Valider les paramètres
     if (!userId) {
@@ -138,48 +142,125 @@ async function registerUserLink({
       throw new Error(linkValidation.message || 'Lien invalide');
     }
 
-    // 11. Enregistrer le lien
-    const result = await query(
-      `
-      INSERT INTO user_opportunities (
-        user_id,
-        opportunity_id,
-        referral_link,
-        target_address,
-        payment_hash,
-        sponsor_user_id,
-        status,
-        joined_at,
-        updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW(), NOW())
-      RETURNING *
-      `,
-      [
-        userId,
-        opportunityId,
-        referralLink,
-        targetAddress,
-        paymentHash,
-        extractedSponsorId || sponsorId || user.sponsor_id
-      ]
-    );
+      // 11. Déterminer et effectuer le placement dans UNE transaction.
+      const transactionResult = await executeTransaction(async (client) => {
+        const effectiveSponsorId =
+          extractedSponsorId || sponsorId || user.sponsor_id || null;
 
-    // 13. Appliquer le roll-up si nécessaire
-    let rollupResult = null;
+        let sponsorJoinedOpportunity = false;
 
-    if (await isRollupNeeded(userId, opportunityId)) {
-      rollupResult = await applyRollup(userId, opportunityId);
-    }
+        if (effectiveSponsorId) {
+          sponsorJoinedOpportunity = await hasUserJoinedOpportunity(
+            effectiveSponsorId,
+            opportunityId,
+            { client }
+          );
+        }
 
-    return {
-      success: true,
-      action: 'created',
-      message: 'Lien enregistré avec succès',
-      data: result.rows[0],
-      rollupApplied: rollupResult ? rollupResult.rollupApplied : false,
-      rollupResult
-    };
+        let rollupResult = null;
+        let result;
+
+        const rootUser = await require("../db/v106-runtime").resolveRootUser({
+          client
+        });
+
+        const isRootUser =
+          rootUser && String(rootUser.id) === String(userId);
+
+        if (!sponsorJoinedOpportunity && !isRootUser) {
+          // Le sponsor n'est pas présent dans l'opportunité.
+          // Le placement passe donc par le Roll-Up V10.6.
+          rollupResult = await applyRollup(
+            userId,
+            opportunityId,
+            { client }
+          );
+
+          if (!rollupResult || rollupResult.action !== 'rollup') {
+            throw new Error(
+              "Le Roll-Up était requis mais le placement n'a pas été effectué"
+            );
+          }
+
+          // applyRollup() a déjà créé la ligne user_opportunities.
+          // On complète cette même ligne avec le lien et les données.
+          result = await query(
+            `
+            UPDATE user_opportunities
+            SET
+              referral_link = $1,
+              target_address = $2,
+              payment_hash = $3,
+              updated_at = NOW()
+            WHERE user_id = $4
+              AND opportunity_id = $5
+              AND status = 'active'
+            RETURNING *
+            `,
+            [
+              referralLink,
+              targetAddress,
+              paymentHash,
+              userId,
+              opportunityId
+            ],
+            client
+          );
+
+          if (!result.rows[0]) {
+            throw new Error(
+              'Le placement Roll-Up a été effectué mais sa ligne est introuvable'
+            );
+          }
+        } else {
+          // Follow Me normal : le sponsor est déjà présent.
+          result = await query(
+            `
+            INSERT INTO user_opportunities (
+              user_id,
+              opportunity_id,
+              referral_link,
+              target_address,
+              payment_hash,
+              sponsor_user_id,
+              status,
+              joined_at,
+              updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW(), NOW())
+            RETURNING *
+            `,
+            [
+              userId,
+              opportunityId,
+              referralLink,
+              targetAddress,
+              paymentHash,
+              effectiveSponsorId
+            ],
+            client
+          );
+        }
+
+        return {
+          result,
+          rollupResult
+        };
+      });
+
+      const result = transactionResult.result;
+      const rollupResult = transactionResult.rollupResult;
+
+      return {
+        success: true,
+        action: rollupResult ? 'rollup' : 'created',
+        message: rollupResult
+          ? 'Lien enregistré avec Roll-Up'
+          : 'Lien enregistré avec succès',
+        data: result.rows[0],
+        rollupApplied: Boolean(rollupResult),
+        rollupResult
+      };
 
   } catch (error) {
     logger.error('[FollowMe] Erreur registerUserLink:', error);

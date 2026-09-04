@@ -1,5 +1,6 @@
 const repository = require("./followme.repository");
 const { getOpportunityBySlug } = require("../../core/opportunity.engine");
+const v106Runtime = require("../../db/v106-runtime");
 
 async function getSponsorLinkForOpportunity(userId, opportunitySlug) {
   if (!userId) {
@@ -38,7 +39,7 @@ async function getSponsorLinkForOpportunity(userId, opportunitySlug) {
 
   // 2. Fallback : lien du compte racine
   if (!sponsorLink) {
-    const rootUser = await repository.findRootUser();
+    const rootUser = await v106Runtime.resolveRootUser();
 
     if (!rootUser) {
       throw new Error("Compte racine introuvable.");

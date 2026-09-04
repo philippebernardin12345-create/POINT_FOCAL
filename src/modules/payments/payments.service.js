@@ -16,49 +16,6 @@ function normalizeAddress(address) {
     .toLowerCase();
 }
 
-function generateLetters(length) {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  let result = "";
-
-  for (let i = 0; i < length; i++) {
-    result += letters[
-      Math.floor(Math.random() * letters.length)
-    ];
-  }
-
-  return result;
-}
-
-function generateFourDigits() {
-  return Math.floor(
-    1000 + Math.random() * 9000
-  ).toString();
-}
-
-/*
-  Série 1 : ABCD1234
-*/
-function generateSeries1Code() {
-  return `${generateLetters(4)}${generateFourDigits()}`;
-}
-
-async function generateUniqueSeries1Code() {
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const code = generateSeries1Code();
-
-    const existingUser =
-      await repository.findUserByInvitationCode(code);
-
-    if (!existingUser) {
-      return code;
-    }
-  }
-
-  throw new Error(
-    "Impossible de générer un code d’invitation série 1 unique."
-  );
-}
-
 function decodeTransferLog(log) {
   if (
     !log ||
@@ -414,11 +371,11 @@ async function autoTrigger(
     user.victory_personal_link
   ) {
     const existingPublicLink =
-      user.invitation_code_series_1
-        ? `https://pointfocalapp.com/register.html?ref=${user.invitation_code_series_1}`
-        : null;
+        user.invitation_code
+          ? `https://pointfocalapp.com/register.html?ref=${user.invitation_code}`
+          : null;
 
-    return {
+      return {
       success: true,
       alreadyValidated: true,
       message:
@@ -505,15 +462,7 @@ async function autoTrigger(
       user.victory_assigned_at
     );
 
-  let codeSeries1 =
-    user.invitation_code_series_1;
-
-  if (!codeSeries1) {
-    codeSeries1 =
-      await generateUniqueSeries1Code();
-  }
-
-await repository.savePayment(
+  await repository.savePayment(
   userId,
   user.campaign_id,
   normalizedTxHash,
@@ -535,11 +484,7 @@ await repository.savePayment(
   }
 
   const activatedUser =
-    await repository
-      .activateSeries1PointFocalLink(
-        userId,
-        codeSeries1
-      );
+      await repository.activatePointFocalLink(userId);
 
   if (!activatedUser) {
     throw new Error(
@@ -548,7 +493,7 @@ await repository.savePayment(
   }
 
   const publicLink =
-    `https://pointfocalapp.com/register.html?ref=${activatedUser.invitation_code_series_1}`;
+      `https://pointfocalapp.com/register.html?ref=${activatedUser.invitation_code}`;
 
   return {
     success: true,
@@ -559,14 +504,8 @@ await repository.savePayment(
       savedVictoryLink.victory_personal_link,
     victoryIdentifier:
       savedVictoryLink.victory_identifier,
-    invitationCodes: {
-      series1:
-        activatedUser.invitation_code_series_1,
-      series2:
-        activatedUser.invitation_code_series_2,
-      series3:
-        activatedUser.invitation_code_series_3
-    },
+    invitationCode:
+        activatedUser.invitation_code,
     payment: {
       amount:
         payment.amount,

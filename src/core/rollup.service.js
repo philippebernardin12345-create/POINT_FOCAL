@@ -13,10 +13,11 @@
  * Le sponsor réel est préservé dans le CORE.
  */
 
-const { findUserById, getChildren, countChildren, findRoot } = require("../modules/users/users.repository");
+const { findUserById, getChildren, countChildren } = require("../modules/users/users.repository");
 const { getOpportunityById } = require("./opportunity.engine");
 const { query } = require("../config/db");
 const { logger } = require("../utils/logger");
+const v106Runtime = require("../db/v106-runtime");
 
 /**
  * Vérifie si un utilisateur a déjà rejoint une opportunité
@@ -25,8 +26,10 @@ const { logger } = require("../utils/logger");
  * @param {string|number} opportunityId - ID de l'opportunité
  * @returns {Promise<boolean>} - True si l'utilisateur a rejoint l'opportunité
  */
-async function hasUserJoinedOpportunity(userId, opportunityId) {
-  const result = await query(
+async function hasUserJoinedOpportunity(userId, opportunityId, options = {}) {
+  const dbClient = options.client;
+  const executeQuery = dbClient ? dbClient.query.bind(dbClient) : query;
+  const result = await executeQuery(
     `
     SELECT id FROM user_opportunities
     WHERE user_id = $1 AND opportunity_id = $2 AND status = 'active'
@@ -42,8 +45,8 @@ async function hasUserJoinedOpportunity(userId, opportunityId) {
  * 
  * @returns {Promise<Object|null>} - Utilisateur racine
  */
-async function getRoot() {
-  return await findRoot();
+async function getRoot(options = {}) {
+  return await v106Runtime.resolveRootUser(options);
 }
 
 /**
@@ -53,8 +56,8 @@ async function getRoot() {
  * @returns {Promise<boolean>} - True si l'utilisateur est la racine
  */
 async function isRoot(userId) {
-  const user = await findUserById(userId);
-  return user ? user.is_root === true : false;
+  const rootUser = await v106Runtime.resolveRootUser();
+  return Boolean(rootUser && String(rootUser.id) === String(userId));
 }
 
 /**
@@ -63,10 +66,11 @@ async function isRoot(userId) {
  * @param {string|number} userId - ID de l'utilisateur
  * @param {string|number} opportunityId - ID de l'opportunité
  * @param {Object} options - Options
- * @param {string|number} options.fallbackUserId - Utilisateur de fallback (défaut: racine)
+ * @param {string|number} options.fallbackUserId - Ignoré en V10.6 : le Roll Up va toujours au Root
  * @returns {Promise<Object>} - Résultat du roll-up
  */
 async function applyRollup(userId, opportunityId, options = {}) {
+  const dbClient = options.client;
   try {
     // 1. Récupérer l'utilisateur
     const user = await findUserById(userId);
@@ -83,7 +87,7 @@ async function applyRollup(userId, opportunityId, options = {}) {
     }
 
     // 3. Vérifier si l'utilisateur a déjà rejoint l'opportunité
-    const alreadyJoined = await hasUserJoinedOpportunity(userId, opportunityId);
+    const alreadyJoined = await hasUserJoinedOpportunity(userId, opportunityId, { client: dbClient });
 
     if (alreadyJoined) {
       return {
@@ -96,8 +100,10 @@ async function applyRollup(userId, opportunityId, options = {}) {
       };
     }
 
-    // 4. Vérifier si l'utilisateur est la racine
-    if (user.is_root === true) {
+    // 4. Vérifier si l'utilisateur est la racine V10.6
+    const rootUser = await v106Runtime.resolveRootUser(dbClient ? { client: dbClient } : {});
+
+    if (rootUser && String(rootUser.id) === String(userId)) {
       return {
         success: true,
         action: 'root_user',
@@ -112,7 +118,7 @@ async function applyRollup(userId, opportunityId, options = {}) {
     let sponsorInOpportunity = false;
 
     if (sponsorId) {
-      sponsorInOpportunity = await hasUserJoinedOpportunity(sponsorId, opportunityId);
+      sponsorInOpportunity = await hasUserJoinedOpportunity(sponsorId, opportunityId, { client: dbClient });
     }
 
     // 6. Si le sponsor est présent dans l'opportunité → Follow Me normal
@@ -128,58 +134,56 @@ async function applyRollup(userId, opportunityId, options = {}) {
       };
     }
 
-    // 7. Si le sponsor n'est pas présent → ROLL-UP
-    // Déterminer le parent de roll-up
-    let rollupParentId = options.fallbackUserId || null;
+      // 7. Si le sponsor n'est pas présent → ROLL-UP V10.6
+      //
+      // RÈGLE V10.6 :
+      // Le Roll Up aboutit TOUJOURS au Root.
+      // Aucun leader intermédiaire ne peut devenir parent de Roll Up.
+      // fallbackUserId est volontairement ignoré.
+      // Le sponsor réel (users.sponsor_id) reste inchangé.
 
-    // Si pas de fallback, utiliser la racine
-    if (!rollupParentId) {
-      const root = await getRoot();
+      const root = await getRoot({ client: dbClient });
 
       if (!root) {
         throw new Error('Aucune racine trouvée dans le système');
       }
 
-      rollupParentId = root.id;
-    }
+      const rollupParentId = root.id;
 
-    // Vérifier que le parent de roll-up n'est pas l'utilisateur lui-même
-    if (String(rollupParentId) === String(userId)) {
-      throw new Error('Le parent de roll-up ne peut pas être l\'utilisateur lui-même');
-    }
+        // Le Root ne peut évidemment pas être lui-même l’utilisateur.
+        if (String(rollupParentId) === String(userId)) {
+          throw new Error("Le parent de roll-up ne peut pas être l'utilisateur lui-même");
+        }
 
-    // Vérifier si le parent de roll-up a rejoint l'opportunité
-    const parentInOpportunity = await hasUserJoinedOpportunity(rollupParentId, opportunityId);
-
-    if (!parentInOpportunity) {
-      // Si le parent de roll-up n'a pas rejoint non plus, on remonte plus haut
-      // Cas extrême : on utilise la racine
-      const root = await getRoot();
-
-      if (root && String(root.id) !== String(rollupParentId)) {
-        rollupParentId = root.id;
-      }
-
-      // Vérifier si la racine a rejoint l'opportunité
-      const rootInOpportunity = await hasUserJoinedOpportunity(rollupParentId, opportunityId);
+      // Le Root doit être présent dans l'opportunité.
+      // S'il ne l'est pas encore, on l'inscrit sans sponsor d'opportunité.
+      const rootInOpportunity = await hasUserJoinedOpportunity(
+          rollupParentId,
+          opportunityId,
+          { client: dbClient }
+        );
 
       if (!rootInOpportunity) {
-        // Si même la racine n'a pas rejoint, on crée une entrée pour la racine
-        await addUserToOpportunity(rollupParentId, opportunityId, null);
+        await addUserToOpportunity(
+            rollupParentId,
+            opportunityId,
+            null,
+            { client: dbClient }
+          );
       }
-    }
+
 
     // 8. Enregistrer l'utilisateur dans l'opportunité avec le parent de roll-up
-    const result = await addUserToOpportunity(userId, opportunityId, rollupParentId);
+    const result = await addUserToOpportunity(userId, opportunityId, rollupParentId, { client: dbClient });
 
     // 9. Journaliser le roll-up
     await logRollupEvent({
-      userId,
-      opportunityId,
-      originalSponsorId: sponsorId,
-      rollupParentId,
-      reason: 'sponsor_not_in_opportunity'
-    });
+        userId,
+        opportunityId,
+        originalSponsorId: sponsorId,
+        rollupParentId,
+        reason: 'sponsor_not_in_opportunity'
+      }, { client: dbClient });
 
     return {
       success: true,
@@ -207,8 +211,10 @@ async function applyRollup(userId, opportunityId, options = {}) {
  * @param {string|number|null} parentId - ID du parent (sponsor pour cette opportunité)
  * @returns {Promise<Object>} - Entrée créée
  */
-async function addUserToOpportunity(userId, opportunityId, parentId = null) {
-  const result = await query(
+async function addUserToOpportunity(userId, opportunityId, parentId = null, options = {}) {
+  const dbClient = options.client;
+  const executeQuery = dbClient ? dbClient.query.bind(dbClient) : query;
+  const result = await executeQuery(
     `
     INSERT INTO user_opportunities (
       user_id,
@@ -238,9 +244,11 @@ async function addUserToOpportunity(userId, opportunityId, parentId = null) {
  * @param {Object} eventData - Données de l'événement
  * @returns {Promise<void>}
  */
-async function logRollupEvent(eventData) {
+async function logRollupEvent(eventData, options = {}) {
+  const dbClient = options.client;
+  const executeQuery = dbClient ? dbClient.query.bind(dbClient) : query;
   try {
-    await query(
+    await executeQuery(
       `
       INSERT INTO rollup_logs (
         user_id,
@@ -259,9 +267,11 @@ async function logRollupEvent(eventData) {
         eventData.rollupParentId || null,
         eventData.reason || 'sponsor_not_in_opportunity'
       ]
-    );
-  } catch (error) {
+    );  } catch (error) {
     logger.warn('[Rollup] Impossible de journaliser l\'événement:', error);
+    if (dbClient) {
+      throw error;
+    }
   }
 }
 
@@ -352,7 +362,13 @@ async function isRollupNeeded(userId, opportunityId) {
     // 2. Récupérer l'utilisateur
     const user = await findUserById(userId);
 
-    if (!user || user.is_root === true) {
+    if (!user) {
+      return false;
+    }
+
+    const rootUser = await v106Runtime.resolveRootUser();
+
+    if (rootUser && String(rootUser.id) === String(userId)) {
       return false;
     }
 

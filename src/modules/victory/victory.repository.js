@@ -80,21 +80,23 @@ async function findOldestAvailableVictorySponsor(
   return result.rows[0] || null;
 }
 
+
 async function findRootVictoryLink() {
   const result = await db.query(
     `
-    SELECT
-      id,
-      email,
-      victory_personal_link
-    FROM users
-    WHERE is_root = true
-      AND victory_personal_link IS NOT NULL
-      AND victory_personal_link <> ''
-    LIMIT 1
+      SELECT
+        u.id,
+        u.email,
+        u.victory_personal_link
+      FROM users u
+      JOIN v106_runtime_state rs
+        ON rs.root_user_id = u.id
+      WHERE rs.singleton_id = true
+        AND u.victory_personal_link IS NOT NULL
+        AND u.victory_personal_link <> ''
+      LIMIT 1
     `
   );
-
   return result.rows[0] || null;
 }
 

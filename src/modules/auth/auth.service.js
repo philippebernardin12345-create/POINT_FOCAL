@@ -5,6 +5,7 @@ const db = require("../../config/db");
 const v106Runtime = require("../../db/v106-runtime");
 const { signToken } = require("../../config/jwt");
 const { sendEmail } = require("../../config/email");
+const { generateUniqueInvitationCodes } = require("../../utils/codeGenerator");
 
 const ROOT_INVITATION_CODE = "ABCD1000";
 
@@ -75,69 +76,6 @@ async function register(payload) {
   let sponsor = null;
   let sponsorAssignment = "personal";
 
-  /*
-    CAS 1 :
-    L'utilisateur possède déjà le code
-    d'invitation de son parrain.
-  */
-  if (providedSponsorCode) {
-    sponsor =
-      await authRepository.findUserByInvitationCode(
-        providedSponsorCode
-      );
-
-    /*
-      Le code racine peut être accepté même si
-      aucun compte racine correspondant n'est
-      encore enregistré dans users.
-    */
-    if (
-      !sponsor &&
-      providedSponsorCode === ROOT_INVITATION_CODE
-    ) {
-      sponsor = {
-        id: null,
-        is_root: true
-      };
-
-      sponsorAssignment = "root";
-    }
-
-    if (!sponsor) {
-      throw new Error(
-        "Code d'invitation invalide."
-      );
-    }
-  } else {
-    /*
-      CAS 2 :
-      Aucun code d'invitation.
-
-      Le FIFO recherche le plus ancien utilisateur
-      actif ayant moins de deux filleuls au total.
-    */
-    sponsor =
-      await authRepository
-        .findOldestAvailableSponsorForFifo();
-
-    if (sponsor) {
-      sponsorAssignment = "fifo";
-    } else {
-      /*
-        CAS 3 :
-        Aucun parrain FIFO disponible.
-
-        Le surplus est rattaché à la racine.
-      */
-      sponsor = {
-        id: null,
-        is_root: true
-      };
-
-      sponsorAssignment = "root";
-    }
-  }
-
   const campaign =
     await authRepository.getActiveCampaign();
 
@@ -150,29 +88,147 @@ async function register(payload) {
   const passwordHash =
     await bcrypt.hash(password, 10);
 
+  const [personalInvitationCode] =
+    await generateUniqueInvitationCodes(
+      1,
+      async (code) => {
+        const existing =
+          await authRepository.findUserByInvitationCode(code);
+
+        return Boolean(existing);
+      }
+    );
+
+  if (!personalInvitationCode) {
+    throw new Error(
+      "Impossible de générer un code d'invitation unique."
+    );
+  }
+
   const isLeader = false;
   const isPrelaunchLeader = false;
   const linkActive = false;
 
-  const user =
-    await authRepository.createUser({
-      email: normalizedEmail,
-      whatsapp,
-      passwordHash,
-      language,
-      status: "pending",
-      sponsorId: sponsor.id,
-      campaignId: campaign.id,
-      isLeader,
-      isPrelaunchLeader,
-      linkActive
-    });
+  const user = await db.withTransaction(async (client) => {
 
-  if (!user) {
-    throw new Error(
-      "Impossible de créer le compte utilisateur."
-    );
-  }
+    /*
+      V10.6
+      Le choix du parrain doit être effectué
+      DANS la transaction afin d'éviter les courses
+      concurrentes sur le FIFO et les slots.
+    */
+
+    if (providedSponsorCode) {
+
+      sponsor =
+        await authRepository.findUserByInvitationCode(
+          providedSponsorCode,
+          { client }
+        );
+
+      /*
+        Le code racine doit résoudre vers
+        le véritable compte racine V10.6.
+      */
+      if (
+        !sponsor &&
+        providedSponsorCode === ROOT_INVITATION_CODE
+      ) {
+        sponsor =
+          await v106Runtime.resolveRootUser({
+            client
+          });
+
+        if (!sponsor) {
+          throw new Error(
+            "ROOT_USER_NOT_CONFIGURED"
+          );
+        }
+
+        sponsorAssignment = "root";
+      }
+
+      if (!sponsor) {
+        throw new Error(
+          "Code d'invitation invalide."
+        );
+      }
+
+    } else {
+
+      /*
+        Aucun code :
+        FIFO déterministe, avec verrouillage
+        du candidat dans la transaction.
+      */
+      sponsor =
+        await authRepository
+          .findOldestAvailableSponsorForFifo({
+            client
+          });
+
+      if (sponsor) {
+        sponsorAssignment = "fifo";
+      } else {
+
+        /*
+          Aucun candidat FIFO :
+          rattachement à la vraie racine.
+        */
+        sponsor =
+          await v106Runtime.resolveRootUser({
+            client
+          });
+
+        if (!sponsor) {
+          throw new Error(
+            "ROOT_USER_NOT_CONFIGURED"
+          );
+        }
+
+        sponsorAssignment = "root";
+      }
+    }
+
+    const createdUser =
+      await authRepository.createUser(
+        {
+          email: normalizedEmail,
+          whatsapp,
+          passwordHash,
+          language,
+          status: "pending",
+          sponsorId: sponsor.id,
+          campaignId: campaign.id,
+          invitationCode: personalInvitationCode,
+          isLeader,
+          isPrelaunchLeader,
+          linkActive
+        },
+        { client }
+      );
+
+    if (!createdUser) {
+      throw new Error(
+        "Impossible de créer le compte utilisateur."
+      );
+    }
+
+    const globalSponsorship =
+      await v106Runtime.assignGlobalSponsor(
+        sponsor.id,
+        createdUser.id,
+        { client }
+      );
+
+    if (!globalSponsorship) {
+      throw new Error(
+        "Impossible d'enregistrer le parrainage global V10.6."
+      );
+    }
+
+    return createdUser;
+  });
 
   const otp = generateOtp();
 
@@ -328,16 +384,8 @@ async function login(payload) {
       campaignId:
         user.campaign_id,
 
-      invitationCodeSeries1:
-        user.invitation_code_series_1,
-
-      invitationCodeSeries2:
-        user.invitation_code_series_2,
-
-      invitationCodeSeries3:
-        user.invitation_code_series_3,
-
-      isRoot:
+      invitationCode: user.invitation_code,
+isRoot:
         user.is_root,
 
       isLeader:
@@ -472,16 +520,8 @@ async function me(userId) {
     sponsorId:
       user.sponsor_id,
 
-    invitationCodeSeries1:
-      user.invitation_code_series_1,
-
-    invitationCodeSeries2:
-      user.invitation_code_series_2,
-
-    invitationCodeSeries3:
-      user.invitation_code_series_3,
-
-    isRoot:
+    invitationCode: user.invitation_code,
+isRoot:
       user.is_root,
 
     isLeader:

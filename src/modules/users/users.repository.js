@@ -1,26 +1,16 @@
-
 /**
  * POINT FOCAL V10.6 - Repository Utilisateurs
  *
  * Repository CORE minimal.
  *
- * MODÈLE V10.6 :
+ * V10.6 :
  * - Un seul code d'invitation par utilisateur : invitation_code.
  * - Le sponsor réel est users.sponsor_id.
- * - La gestion d'authentification appartient à auth.repository.js.
- * - La gestion administrative appartient à admin.repository.js.
- *
- * IMPORTANT :
- * Les anciennes colonnes invitation_code_series_1/2/3 peuvent
- * encore exister physiquement dans PostgreSQL pendant la migration,
- * mais elles ne sont plus utilisées par le code applicatif.
+ * - Les anciennes séries ne sont plus utilisées.
  */
 
 const { query } = require("../../config/db");
 
-/**
- * Trouve un utilisateur par son ID.
- */
 async function findUserById(userId) {
   const result = await query(
     `
@@ -49,12 +39,6 @@ async function findUserById(userId) {
   return result.rows[0] || null;
 }
 
-/**
- * Trouve un utilisateur par son code d'invitation.
- *
- * V10.6 :
- * Un utilisateur possède un seul code canonique.
- */
 async function findUserByInvitationCode(invitationCode) {
   const code = String(invitationCode || "")
     .trim()
@@ -91,11 +75,6 @@ async function findUserByInvitationCode(invitationCode) {
   return result.rows[0] || null;
 }
 
-/**
- * Récupère les filleuls directs d'un utilisateur.
- *
- * Le sponsor réel est users.sponsor_id.
- */
 async function getChildren(userId) {
   const result = await query(
     `
@@ -124,9 +103,6 @@ async function getChildren(userId) {
   return result.rows;
 }
 
-/**
- * Compte les filleuls directs d'un utilisateur.
- */
 async function countChildren(userId) {
   const result = await query(
     `
@@ -140,33 +116,15 @@ async function countChildren(userId) {
   return result.rows[0]?.count || 0;
 }
 
-/**
- * Trouve la racine du système.
- *
- * La racine est déterminée exclusivement par is_root.
- */
 async function findRoot() {
   const result = await query(
     `
-    SELECT
-      id,
-      email,
-      whatsapp,
-      language,
-      status,
-      sponsor_id,
-      campaign_id,
-      invitation_code,
-      is_root,
-      is_leader,
-      is_prelaunch_leader,
-      link_active,
-      email_confirmed,
-      created_at
-    FROM users
-    WHERE is_root = true
-    ORDER BY created_at ASC
-    LIMIT 1
+      SELECT u.*
+      FROM users u
+      JOIN v106_runtime_state rs
+        ON rs.root_user_id = u.id
+      WHERE rs.singleton_id = true
+      LIMIT 1
     `
   );
 
