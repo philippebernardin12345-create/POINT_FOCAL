@@ -42,6 +42,5 @@ module.exports = {
   findUserById,
   findOpportunityBySlug,
   findUserOpportunity,
-  findRootUser
 };
  
