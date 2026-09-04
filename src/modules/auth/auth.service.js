@@ -61,92 +61,6 @@ async function register(payload) {
     );
   }
 
-  const existingUser =
-    await authRepository.findUserByEmail(
-      normalizedEmail
-    );
-
-  if (existingUser) {
-    throw new Error(
-      "Cet email est déjà utilisé."
-    );
-  }
-
-  let sponsor = null;
-  let sponsorAssignment = "personal";
-
-  /*
-    CAS 1 :
-    L'utilisateur possède déjà le code
-    d'invitation de son parrain.
-  */
-  if (providedSponsorCode) {
-    sponsor =
-      await authRepository.findUserByInvitationCode(
-        providedSponsorCode
-      );
-
-    /*
-      Le code racine peut être accepté même si
-      aucun compte racine correspondant n'est
-      encore enregistré dans users.
-    */
-    if (
-      !sponsor &&
-      providedSponsorCode === ROOT_INVITATION_CODE
-    ) {
-      sponsor = {
-        id: null,
-        is_root: true
-      };
-
-      sponsorAssignment = "root";
-    }
-
-    if (!sponsor) {
-      throw new Error(
-        "Code d'invitation invalide."
-      );
-    }
-  } else {
-    /*
-      CAS 2 :
-      Aucun code d'invitation.
-
-      Le FIFO recherche le plus ancien utilisateur
-      actif ayant moins de deux filleuls au total.
-    */
-    sponsor =
-      await authRepository
-        .findOldestAvailableSponsorForFifo();
-
-    if (sponsor) {
-      sponsorAssignment = "fifo";
-    } else {
-      /*
-        CAS 3 :
-        Aucun parrain FIFO disponible.
-
-        Le surplus est rattaché à la racine.
-      */
-      sponsor = {
-        id: null,
-        is_root: true
-      };
-
-      sponsorAssignment = "root";
-    }
-  }
-
-  const campaign =
-    await authRepository.getActiveCampaign();
-
-  if (!campaign) {
-    throw new Error(
-      "Aucune campagne active disponible."
-    );
-  }
-
   const passwordHash =
     await bcrypt.hash(password, 10);
 
@@ -154,25 +68,133 @@ async function register(payload) {
   const isPrelaunchLeader = false;
   const linkActive = false;
 
-  const user =
-    await authRepository.createUser({
-      email: normalizedEmail,
-      whatsapp,
-      passwordHash,
-      language,
-      status: "pending",
-      sponsorId: sponsor.id,
-      campaignId: campaign.id,
-      isLeader,
-      isPrelaunchLeader,
-      linkActive
+  const registration =
+    await db.withTransaction(async (client) => {
+      let sponsor = null;
+      let sponsorAssignment = "personal";
+
+      const existingUser =
+        await authRepository.findUserByEmail(
+          normalizedEmail,
+          { client }
+        );
+
+      if (existingUser) {
+        throw new Error(
+          "Cet email est déjà utilisé."
+        );
+      }
+
+      const rootUser =
+        await v106Runtime.resolveRootUser({
+          client,
+          forUpdate: true
+        });
+
+      if (providedSponsorCode) {
+        sponsor =
+          await authRepository.findUserByInvitationCode(
+            providedSponsorCode,
+            { client }
+          );
+
+        if (
+          !sponsor &&
+          providedSponsorCode ===
+            ROOT_INVITATION_CODE
+        ) {
+          if (!rootUser?.id) {
+            throw new Error(
+              "Compte racine canonique introuvable."
+            );
+          }
+
+          sponsor = rootUser;
+          sponsorAssignment = "root";
+        }
+
+        if (!sponsor) {
+          throw new Error(
+            "Code d'invitation invalide."
+          );
+        }
+      } else {
+        sponsor =
+          await authRepository.findOldestAvailableSponsorForFifo(
+            { client }
+          );
+
+        if (sponsor) {
+          sponsorAssignment = "fifo";
+        } else {
+          if (!rootUser?.id) {
+            throw new Error(
+              "Compte racine canonique introuvable."
+            );
+          }
+
+          sponsor = rootUser;
+          sponsorAssignment = "root";
+        }
+      }
+
+      const campaign =
+        await authRepository.getActiveCampaign({
+          client
+        });
+
+      if (!campaign) {
+        throw new Error(
+          "Aucune campagne active disponible."
+        );
+      }
+
+      const user =
+        await authRepository.createUser(
+          {
+            email: normalizedEmail,
+            whatsapp,
+            passwordHash,
+            language,
+            status: "pending",
+            sponsorId: sponsor.id,
+            campaignId: campaign.id,
+            isLeader,
+            isPrelaunchLeader,
+            linkActive
+          },
+          { client }
+        );
+
+      if (!user) {
+        throw new Error(
+          "Impossible de créer le compte utilisateur."
+        );
+      }
+
+      if (sponsorAssignment === "fifo") {
+        await v106Runtime.assignGlobalSponsor(
+          sponsor.id,
+          user.id,
+          { client }
+        );
+      } else {
+        await v106Runtime.assignGlobalSponsorInSubtree(
+          sponsor.id,
+          user.id,
+          { client }
+        );
+      }
+
+      return {
+        user,
+        sponsorAssignment
+      };
     });
 
-  if (!user) {
-    throw new Error(
-      "Impossible de créer le compte utilisateur."
-    );
-  }
+  const user = registration.user;
+  const sponsorAssignment =
+    registration.sponsorAssignment;
 
   const otp = generateOtp();
 

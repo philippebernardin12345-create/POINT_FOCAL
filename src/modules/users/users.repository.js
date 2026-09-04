@@ -143,7 +143,7 @@ async function countChildren(userId) {
 /**
  * Trouve la racine du système.
  *
- * La racine est déterminée exclusivement par is_root.
+ * La racine canonique est v106_runtime_state.root_user_id.
  */
 async function findRoot() {
   const result = await query(
@@ -163,9 +163,10 @@ async function findRoot() {
       link_active,
       email_confirmed,
       created_at
-    FROM users
-    WHERE is_root = true
-    ORDER BY created_at ASC
+    FROM v106_runtime_state state
+    LEFT JOIN users
+      ON users.id = state.root_user_id
+    WHERE state.singleton_id = true
     LIMIT 1
     `
   );

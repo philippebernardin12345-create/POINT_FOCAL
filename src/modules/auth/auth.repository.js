@@ -1,7 +1,19 @@
 const db = require("../../config/db");
 
-async function findUserByEmail(email) {
-  const result = await db.query(
+function runQuery(options, text, params = []) {
+  return db.query(
+    text,
+    params,
+    options?.client || null
+  );
+}
+
+async function findUserByEmail(
+  email,
+  options = {}
+) {
+  const result = await runQuery(
+    options,
     "SELECT * FROM users WHERE email = $1 LIMIT 1",
     [email]
   );
@@ -9,8 +21,12 @@ async function findUserByEmail(email) {
   return result.rows[0] || null;
 }
 
-async function findUserById(id) {
-  const result = await db.query(
+async function findUserById(
+  id,
+  options = {}
+) {
+  const result = await runQuery(
+    options,
     "SELECT * FROM users WHERE id = $1 LIMIT 1",
     [id]
   );
@@ -18,35 +34,55 @@ async function findUserById(id) {
   return result.rows[0] || null;
 }
 
-async function findUserByInvitationCode(code) {
-  const result = await db.query(
+async function findUserByInvitationCode(
+  code,
+  options = {}
+) {
+  const normalizedCode = String(code || "")
+    .trim()
+    .toUpperCase();
+
+  if (!normalizedCode) {
+    return null;
+  }
+
+  const result = await runQuery(
+    options,
     `SELECT *
      FROM users
-     WHERE invitation_code_series_1 = $1
+     WHERE invitation_code = $1
+        OR invitation_code_series_1 = $1
         OR invitation_code_series_2 = $1
         OR invitation_code_series_3 = $1
      LIMIT 1`,
-    [code]
+    [normalizedCode]
   );
 
   return result.rows[0] || null;
 }
 
-async function getActiveCampaign() {
-  const result = await db.query(
+async function getActiveCampaign(
+  options = {}
+) {
+  const result = await runQuery(
+    options,
     "SELECT * FROM campaigns WHERE status = 'active' LIMIT 1"
   );
 
   return result.rows[0] || null;
 }
 
-async function findRootUser() {
-  const result = await db.query(
+async function findRootUser(
+  options = {}
+) {
+  const result = await runQuery(
+    options,
     `
-    SELECT *
-    FROM users
-    WHERE is_root = true
-    ORDER BY created_at ASC
+    SELECT users.*
+    FROM v106_runtime_state state
+    LEFT JOIN users
+      ON users.id = state.root_user_id
+    WHERE state.singleton_id = true
     LIMIT 1
     `
   );
@@ -54,8 +90,12 @@ async function findRootUser() {
   return result.rows[0] || null;
 }
 
-async function createUser(user) {
-  const result = await db.query(
+async function createUser(
+  user,
+  options = {}
+) {
+  const result = await runQuery(
+    options,
     `INSERT INTO users (
       email,
       whatsapp,
@@ -124,8 +164,14 @@ async function createUser(user) {
   return result.rows[0];
 }
 
-async function saveEmailOtp(userId, otp, expiresAt) {
-  const result = await db.query(
+async function saveEmailOtp(
+  userId,
+  otp,
+  expiresAt,
+  options = {}
+) {
+  const result = await runQuery(
+    options,
     `UPDATE users
      SET email_otp = $1,
          email_otp_expires_at = $2
@@ -137,8 +183,12 @@ async function saveEmailOtp(userId, otp, expiresAt) {
   return result.rows[0] || null;
 }
 
-async function confirmEmail(userId) {
-  const result = await db.query(
+async function confirmEmail(
+  userId,
+  options = {}
+) {
+  const result = await runQuery(
+    options,
     `UPDATE users
      SET email_confirmed = true,
          status = 'active',
@@ -234,8 +284,11 @@ async function confirmEmailByOtp(email, otp, options = {}) {
   return result.rows[0] || null;
 }
 
-async function countRootLeaders() {
-  const result = await db.query(
+async function countRootLeaders(
+  options = {}
+) {
+  const result = await runQuery(
+    options,
     `
     SELECT COUNT(*)::int AS total
     FROM users
@@ -244,10 +297,9 @@ async function countRootLeaders() {
       AND email_confirmed = true
       AND status = 'active'
       AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
-        LIMIT 1
+        SELECT root_user_id
+        FROM v106_runtime_state
+        WHERE singleton_id = true
       )
     `
   );
@@ -255,8 +307,11 @@ async function countRootLeaders() {
   return result.rows[0]?.total || 0;
 }
 
-async function countPrelaunchLeaders() {
-  const result = await db.query(
+async function countPrelaunchLeaders(
+  options = {}
+) {
+  const result = await runQuery(
+    options,
     `
     SELECT COUNT(*)::int AS total
     FROM users
@@ -266,29 +321,37 @@ async function countPrelaunchLeaders() {
 
   return result.rows[0]?.total || 0;
 }
-async function findOldestAvailableSponsorForFifo() {
-  const result = await db.query(
+async function findOldestAvailableSponsorForFifo(
+  options = {}
+) {
+  const result = await runQuery(
+    options,
     `
     SELECT
       u.id,
       u.email,
-      u.invitation_code_series_1,
+      u.invitation_code,
       u.created_at,
-      COUNT(children.id)::int AS total_referrals
+      COALESCE(gs_children.total_children, 0)::int AS total_referrals
     FROM users u
-    LEFT JOIN users children
-      ON children.sponsor_id = u.id
-    WHERE u.is_root = false
+    INNER JOIN v106_runtime_state state
+      ON state.singleton_id = true
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::int AS total_children
+      FROM v106_global_sponsorships gs
+      WHERE gs.sponsor_user_id = u.id
+    ) gs_children
+      ON true
+    WHERE (
+        state.root_user_id IS NULL
+        OR u.id <> state.root_user_id
+      )
       AND u.link_active = true
       AND u.email_confirmed = true
       AND u.status = 'active'
-    GROUP BY
-      u.id,
-      u.email,
-      u.invitation_code_series_1,
-      u.created_at
-    HAVING COUNT(children.id) < 2
-    ORDER BY u.created_at ASC
+      AND COALESCE(gs_children.total_children, 0) < 2
+    ORDER BY u.created_at ASC, u.id ASC
+    FOR UPDATE OF u SKIP LOCKED
     LIMIT 1
     `
   );
@@ -307,10 +370,9 @@ async function activatePrelaunchLeadersIfLimitReached(options = {}) {
       AND email_confirmed = true
       AND status = 'active'
       AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
-        LIMIT 1
+        SELECT root_user_id
+        FROM v106_runtime_state
+        WHERE singleton_id = true
       )
     `
   );
@@ -335,10 +397,9 @@ async function activatePrelaunchLeadersIfLimitReached(options = {}) {
       AND is_prelaunch_leader = true
       AND link_active = false
       AND sponsor_id = (
-        SELECT id
-        FROM users
-        WHERE is_root = true
-        LIMIT 1
+        SELECT root_user_id
+        FROM v106_runtime_state
+        WHERE singleton_id = true
       )
     RETURNING id
     `
@@ -354,9 +415,11 @@ async function activatePrelaunchLeadersIfLimitReached(options = {}) {
 async function savePasswordResetToken(
   userId,
   resetTokenHash,
-  expiresAt
+  expiresAt,
+  options = {}
 ) {
-  const result = await db.query(
+  const result = await runQuery(
+    options,
     `
     UPDATE users
     SET password_reset_token = $1,
@@ -378,9 +441,11 @@ async function savePasswordResetToken(
 }
 
 async function findUserByPasswordResetToken(
-  resetTokenHash
+  resetTokenHash,
+  options = {}
 ) {
-  const result = await db.query(
+  const result = await runQuery(
+    options,
     `
     SELECT *
     FROM users
@@ -396,9 +461,11 @@ async function findUserByPasswordResetToken(
 
 async function updatePasswordAndClearResetToken(
   userId,
-  passwordHash
+  passwordHash,
+  options = {}
 ) {
-  const result = await db.query(
+  const result = await runQuery(
+    options,
     `
     UPDATE users
     SET password_hash = $1,

@@ -40,9 +40,11 @@ async function findUserOpportunity(userId, opportunityId) {
 
 async function findRootUser() {
   const result = await db.query(
-    `SELECT *
-     FROM users
-     WHERE is_root = true
+    `SELECT users.*
+     FROM v106_runtime_state state
+     LEFT JOIN users
+       ON users.id = state.root_user_id
+     WHERE state.singleton_id = true
      LIMIT 1`
   );
   return result.rows[0] || null;
