@@ -66,19 +66,22 @@ async function savePayment(
   campaignId,
   txHash,
   targetAddress,
-  amount
+  amount,
+  options = {}
 ) {
-  const result = await db.query(
+  const client = options.client || db;
+
+  const result = await client.query(
     `
-    INSERT INTO payments (
-      user_id,
-      campaign_id,
-      tx_hash,
-      target_address,
-      amount
-    )
-    VALUES ($1, $2, $3, $4, $5)
-    RETURNING *
+      INSERT INTO payments (
+        user_id,
+        campaign_id,
+        tx_hash,
+        target_address,
+        amount
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
     `,
     [
       userId,
@@ -95,19 +98,22 @@ async function savePayment(
 async function saveVictoryPersonalLink(
   userId,
   victoryLink,
-  victoryIdentifier
+  victoryIdentifier,
+  options = {}
 ) {
-  const result = await db.query(
+  const client = options.client || db;
+
+  const result = await client.query(
     `
-    UPDATE users
-    SET
-      victory_personal_link = $2,
-      victory_identifier = $3
-    WHERE id = $1
-    RETURNING
-      id,
-      victory_personal_link,
-      victory_identifier
+      UPDATE users
+      SET
+        victory_personal_link = $2,
+        victory_identifier = $3
+      WHERE id = $1
+      RETURNING
+        id,
+        victory_personal_link,
+        victory_identifier
     `,
     [
       userId,
@@ -122,19 +128,19 @@ async function saveVictoryPersonalLink(
 async function markUserVictoryExpired(userId) {
   const result = await db.query(
     `
-    UPDATE users
-    SET
-      status = 'expired',
-      victory_expired = true,
-      link_active = false
-    WHERE id = $1
-    RETURNING
-      id,
-      email,
-      status,
-      victory_expired,
-      victory_expires_at,
-      link_active
+      UPDATE users
+      SET
+        status = 'expired',
+        victory_expired = true,
+        link_active = false
+      WHERE id = $1
+      RETURNING
+        id,
+        email,
+        status,
+        victory_expired,
+        victory_expires_at,
+        link_active
     `,
     [userId]
   );
@@ -142,31 +148,37 @@ async function markUserVictoryExpired(userId) {
   return result.rows[0] || null;
 }
 
-async function activatePointFocalLink(userId) {
-  const result = await db.query(
+async function activatePointFocalLink(
+  userId,
+  invitationCode,
+  options = {}
+) {
+  const client = options.client || db;
+
+  const result = await client.query(
     `
-    UPDATE users
-    SET
-      status = 'active',
-      victory_expired = false,
-      link_active = true
-    WHERE id = $1
-    RETURNING
-      id,
-      email,
-      invitation_code,
-      victory_personal_link,
-      victory_identifier,
-      status,
-      victory_expired,
-      link_active
+      UPDATE users
+      SET
+        invitation_code = $2,
+        status = 'active',
+        victory_expired = false,
+        link_active = true
+      WHERE id = $1
+      RETURNING
+        id,
+        email,
+        invitation_code,
+        victory_personal_link,
+        victory_identifier,
+        status,
+        victory_expired,
+        link_active
     `,
-    [userId]
+    [userId, invitationCode]
   );
 
   return result.rows[0] || null;
 }
-
 module.exports = {
   findUserPaymentStart,
   findPaymentByHash,

@@ -1,4 +1,6 @@
 const repository = require("./payments.repository");
+const { withTransaction } = require("../../config/db");
+const { generateUniqueInvitationCodes } = require("../../utils/codeGenerator");
 
 const {
   web3,
@@ -455,42 +457,91 @@ async function autoTrigger(
     );
   }
 
-  const payment =
-    await verifyUsdtPayment(
-      normalizedTxHash,
-      normalizedTargetAddress,
-      user.victory_assigned_at
-    );
-
-  await repository.savePayment(
-  userId,
-  user.campaign_id,
-  normalizedTxHash,
-  normalizedTargetAddress,
-  payment.amount
-);
-  const savedVictoryLink =
-    await repository
-      .saveVictoryPersonalLink(
-        userId,
-        normalizedVictoryLink,
-        victoryIdentifier
+    const payment =
+      await verifyUsdtPayment(
+        normalizedTxHash,
+        normalizedTargetAddress,
+        user.victory_assigned_at
       );
 
-  if (!savedVictoryLink) {
-    throw new Error(
-      "Impossible d’enregistrer le lien Victory Automatic personnel."
-    );
-  }
+    const activationResult = await withTransaction(async (client) => {
+      const savedPayment =
+        await repository.savePayment(
+          userId,
+          user.campaign_id,
+          normalizedTxHash,
+          normalizedTargetAddress,
+          payment.amount,
+          { client }
+        );
 
-  const activatedUser =
-      await repository.activatePointFocalLink(userId);
+      if (!savedPayment) {
+        throw new Error(
+          "Impossible d’enregistrer le paiement."
+        );
+      }
 
-  if (!activatedUser) {
-    throw new Error(
-      "Impossible d’activer le lien Point Focal."
-    );
-  }
+      const savedVictoryLink =
+        await repository.saveVictoryPersonalLink(
+          userId,
+          normalizedVictoryLink,
+          victoryIdentifier,
+          { client }
+        );
+
+      if (!savedVictoryLink) {
+        throw new Error(
+          "Impossible d’enregistrer le lien Victory Automatic personnel."
+        );
+      }
+
+      const [invitationCode] =
+        await generateUniqueInvitationCodes(
+          1,
+          async (code) => {
+            const authRepository =
+              require("../auth/auth.repository");
+
+            const existing =
+              await authRepository.findUserByInvitationCode(
+                code,
+                { client }
+              );
+
+            return Boolean(existing);
+          }
+        );
+
+      if (!invitationCode) {
+        throw new Error(
+          "Impossible de générer le code d’invitation unique."
+        );
+      }
+
+      const activatedUser =
+        await repository.activatePointFocalLink(
+          userId,
+          invitationCode,
+          { client }
+        );
+
+      if (!activatedUser) {
+        throw new Error(
+          "Impossible d’activer le lien Point Focal."
+        );
+      }
+
+      return {
+        savedPayment,
+        savedVictoryLink,
+        activatedUser
+      };
+    });
+
+    const {
+      savedVictoryLink,
+      activatedUser
+    } = activationResult;
 
   const publicLink =
       `https://pointfocalapp.com/register.html?ref=${activatedUser.invitation_code}`;

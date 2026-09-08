@@ -18,6 +18,7 @@ const { getOpportunityById } = require("./opportunity.engine");
 const { query } = require("../config/db");
 const { logger } = require("../utils/logger");
 const v106Runtime = require("../db/v106-runtime");
+const v2Rotation = require("./v2-rotation.service");
 
 /**
  * Vérifie si un utilisateur a déjà rejoint une opportunité
@@ -142,18 +143,31 @@ async function applyRollup(userId, opportunityId, options = {}) {
       // fallbackUserId est volontairement ignoré.
       // Le sponsor réel (users.sponsor_id) reste inchangé.
 
-      const root = await getRoot({ client: dbClient });
+      let root = await getRoot({ client: dbClient });
 
       if (!root) {
         throw new Error('Aucune racine trouvée dans le système');
       }
 
-      const rollupParentId = root.id;
+      let rollupParentId = root.id;
+      let v2Result = null;
 
-        // Le Root ne peut évidemment pas être lui-même l’utilisateur.
-        if (String(rollupParentId) === String(userId)) {
-          throw new Error("Le parent de roll-up ne peut pas être l'utilisateur lui-même");
-        }
+      // V2 : si le Root est devenu inactif,
+      // déclencher automatiquement la rotation FIFO.
+      if (root.status !== 'active') {
+        v2Result = await v2Rotation.getV2Parent(
+          userId,
+          opportunityId,
+          { client: dbClient }
+        );
+
+        rollupParentId = v2Result.parentId;
+      }
+
+      // Le parent ne peut évidemment pas être lui-même l'utilisateur.
+      if (String(rollupParentId) === String(userId)) {
+        throw new Error("Le parent de roll-up ne peut pas être l'utilisateur lui-même");
+      }
 
       // Le Root doit être présent dans l'opportunité.
       // S'il ne l'est pas encore, on l'inscrit sans sponsor d'opportunité.

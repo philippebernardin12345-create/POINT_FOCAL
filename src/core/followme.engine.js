@@ -15,8 +15,9 @@
 const { query, withTransaction } = require("../config/db");
 const { findUserById, findUserByInvitationCode } = require("../modules/users/users.repository");
 const { getOpportunityById, getOpportunityBySlug } = require("./opportunity.engine");
-const { applyRollup, hasUserJoinedOpportunity, isRollupNeeded } = require("./rollup.service");
+const { applyRollup, hasUserJoinedOpportunity, isRollupNeeded, addUserToOpportunity } = require("./rollup.service");
 const { logger } = require("../utils/logger");
+const v2Rotation = require("./v2-rotation.service");
 const { isValidUrl } = require("../utils/validators");
 
 /**
@@ -158,6 +159,7 @@ async function registerUserLink({
         }
 
         let rollupResult = null;
+        let v2Result = null;
         let result;
 
         const rootUser = await require("../db/v106-runtime").resolveRootUser({
@@ -167,7 +169,99 @@ async function registerUserLink({
         const isRootUser =
           rootUser && String(rootUser.id) === String(userId);
 
-        if (!sponsorJoinedOpportunity && !isRootUser) {
+        /*
+         * V2 : si le parcours Follow Me atteint le Root
+         * et que celui-ci est devenu inactif, la rotation
+         * FIFO est déclenchée automatiquement.
+         *
+         * Le sponsor métier users.sponsor_id reste inchangé.
+         */
+        const sponsorIsRoot =
+          rootUser &&
+          effectiveSponsorId &&
+          String(effectiveSponsorId) === String(rootUser.id);
+
+        const rootIsInactive =
+          rootUser &&
+          rootUser.status !== "active";
+
+        if (sponsorIsRoot && rootIsInactive && !isRootUser) {
+          v2Result = await v2Rotation.getV2Parent(
+            userId,
+            opportunityId,
+            { client }
+          );
+
+          if (!v2Result || !v2Result.parentId) {
+            throw new Error(
+              "Le Root est inactif mais aucun parent FIFO V2 n'est disponible"
+            );
+          }
+
+          if (String(v2Result.parentId) === String(userId)) {
+            throw new Error(
+              "Le parent Follow Me V2 ne peut pas être l'utilisateur lui-même"
+            );
+          }
+
+          const v2ParentJoined =
+            await hasUserJoinedOpportunity(
+              v2Result.parentId,
+              opportunityId,
+              { client }
+            );
+
+          if (!v2ParentJoined) {
+            await addUserToOpportunity(
+              v2Result.parentId,
+              opportunityId,
+              null,
+              { client }
+            );
+          }
+
+          result = await query(
+            `
+            INSERT INTO user_opportunities (
+              user_id,
+              opportunity_id,
+              referral_link,
+              target_address,
+              payment_hash,
+              sponsor_user_id,
+              status,
+              joined_at,
+              updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW(), NOW())
+            RETURNING *
+            ON CONFLICT (user_id, opportunity_id)
+            DO UPDATE SET
+              referral_link = EXCLUDED.referral_link,
+              target_address = EXCLUDED.target_address,
+              payment_hash = EXCLUDED.payment_hash,
+              sponsor_user_id = EXCLUDED.sponsor_user_id,
+              status = 'active',
+              updated_at = NOW()
+            RETURNING *
+            `,
+            [
+              userId,
+              opportunityId,
+              referralLink,
+              targetAddress,
+              paymentHash,
+              v2Result.parentId
+            ],
+            client
+          );
+
+          if (!result.rows[0]) {
+            throw new Error(
+              "Le placement Follow Me V2 n'a pas été effectué"
+            );
+          }
+        } else if (!sponsorJoinedOpportunity && !isRootUser) {
           // Le sponsor n'est pas présent dans l'opportunité.
           // Le placement passe donc par le Roll-Up V10.6.
           rollupResult = await applyRollup(
@@ -176,7 +270,7 @@ async function registerUserLink({
             { client }
           );
 
-          if (!rollupResult || rollupResult.action !== 'rollup') {
+          if (!rollupResult || rollupResult.action !== "rollup") {
             throw new Error(
               "Le Roll-Up était requis mais le placement n'a pas été effectué"
             );
@@ -209,7 +303,7 @@ async function registerUserLink({
 
           if (!result.rows[0]) {
             throw new Error(
-              'Le placement Roll-Up a été effectué mais sa ligne est introuvable'
+              "Le placement Roll-Up a été effectué mais sa ligne est introuvable"
             );
           }
         } else {
@@ -244,12 +338,14 @@ async function registerUserLink({
 
         return {
           result,
-          rollupResult
+          rollupResult,
+          v2Result
         };
       });
 
       const result = transactionResult.result;
       const rollupResult = transactionResult.rollupResult;
+      const v2Result = transactionResult.v2Result;
 
       return {
         success: true,

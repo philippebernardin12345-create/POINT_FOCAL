@@ -88,22 +88,6 @@ async function register(payload) {
   const passwordHash =
     await bcrypt.hash(password, 10);
 
-  const [personalInvitationCode] =
-    await generateUniqueInvitationCodes(
-      1,
-      async (code) => {
-        const existing =
-          await authRepository.findUserByInvitationCode(code);
-
-        return Boolean(existing);
-      }
-    );
-
-  if (!personalInvitationCode) {
-    throw new Error(
-      "Impossible de générer un code d'invitation unique."
-    );
-  }
 
   const isLeader = false;
   const isPrelaunchLeader = false;
@@ -200,7 +184,7 @@ async function register(payload) {
           status: "pending",
           sponsorId: sponsor.id,
           campaignId: campaign.id,
-          invitationCode: personalInvitationCode,
+          invitationCode: null,
           isLeader,
           isPrelaunchLeader,
           linkActive
