@@ -89,7 +89,7 @@ function buildVictoryLink(identifier) {
   );
 }
 
-async function assignVictoryLink(userId) {
+async function assignVictoryLink(userId, options = {}) {
   if (!userId) {
     throw new Error(
       "Utilisateur non authentifié."
@@ -187,7 +187,8 @@ async function assignVictoryLink(userId) {
     await repository
       .saveVictoryParentIdentifier(
         userId,
-        victoryParentIdentifier
+        victoryParentIdentifier,
+        options
       );
 
   if (!savedParentIdentifier) {
@@ -207,7 +208,8 @@ async function assignVictoryLink(userId) {
     await repository.markVictoryAssigned(
       userId,
       now,
-      expiresAt
+      expiresAt,
+      options
     );
 
   if (!assignedUser) {

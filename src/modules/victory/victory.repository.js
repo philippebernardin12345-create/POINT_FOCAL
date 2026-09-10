@@ -104,9 +104,11 @@ async function findRootVictoryLink() {
 async function markVictoryAssigned(
   userId,
   startedAt,
-  expiresAt
+  expiresAt,
+  options = {}
 ) {
-  const result = await db.query(
+  const dbClient = options.client || db;
+  const result = await dbClient.query(
     `
     UPDATE users
     SET
@@ -182,9 +184,11 @@ async function reactivateVictoryUser(userId) {
 
 async function saveVictoryParentIdentifier(
   userId,
-  victoryParentIdentifier
+  victoryParentIdentifier,
+  options = {}
 ) {
-  const result = await db.query(
+  const dbClient = options.client || db;
+  const result = await dbClient.query(
     `
     UPDATE users
     SET victory_parent_identifier = $2
