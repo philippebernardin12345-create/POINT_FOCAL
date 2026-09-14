@@ -440,6 +440,18 @@ async function confirmOtp(payload) {
       );
     }
 
+    const promotedLeader =
+      await authRepository.promoteConfirmedRootSponsoredLeader(
+        user.id,
+        { client }
+      );
+
+    if (promotedLeader) {
+      console.log(
+        `[v106] Leader pré-lancement promu : ${promotedLeader.email}`
+      );
+    }
+
     const transition =
       await v106Runtime.transitionPhaseToNormalOperation({
         client

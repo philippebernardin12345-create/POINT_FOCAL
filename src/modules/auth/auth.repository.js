@@ -487,6 +487,49 @@ async function updatePasswordAndClearResetToken(
   return result.rows[0] || null;
 }
 
+
+async function promoteConfirmedRootSponsoredLeader(userId, options = {}) {
+  const client = options.client;
+
+  const result = await (client || db).query(`
+    UPDATE users u
+    SET
+      is_leader = true,
+      is_prelaunch_leader = true,
+      link_active = false
+    WHERE u.id = $1
+      AND u.email_confirmed = true
+      AND lower(coalesce(u.status, '')) = 'active'
+      AND u.sponsor_id = (
+        SELECT root_user_id
+        FROM v106_runtime_state
+        WHERE singleton_id = true
+      )
+      AND (
+        SELECT COUNT(*)::int
+        FROM users
+        WHERE is_leader = true
+          AND is_prelaunch_leader = true
+          AND email_confirmed = true
+          AND lower(coalesce(status, '')) = 'active'
+      ) < (
+        SELECT leader_threshold
+        FROM v106_runtime_state
+        WHERE singleton_id = true
+      )
+    RETURNING
+      id,
+      email,
+      status,
+      email_confirmed,
+      is_leader,
+      is_prelaunch_leader,
+      link_active
+  `, [userId]);
+
+  return result.rows[0] || null;
+}
+
 module.exports = {
   findUserByEmail,
   findUserById,
@@ -497,6 +540,7 @@ module.exports = {
   saveEmailOtp,
   confirmEmail,
   confirmEmailByOtp,
+  promoteConfirmedRootSponsoredLeader,
   countRootLeaders,
   countPrelaunchLeaders,
   findOldestAvailableSponsorForFifo,
