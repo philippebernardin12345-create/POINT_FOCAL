@@ -194,6 +194,12 @@ async function confirmEmailByOtp(email, otp, options = {}) {
           FOR UPDATE
         ) AS leader_threshold,
         (
+          SELECT root_user_id
+          FROM v106_runtime_state
+          WHERE singleton_id = true
+          FOR UPDATE
+        ) AS root_user_id,
+        (
           SELECT COUNT(*)::int
           FROM users
           WHERE is_leader = true
@@ -211,6 +217,7 @@ async function confirmEmailByOtp(email, otp, options = {}) {
       FROM confirmed c, leader_slot l
       WHERE u.id = c.id
         AND l.confirmed_ok = true
+        AND u.sponsor_id = l.root_user_id
         AND l.current_leaders < l.leader_threshold
       RETURNING u.*
     )
