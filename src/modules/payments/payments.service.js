@@ -40,6 +40,7 @@ function decodeTransferLog(log) {
   const amount =
     Number(amountRaw) /
     Math.pow(10, USDT_DECIMALS);
+  console.log("[PAYMENT_DIAG] amountRaw =", amountRaw.toString(), "amount =", amount, "decimals =", USDT_DECIMALS);
 
   return {
     from: normalizeAddress(from),
