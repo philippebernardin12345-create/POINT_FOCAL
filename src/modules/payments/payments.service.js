@@ -74,14 +74,13 @@ function validateVictoryLink(victoryLink) {
     );
   }
 
+  const victoryHost = parsedVictoryUrl.hostname.toLowerCase();
+
   if (
     parsedVictoryUrl.protocol !== "https:" ||
-    parsedVictoryUrl.hostname.toLowerCase() !==
-      "victoryautomatic.com"
+    !["victoryautomatic.com", "automaticvictory.com"].includes(victoryHost)
   ) {
-    throw new Error(
-      "Le lien doit commencer par https://victoryautomatic.com/user/register/."
-    );
+    throw new Error("Le lien Victory Automatic utilise un domaine invalide.");
   }
 
   const pathParts =
@@ -126,7 +125,7 @@ function validateVictoryLink(victoryLink) {
   return {
     victoryIdentifier,
     normalizedVictoryLink:
-      `https://victoryautomatic.com/user/register/${victoryIdentifier}`
+      `${parsedVictoryUrl.protocol}//${victoryHost}/user/register/${encodeURIComponent(victoryIdentifier)}`
   };
 }
 
