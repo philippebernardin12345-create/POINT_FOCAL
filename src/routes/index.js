@@ -61,6 +61,6 @@ router.use("/followme", followmeRoutes);
 
 // ─── Notifications ──────────────────────────────────────────────────────────
 router.use("/notifications", notificationsRoutes);
-router.use("/victory", victoryRoutes);
+router.use("/victory-link", victoryRoutes);
 
 module.exports = router;
