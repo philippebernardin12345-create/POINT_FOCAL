@@ -19,6 +19,7 @@ const adminRoutes = require("../modules/admin/admin.routes");
 const followmeRoutes = require("../modules/followme/followme.routes");
 const notificationsRoutes = require("../modules/notifications/notifications.routes");
 const victoryRoutes = require("../modules/victory/victory.routes");
+const victoryWorldRoutes = require("../modules/victory-world/victory-world.routes");
 
 const router = express.Router();
 
@@ -62,5 +63,6 @@ router.use("/followme", followmeRoutes);
 // ─── Notifications ──────────────────────────────────────────────────────────
 router.use("/notifications", notificationsRoutes);
 router.use("/victory-link", victoryRoutes);
+router.use("/victory-world", victoryWorldRoutes);
 
 module.exports = router;
