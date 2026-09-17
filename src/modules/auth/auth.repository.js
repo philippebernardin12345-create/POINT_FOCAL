@@ -6,6 +6,8 @@ async function findUserByEmail(email) {
     [email]
   );
 
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
+
   return result.rows[0] || null;
 }
 
@@ -14,6 +16,8 @@ async function findUserById(id) {
     "SELECT * FROM users WHERE id = $1 LIMIT 1",
     [id]
   );
+
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
 
   return result.rows[0] || null;
 }
@@ -39,6 +43,8 @@ async function findUserByInvitationCode(code, options = {}) {
     [normalizedCode]
   );
 
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
+
   return result.rows[0] || null;
 }
 
@@ -47,6 +53,8 @@ async function getActiveCampaign() {
   const result = await db.query(
     "SELECT * FROM campaigns WHERE status = 'active' LIMIT 1"
   );
+
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
 
   return result.rows[0] || null;
 }
@@ -63,6 +71,8 @@ async function findRootUser() {
       LIMIT 1
     `
   );
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
+
   return result.rows[0] || null;
 }
 
@@ -146,6 +156,8 @@ async function saveEmailOtp(userId, otp, expiresAt) {
     [otp, expiresAt, userId]
   );
 
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
+
   return result.rows[0] || null;
 }
 
@@ -160,6 +172,8 @@ async function confirmEmail(userId) {
      RETURNING id, email, status, email_confirmed`,
     [userId]
   );
+
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
 
   return result.rows[0] || null;
 }
@@ -249,6 +263,8 @@ async function confirmEmailByOtp(email, otp, options = {}) {
     `,
     [email, otp]
   );
+
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
 
   return result.rows[0] || null;
 }
@@ -443,6 +459,8 @@ async function savePasswordResetToken(
     ]
   );
 
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
+
   return result.rows[0] || null;
 }
 
@@ -459,6 +477,8 @@ async function findUserByPasswordResetToken(
     `,
     [resetTokenHash]
   );
+
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
 
   return result.rows[0] || null;
 }
@@ -483,6 +503,8 @@ async function updatePasswordAndClearResetToken(
       userId
     ]
   );
+
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
 
   return result.rows[0] || null;
 }
@@ -526,6 +548,8 @@ async function promoteConfirmedRootSponsoredLeader(userId, options = {}) {
       is_prelaunch_leader,
       link_active
   `, [userId]);
+
+  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
 
   return result.rows[0] || null;
 }
