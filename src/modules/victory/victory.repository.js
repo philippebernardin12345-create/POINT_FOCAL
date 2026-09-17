@@ -153,7 +153,6 @@ async function reactivateVictoryUser(userId) {
       status = 'active',
       victory_expired = false,
       link_active = false,
-      victory_assigned_at = NOW(),
       victory_started_at = NOW(),
       victory_expires_at =
         NOW() + INTERVAL '24 hours'
