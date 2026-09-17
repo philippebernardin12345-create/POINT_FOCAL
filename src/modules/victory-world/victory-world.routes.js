@@ -1,7 +1,7 @@
 const express =
   require("express");
 
-const authMiddleware =
+const { authenticate: authMiddleware } =
   require(
     "../../middlewares/auth.middleware"
   );
