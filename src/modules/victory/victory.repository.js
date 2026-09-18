@@ -161,6 +161,10 @@ async function reactivateVictoryUser(userId) {
       AND (
         victory_expired = true
         OR status = 'expired'
+        OR (
+          victory_expires_at IS NOT NULL
+          AND victory_expires_at <= NOW()
+        )
       )
 
     RETURNING
