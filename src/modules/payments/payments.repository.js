@@ -162,7 +162,17 @@ async function activatePointFocalLink(
         invitation_code = $2,
         status = 'active',
         victory_expired = false,
-        link_active = true
+        link_active = CASE
+          WHEN is_leader = true
+            AND EXISTS (
+              SELECT 1
+              FROM v106_runtime_state
+              WHERE singleton_id = true
+                AND phase = 'LEADER_LAUNCH'
+            )
+          THEN false
+          ELSE true
+        END
       WHERE id = $1
       RETURNING
         id,
