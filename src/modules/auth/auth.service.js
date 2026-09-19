@@ -138,41 +138,50 @@ async function register(payload) {
         );
       }
 
-    } else {
-
-      /*
-        Aucun code :
-        FIFO déterministe, avec verrouillage
-        du candidat dans la transaction.
-      */
-      sponsor =
-        await authRepository
-          .findOldestAvailableSponsorForFifo({
-            client
-          });
-
-      if (sponsor) {
-        sponsorAssignment = "fifo";
       } else {
-
         /*
-          Aucun candidat FIFO :
-          rattachement à la vraie racine.
-        */
-        sponsor =
-          await v106Runtime.resolveRootUser({
-            client
-          });
+          V10.7 :
+          Pendant LEADER_LAUNCH, toute inscription sans code
+          est rattachée directement à la racine afin de constituer
+          les 50 leaders.
 
-        if (!sponsor) {
-          throw new Error(
-            "ROOT_USER_NOT_CONFIGURED"
-          );
+          Le FIFO normal démarre uniquement en NORMAL_OPERATION.
+        */
+        const runtimeState = await v106Runtime.getRuntimeState({ client });
+
+        if (!runtimeState) {
+          throw new Error("V106_RUNTIME_STATE_NOT_CONFIGURED");
         }
 
-        sponsorAssignment = "root";
+        if (runtimeState.phase === "LEADER_LAUNCH") {
+          sponsor = await v106Runtime.resolveRootUser({ client });
+
+          if (!sponsor) {
+            throw new Error("ROOT_USER_NOT_CONFIGURED");
+          }
+
+          sponsorAssignment = "root";
+        } else {
+          /*
+            NORMAL_OPERATION :
+            FIFO déterministe, avec verrouillage
+            du candidat dans la transaction.
+          */
+          sponsor = await authRepository.findOldestAvailableSponsorForFifo({ client });
+
+          if (sponsor) {
+            sponsorAssignment = "fifo";
+          } else {
+            sponsor = await v106Runtime.resolveRootUser({ client });
+
+            if (!sponsor) {
+              throw new Error("ROOT_USER_NOT_CONFIGURED");
+            }
+
+            sponsorAssignment = "root";
+          }
+        }
       }
-    }
 
     const createdUser =
       await authRepository.createUser(
