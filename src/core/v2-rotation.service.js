@@ -220,38 +220,63 @@ async function getV2Parent(
         oldRootId
       );
 
-      const fifoParents = children.filter(
-        (child) =>
-          child.status === "active" &&
-          child.email_confirmed === true
-      );
+      /*
+     * FIFO 2 / Relais FIFO V1 :
+     * recherche en largeur, niveau par niveau.
+     */
+    let currentLevel = [oldRootId];
+    const visited = new Set([String(oldRootId)]);
 
-      for (const parent of fifoParents) {
-        if (
-          String(parent.child_user_id) === String(userId)
-        ) {
-          continue;
-        }
+    while (currentLevel.length > 0) {
+      const nextLevel = [];
 
-        const count = await countOpportunityChildren(
+      for (const parentId of currentLevel) {
+        const children = await getDirectChildren(
           client,
-          parent.child_user_id,
-          opportunityId
+          parentId
         );
 
-        if (count < 2) {
-          return {
-            parentId: parent.child_user_id,
-            rootId,
-            rotation,
-            capacityUsed: count,
-            capacityRemaining: 2 - count
-          };
+        for (const child of children) {
+          const childId = String(child.child_user_id);
+
+          if (visited.has(childId)) {
+            continue;
+          }
+
+          visited.add(childId);
+
+          if (
+            child.status === "active" &&
+            child.email_confirmed === true
+          ) {
+            if (childId !== String(userId)) {
+              const count = await countOpportunityChildren(
+                client,
+                child.child_user_id,
+                opportunityId
+              );
+
+              if (count < 2) {
+                return {
+                  parentId: child.child_user_id,
+                  rootId,
+                  rotation,
+                  capacityUsed: count,
+                  capacityRemaining: 2 - count
+                };
+              }
+            }
+
+            nextLevel.push(child.child_user_id);
+          }
         }
       }
 
+      currentLevel = nextLevel;
+    }
+
     throw new Error(
-      "Aucune capacité V2 disponible dans la rotation FIFO."
+      "Aucune capacité V2 disponible dans la descendance FIFO."
     );
   });
 }
