@@ -12,6 +12,8 @@ router.post("/login", authController.login);
 
 // Confirmation par code OTP
 router.post("/confirm-otp", authController.confirmOtp);
+// Renvoi dun nouveau code OTP
+router.post("/resend-otp", authController.resendOtp);
 
 // Ancienne confirmation par lien
 router.get("/confirm-email/:userId", authController.confirmEmail);

@@ -420,6 +420,43 @@ async function confirmEmail(userId) {
   return user;
 }
 
+async function resendOtp(payload) {
+  const normalizedEmail = String(payload?.email || "").trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    throw new Error("Adresse e-mail obligatoire.");
+  }
+
+  const user = await authRepository.findUserByEmail(normalizedEmail);
+
+  if (!user) {
+    throw new Error("Compte utilisateur introuvable.");
+  }
+
+  if (user.email_confirmed) {
+    throw new Error("Ce compte est déjà confirmé.");
+  }
+
+  const otp = generateOtp();
+  const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+  await authRepository.saveEmailOtp(user.id, otp, otpExpiresAt);
+
+  await sendEmail({
+    to: user.email,
+    subject: "Nouveau code de confirmation Point Focal",
+    html: "<h2>Confirmation Point Focal</h2>" +
+      "<p>Votre nouveau code de confirmation est :</p>" +
+      "<h1>" + otp + "</h1>" +
+      "<p>Ce code expire dans 15 minutes.</p>"
+  });
+
+  return {
+    email: user.email,
+    message: "Un nouveau code OTP a été envoyé à votre email."
+  };
+}
+
 async function confirmOtp(payload) {
   const normalizedEmail =
     String(payload.email || "")
@@ -687,6 +724,7 @@ module.exports = {
   login,
   confirmEmail,
   confirmOtp,
+  resendOtp,
   forgotPassword,
   resetPassword,
   me

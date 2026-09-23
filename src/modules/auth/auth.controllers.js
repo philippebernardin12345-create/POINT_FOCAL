@@ -34,6 +34,17 @@ async function confirmEmail(req, res) {
   }
 }
 
+async function resendOtp(req, res) {
+  try {
+    const result = await authService.resendOtp(req.body);
+    return response.success(res, result, result.message, 200);
+  } catch (err) {
+    console.error("========== RESEND OTP ERROR ==========");
+    console.error(err);
+    return response.error(res, err.message || String(err), 400);
+  }
+}
+
 async function confirmOtp(req, res) {
   try {
     const result = await authService.confirmOtp(req.body);
@@ -114,6 +125,7 @@ module.exports = {
   login,
   confirmEmail,
   confirmOtp,
+  resendOtp,
   forgotPassword,
   resetPassword,
   me
