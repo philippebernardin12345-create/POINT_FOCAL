@@ -33,9 +33,13 @@ async function updateVideoProgress(userId, watchedSeconds, isCompleted) {
     `
     UPDATE video_sessions
     SET
-      watched_seconds = $2,
-      is_completed = $3,
-      completed_at = CASE WHEN $3 = true THEN NOW() ELSE completed_at END,
+      watched_seconds = GREATEST(watched_seconds, $2),
+      is_completed = (is_completed OR $3),
+      completed_at = CASE
+        WHEN is_completed = true THEN completed_at
+        WHEN $3 = true THEN NOW()
+        ELSE completed_at
+      END,
       updated_at = NOW()
     WHERE user_id = $1
     RETURNING *
@@ -46,28 +50,8 @@ async function updateVideoProgress(userId, watchedSeconds, isCompleted) {
   return result.rows[0] || null;
 }
 
-async function resetVideoSession(userId) {
-  const result = await db.query(
-    `
-    UPDATE video_sessions
-    SET
-      started_at = NOW(),
-      watched_seconds = 0,
-      is_completed = false,
-      completed_at = NULL,
-      updated_at = NOW()
-    WHERE user_id = $1
-    RETURNING *
-    `,
-    [userId]
-  );
-
-  return result.rows[0] || null;
-}
-
 module.exports = {
   findVideoStateByUserId,
   createVideoSession,
-  updateVideoProgress,
-  resetVideoSession
+  updateVideoProgress
 };

@@ -8,6 +8,4 @@ router.get("/session", authenticate, videoController.getVideoSession);
 
 router.post("/progress", authenticate, videoController.updateProgress);
 
-router.post("/reset", authenticate, videoController.resetSession);
-
 module.exports = router;

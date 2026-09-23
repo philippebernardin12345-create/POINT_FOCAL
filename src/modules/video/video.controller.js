@@ -44,28 +44,7 @@ async function updateProgress(req, res) {
   }
 }
 
-async function resetSession(req, res) {
-  try {
-    const userId = req.user.id;
-
-    const session = await videoService.resetSession(userId);
-
-    return res.status(200).json({
-      success: true,
-      data: session
-    });
-  } catch (error) {
-    console.error(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors de la réinitialisation."
-    });
-  }
-}
-
 module.exports = {
   getVideoSession,
-  updateProgress,
-  resetSession
+  updateProgress
 };

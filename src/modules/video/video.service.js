@@ -19,20 +19,50 @@ async function updateProgress(userId, watchedSeconds) {
     session = await videoRepository.createVideoSession(userId);
   }
 
-  const safeSeconds = Math.max(0, Number(watchedSeconds) || 0);
-  const isCompleted = safeSeconds >= VIDEO_REQUIRED_SECONDS;
+  /*
+   * Une vidéo déjà validée est définitive.
+   * Aucun nouvel appel ne peut la remettre à zéro
+   * ou la rendre incomplète.
+   */
+  if (session.is_completed === true) {
+    return formatVideoSession(session);
+  }
+
+  const clientSeconds = Math.max(
+    0,
+    Math.floor(Number(watchedSeconds) || 0)
+  );
+
+  const startedAtMs = new Date(session.started_at).getTime();
+
+  if (!Number.isFinite(startedAtMs)) {
+    throw new Error("Session vidéo invalide.");
+  }
+
+  const elapsedSeconds = Math.max(
+    0,
+    Math.floor((Date.now() - startedAtMs) / 1000)
+  );
+
+  /*
+   * Le navigateur ne peut pas déclarer plus de temps
+   * que le temps réellement écoulé côté serveur.
+   */
+  const verifiedSeconds = Math.min(
+    clientSeconds,
+    elapsedSeconds,
+    VIDEO_REQUIRED_SECONDS
+  );
+
+  const isCompleted =
+    verifiedSeconds >= VIDEO_REQUIRED_SECONDS;
 
   session = await videoRepository.updateVideoProgress(
     userId,
-    safeSeconds,
+    verifiedSeconds,
     isCompleted
   );
 
-  return formatVideoSession(session);
-}
-
-async function resetSession(userId) {
-  const session = await videoRepository.resetVideoSession(userId);
   return formatVideoSession(session);
 }
 
@@ -57,6 +87,5 @@ function formatVideoSession(session) {
 module.exports = {
   VIDEO_REQUIRED_SECONDS,
   getOrCreateVideoSession,
-  updateProgress,
-  resetSession
+  updateProgress
 };
