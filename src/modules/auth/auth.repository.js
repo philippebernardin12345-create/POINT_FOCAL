@@ -183,88 +183,79 @@ async function confirmEmailByOtp(email, otp, options = {}) {
 
   const result = await (client || db).query(
     `
-    WITH confirmed AS (
-      UPDATE users
-      SET
-        email_confirmed = true,
-        status = 'active',
-        email_otp = NULL,
-        email_otp_expires_at = NULL
-      WHERE email = $1
-        AND email_otp = $2
-        AND email_otp_expires_at > NOW()
-      RETURNING *
-    ),
-    leader_slot AS (
+    WITH runtime AS (
       SELECT
-        EXISTS (
-          SELECT 1
-          FROM confirmed
-        ) AS confirmed_ok,
-        (
-          SELECT leader_threshold
-          FROM v106_runtime_state
-          WHERE singleton_id = true
-          FOR UPDATE
-        ) AS leader_threshold,
-        (
-          SELECT root_user_id
-          FROM v106_runtime_state
-          WHERE singleton_id = true
-          FOR UPDATE
-        ) AS root_user_id,
-        (
-          SELECT COUNT(*)::int
-          FROM users
-          WHERE is_leader = true
-            AND is_prelaunch_leader = true
-            AND email_confirmed = true
-            AND status = 'active'
-        ) AS current_leaders
+        phase,
+        root_user_id,
+        leader_threshold
+      FROM v106_runtime_state
+      WHERE singleton_id = true
+      FOR UPDATE
     ),
-    promoted AS (
-      UPDATE users u
-      SET
-        is_leader = true,
-        is_prelaunch_leader = true,
-        link_active = false
-      FROM confirmed c, leader_slot l
-      WHERE u.id = c.id
-        AND l.confirmed_ok = true
-        AND u.sponsor_id = l.root_user_id
-        AND l.current_leaders < l.leader_threshold
-      RETURNING u.*
+    leader_count AS (
+      SELECT COUNT(*)::int AS total
+      FROM users
+      WHERE is_leader = true
+        AND is_prelaunch_leader = true
+        AND email_confirmed = true
+        AND lower(coalesce(status, '')) = 'active'
     )
-    SELECT
-      id,
-      email,
-      status,
-      email_confirmed,
-      is_leader,
-      is_prelaunch_leader,
-      link_active
-    FROM promoted
+    UPDATE users u
+    SET
+      email_confirmed = true,
+      status = 'active',
+      email_otp = NULL,
+      email_otp_expires_at = NULL,
 
-    UNION ALL
+      is_leader = CASE
+        WHEN runtime.phase = 'LEADER_LAUNCH'
+          AND u.sponsor_id = runtime.root_user_id
+          AND leader_count.total < runtime.leader_threshold
+        THEN true
+        ELSE u.is_leader
+      END,
 
-    SELECT
-      id,
-      email,
-      status,
-      email_confirmed,
-      is_leader,
-      is_prelaunch_leader,
-      link_active
-    FROM confirmed
-    WHERE NOT EXISTS (
-      SELECT 1 FROM promoted
-    )
-    LIMIT 1
+      is_prelaunch_leader = CASE
+        WHEN runtime.phase = 'LEADER_LAUNCH'
+          AND u.sponsor_id = runtime.root_user_id
+          AND leader_count.total < runtime.leader_threshold
+        THEN true
+        ELSE u.is_prelaunch_leader
+      END,
+
+      link_active = CASE
+        WHEN runtime.phase = 'LEADER_LAUNCH'
+          AND u.sponsor_id = runtime.root_user_id
+          AND leader_count.total < runtime.leader_threshold
+        THEN false
+        ELSE u.link_active
+      END
+
+    FROM runtime, leader_count
+
+    WHERE u.email = $1
+      AND u.email_otp = $2
+      AND u.email_otp_expires_at > NOW()
+
+    RETURNING
+      u.id,
+      u.email,
+      u.status,
+      u.email_confirmed,
+      u.is_leader,
+      u.is_prelaunch_leader,
+      u.link_active
     `,
     [email, otp]
   );
 
-  console.log("[AUTH-DIAG]", { found: !!result.rows[0], emailConfirmed: result.rows[0]?.email_confirmed, status: result.rows[0]?.status });
+  console.log("[AUTH-DIAG]", {
+    found: !!result.rows[0],
+    emailConfirmed:
+      result.rows[0]?.email_confirmed,
+    status:
+      result.rows[0]?.status
+  });
 
   return result.rows[0] || null;
 }

@@ -42,7 +42,7 @@ async function findPaymentByHash(txHash) {
 }
 
 async function findVictoryWorldSponsorLink() {
-  const result = await db.query(
+  const validated = await db.query(
     `
     SELECT
       id,
@@ -59,7 +59,27 @@ async function findVictoryWorldSponsorLink() {
     `
   );
 
-  return result.rows[0] || null;
+  if (validated.rows[0]) {
+    return validated.rows[0];
+  }
+
+  const bootstrap = await db.query(
+    `
+    SELECT
+      u.id,
+      s.value AS victory_world_link
+    FROM users u
+    CROSS JOIN system_settings s
+    WHERE
+      u.is_root = true
+      AND s.key = 'victory_world_root_link'
+      AND s.value IS NOT NULL
+      AND s.value <> ''
+    LIMIT 1
+    `
+  );
+
+  return bootstrap.rows[0] || null;
 }
 
 async function saveAssignedVictoryWorldLink(
@@ -90,12 +110,31 @@ async function findUserByVictoryWorldLink(
   const result = await db.query(
     `
     SELECT
-      id,
-      email,
-      victory_world_link,
-      victory_world_status
-    FROM users
-    WHERE victory_world_link = $1
+      u.id,
+      u.email,
+      CASE
+        WHEN u.victory_world_link = $1
+          THEN u.victory_world_link
+        ELSE $1
+      END AS victory_world_link,
+      u.victory_world_status
+    FROM users u
+    WHERE
+      u.victory_world_link = $1
+      OR (
+        u.is_root = true
+        AND $1 = (
+          SELECT value
+          FROM system_settings
+          WHERE key = 'victory_world_root_link'
+          LIMIT 1
+        )
+      )
+    ORDER BY
+      CASE
+        WHEN u.victory_world_link = $1 THEN 0
+        ELSE 1
+      END
     LIMIT 1
     `,
     [victoryWorldLink]
@@ -221,7 +260,7 @@ async function validateVictoryWorld(
 }
 
 async function findNextOpportunity(
-  currentOrderPosition
+  currentPosition
 ) {
   const result = await db.query(
     `
@@ -229,16 +268,16 @@ async function findNextOpportunity(
       id,
       name,
       slug,
-      order_position,
+      position,
       entry_url
     FROM opportunities
     WHERE
-      active = true
-      AND order_position > $1
-    ORDER BY order_position ASC
+      upper(coalesce(status, '')) = 'ACTIVE'
+      AND position > $1
+    ORDER BY position ASC
     LIMIT 1
     `,
-    [currentOrderPosition]
+    [currentPosition]
   );
 
   return result.rows[0] || null;

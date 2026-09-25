@@ -27,7 +27,16 @@ async function findByUserId(userId, page = 1, limit = 20, read = undefined) {
   }
 
   // Total
-  const countQuery = queryText.replace(/SELECT.*FROM/, "SELECT COUNT(*) as count FROM");
+  let countQuery = `
+    SELECT COUNT(*) AS count
+    FROM notifications
+    WHERE user_id = $1
+  `;
+
+  if (read !== undefined) {
+    countQuery += ` AND read = $2`;
+  }
+
   const countResult = await query(countQuery, params);
   const total = parseInt(countResult.rows[0]?.count || 0, 10);
 

@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const authRepository = require("./auth.repository");
 const db = require("../../config/db");
 const v106Runtime = require("../../db/v106-runtime");
+const notificationsService = require("../notifications/notifications.service");
 const { signToken } = require("../../config/jwt");
 const { sendEmail } = require("../../config/email");
 const { generateUniqueInvitationCodes } = require("../../utils/codeGenerator");
@@ -472,7 +473,14 @@ async function confirmOtp(payload) {
     );
   }
 
-  return db.withTransaction(async (client) => {
+  /*
+    La transaction métier doit être totalement terminée
+    avant l'envoi des notifications.
+
+    Une panne du système de notifications ne doit jamais
+    annuler une confirmation OTP ou une transition V10.6.
+  */
+  const result = await db.withTransaction(async (client) => {
     const user =
       await authRepository.confirmEmailByOtp(
         normalizedEmail,
@@ -517,6 +525,42 @@ async function confirmOtp(payload) {
       v106Transitioned: transition.transitioned
     };
   });
+
+  /*
+    POST-COMMIT :
+    notification informative uniquement.
+
+    Si elle échoue, le résultat métier reste valide.
+  */
+  if (
+    result.is_leader === true &&
+    result.is_prelaunch_leader === true
+  ) {
+    try {
+      const notification =
+        await notificationsService.notifyLeaderRegistration(
+          result.id,
+          result.v106LeaderCount
+        );
+
+      if (notification) {
+        console.log(
+          `[notifications] Leader ${result.v106LeaderCount}/${result.v106LeaderThreshold} notifié.`
+        );
+      } else {
+        console.error(
+          `[notifications] Échec non bloquant de la notification du leader ${result.v106LeaderCount}/${result.v106LeaderThreshold}.`
+        );
+      }
+    } catch (error) {
+      console.error(
+        "[notifications] Notification leader non bloquante :",
+        error.message
+      );
+    }
+  }
+
+  return result;
 }
 
 async function me(userId) {
