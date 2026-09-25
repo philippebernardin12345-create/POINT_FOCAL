@@ -139,6 +139,21 @@ async function register(payload) {
         );
       }
 
+      /*
+        Un code personnel ne peut parrainer que si son
+        lien Point Focal est réellement actif.
+
+        Exception : ABCD1000 est le code bootstrap racine.
+      */
+      if (
+        providedSponsorCode !== ROOT_INVITATION_CODE &&
+        sponsor.link_active !== true
+      ) {
+        throw new Error(
+          "Ce lien Point Focal n'est pas encore actif."
+        );
+      }
+
       } else {
         /*
           V10.7 :
