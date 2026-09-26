@@ -7,6 +7,9 @@ async function findUserById(userId) {
       id,
       email,
       campaign_id,
+        sponsor_id,
+        is_root,
+        status,
       victory_world_link,
       victory_world_status,
       victory_world_tx_hash,
@@ -24,62 +27,45 @@ async function findUserById(userId) {
   return result.rows[0] || null;
 }
 
-async function findPaymentByHash(txHash) {
+async function findVictoryWorldStructuralSponsor(
+  sponsorId
+) {
+  if (!sponsorId) {
+    return null;
+  }
+
   const result = await db.query(
     `
     SELECT
       id,
-      user_id,
-      tx_hash
-    FROM payments
-    WHERE tx_hash = $1
+      email,
+      status,
+      victory_world_status,
+      victory_world_link
+    FROM users
+    WHERE id = $1
     LIMIT 1
     `,
-    [txHash]
+    [sponsorId]
   );
 
   return result.rows[0] || null;
 }
 
-async function findVictoryWorldSponsorLink() {
-  const validated = await db.query(
+async function findVictoryWorldRootLink() {
+  const result = await db.query(
     `
     SELECT
-      id,
-      victory_world_link
-    FROM users
-    WHERE
-      victory_world_link IS NOT NULL
-      AND victory_world_link <> ''
-      AND victory_world_status = 'validated'
-    ORDER BY
-      victory_world_paid_at ASC NULLS LAST,
-      id ASC
+      value AS victory_world_link
+    FROM system_settings
+    WHERE key = 'victory_world_root_link'
+      AND value IS NOT NULL
+      AND value <> ''
     LIMIT 1
     `
   );
 
-  if (validated.rows[0]) {
-    return validated.rows[0];
-  }
-
-  const bootstrap = await db.query(
-    `
-    SELECT
-      u.id,
-      s.value AS victory_world_link
-    FROM users u
-    CROSS JOIN system_settings s
-    WHERE
-      u.is_root = true
-      AND s.key = 'victory_world_root_link'
-      AND s.value IS NOT NULL
-      AND s.value <> ''
-    LIMIT 1
-    `
-  );
-
-  return bootstrap.rows[0] || null;
+  return result.rows[0] || null;
 }
 
 async function saveAssignedVictoryWorldLink(
@@ -152,10 +138,11 @@ async function saveVictoryWorldLink(
     UPDATE users
     SET
       victory_world_link = $2,
-      victory_world_status = 'payment_pending',
+      victory_world_status = 'validated',
       victory_world_tx_hash = NULL,
       victory_world_paid_at = NULL,
-      victory_world_started_at = NOW()
+      victory_world_target_address = NULL,
+        victory_world_started_at = COALESCE(victory_world_started_at, NOW())
     WHERE id = $1
     RETURNING
       id,
@@ -173,92 +160,6 @@ async function saveVictoryWorldLink(
   return result.rows[0] || null;
 }
 
-async function saveVictoryWorldPayment(
-  userId,
-  campaignId,
-  txHash,
-  targetAddress,
-  amount
-) {
-  const result = await db.query(
-    `
-    INSERT INTO payments (
-      user_id,
-      campaign_id,
-      tx_hash,
-      target_address,
-      amount,
-      network
-    )
-    VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING *
-    `,
-    [
-      userId,
-      campaignId,
-      txHash,
-      targetAddress,
-      amount,
-      "BNB_CHAIN_VICTORY_WORLD"
-    ]
-  );
-
-  return result.rows[0] || null;
-}
-
-async function saveVictoryWorldTargetAddress(
-  userId,
-  targetAddress
-) {
-  const result = await db.query(
-    `
-    UPDATE users
-    SET victory_world_target_address = $2
-    WHERE id = $1
-    RETURNING
-      id,
-      victory_world_target_address
-    `,
-    [
-      userId,
-      targetAddress
-    ]
-  );
-
-  return result.rows[0] || null;
-}
-
-async function validateVictoryWorld(
-  userId,
-  txHash
-) {
-  const result = await db.query(
-    `
-    UPDATE users
-    SET
-      victory_world_status = 'validated',
-      victory_world_tx_hash = $2,
-      victory_world_paid_at = NOW()
-    WHERE id = $1
-    RETURNING
-      id,
-      victory_world_link,
-      victory_world_status,
-      victory_world_tx_hash,
-      victory_world_paid_at,
-      victory_world_started_at,
-      victory_world_assigned_link,
-      victory_world_target_address
-    `,
-    [
-      userId,
-      txHash
-    ]
-  );
-
-  return result.rows[0] || null;
-}
-
 async function findNextOpportunity(
   currentPosition
 ) {
@@ -269,11 +170,16 @@ async function findNextOpportunity(
       name,
       slug,
       position,
-      entry_url
+      entry_url,
+      opportunity_url
     FROM opportunities
     WHERE
       upper(coalesce(status, '')) = 'ACTIVE'
       AND position > $1
+      AND (
+        NULLIF(TRIM(entry_url), '') IS NOT NULL
+        OR NULLIF(TRIM(opportunity_url), '') IS NOT NULL
+      )
     ORDER BY position ASC
     LIMIT 1
     `,
@@ -285,13 +191,10 @@ async function findNextOpportunity(
 
 module.exports = {
   findUserById,
-  findPaymentByHash,
-  findVictoryWorldSponsorLink,
+  findVictoryWorldStructuralSponsor,
+  findVictoryWorldRootLink,
   saveAssignedVictoryWorldLink,
   findUserByVictoryWorldLink,
   saveVictoryWorldLink,
-  saveVictoryWorldPayment,
-  saveVictoryWorldTargetAddress,
-  validateVictoryWorld,
   findNextOpportunity
 };

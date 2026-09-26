@@ -15,15 +15,15 @@ const router =
   express.Router();
 
 router.post(
-  "/link",
+  "/assign-sponsor",
   authMiddleware,
-  controller.saveLink
+  controller.assignSponsor
 );
 
 router.post(
-  "/payment",
+  "/link",
   authMiddleware,
-  controller.validatePayment
+  controller.saveLink
 );
 
 router.get(
