@@ -384,3 +384,144 @@ test("Test 11 - rollback complet après erreur", async () => {
     await context.teardown();
   }
 });
+
+test("S2 - racine accepte exactement 50 slots pendant LEADER_LAUNCH", async () => {
+  const context = await setupDatabase();
+
+  try {
+    const root = await insertUser(context.client, {
+      is_root: true,
+      email_confirmed: true,
+      status: "active"
+    });
+
+    await runtime.setRootUser(root.id, {
+      client: context.client
+    });
+
+    for (let index = 1; index <= 50; index += 1) {
+      const child = await insertUser(context.client);
+
+      const relation =
+        await runtime.assignGlobalSponsor(
+          root.id,
+          child.id,
+          { client: context.client }
+        );
+
+      assert.equal(
+        Number(relation.slot_no),
+        index
+      );
+    }
+
+    const count = await context.client.query(
+      `
+      SELECT COUNT(*)::int AS total
+      FROM v106_global_sponsorships
+      WHERE sponsor_user_id = $1
+      `,
+      [root.id]
+    );
+
+    assert.equal(
+      count.rows[0].total,
+      50
+    );
+  } finally {
+    await context.teardown();
+  }
+});
+
+test("S2 - 51e slot racine refuse pendant LEADER_LAUNCH", async () => {
+  const context = await setupDatabase();
+
+  try {
+    const root = await insertUser(context.client, {
+      is_root: true,
+      email_confirmed: true,
+      status: "active"
+    });
+
+    await runtime.setRootUser(root.id, {
+      client: context.client
+    });
+
+    for (let index = 0; index < 50; index += 1) {
+      const child = await insertUser(context.client);
+
+      await runtime.assignGlobalSponsor(
+        root.id,
+        child.id,
+        { client: context.client }
+      );
+    }
+
+    const child51 =
+      await insertUser(context.client);
+
+    await assert.rejects(
+      runtime.assignGlobalSponsor(
+        root.id,
+        child51.id,
+        { client: context.client }
+      ),
+      /V106_SPONSOR_SLOTS_EXHAUSTED/
+    );
+  } finally {
+    await context.teardown();
+  }
+});
+
+test("S2 - utilisateur ordinaire reste limite a 2 pendant LEADER_LAUNCH", async () => {
+  const context = await setupDatabase();
+
+  try {
+    const root = await insertUser(context.client, {
+      is_root: true,
+      email_confirmed: true,
+      status: "active"
+    });
+
+    await runtime.setRootUser(root.id, {
+      client: context.client
+    });
+
+    const sponsor = await insertUser(context.client, {
+      email_confirmed: true,
+      status: "active"
+    });
+
+    const child1 = await insertUser(context.client);
+    const child2 = await insertUser(context.client);
+    const child3 = await insertUser(context.client);
+
+    const first =
+      await runtime.assignGlobalSponsor(
+        sponsor.id,
+        child1.id,
+        { client: context.client }
+      );
+
+    const second =
+      await runtime.assignGlobalSponsor(
+        sponsor.id,
+        child2.id,
+        { client: context.client }
+      );
+
+    assert.equal(Number(first.slot_no), 1);
+    assert.equal(Number(second.slot_no), 2);
+
+    await assert.rejects(
+      runtime.assignGlobalSponsor(
+        sponsor.id,
+        child3.id,
+        { client: context.client }
+      ),
+      /V106_SPONSOR_SLOTS_EXHAUSTED/
+    );
+  } finally {
+    await context.teardown();
+  }
+});

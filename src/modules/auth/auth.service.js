@@ -223,17 +223,38 @@ async function register(payload) {
       );
     }
 
-    const globalSponsorship =
-      await v106Runtime.assignGlobalSponsor(
-        sponsor.id,
-        createdUser.id,
-        { client }
-      );
+    /*
+      S2 :
+      Pendant LEADER_LAUNCH, un candidat rattaché à la racine
+      ne consomme aucun slot structurel avant validation OTP.
 
-    if (!globalSponsorship) {
-      throw new Error(
-        "Impossible d'enregistrer le parrainage global V10.6."
-      );
+      users.sponsor_id conserve immédiatement le parrain personnel.
+      La relation v106_global_sponsorships sera créée atomiquement
+      lors de la confirmation OTP si le candidat devient préleader.
+
+      En NORMAL_OPERATION, le comportement historique est conservé.
+    */
+    const runtimeState =
+      await v106Runtime.getRuntimeState({ client });
+
+    const deferRootStructuralSlot =
+      runtimeState?.phase === "LEADER_LAUNCH" &&
+      runtimeState?.root_user_id &&
+      String(sponsor.id) === String(runtimeState.root_user_id);
+
+    if (!deferRootStructuralSlot) {
+      const globalSponsorship =
+        await v106Runtime.assignGlobalSponsor(
+          sponsor.id,
+          createdUser.id,
+          { client }
+        );
+
+      if (!globalSponsorship) {
+        throw new Error(
+          "Impossible d'enregistrer le parrainage global V10.6."
+        );
+      }
     }
 
     return createdUser;
@@ -507,6 +528,41 @@ async function confirmOtp(payload) {
       throw new Error(
         "Code OTP invalide ou expiré."
       );
+    }
+
+    /*
+      S2 :
+      Un slot de lancement appartient uniquement à un leader
+      ayant terminé son enregistrement Point Focal.
+
+      confirmEmailByOtp() vient de confirmer/activer le compte
+      et de le promouvoir atomiquement en préleader lorsque
+      les conditions LEADER_LAUNCH sont remplies.
+    */
+    if (
+      user.is_leader === true &&
+      user.is_prelaunch_leader === true
+    ) {
+      const runtimeState =
+        await v106Runtime.getRuntimeState({ client });
+
+      if (
+        runtimeState?.phase === "LEADER_LAUNCH" &&
+        runtimeState?.root_user_id
+      ) {
+        const globalSponsorship =
+          await v106Runtime.assignGlobalSponsor(
+            runtimeState.root_user_id,
+            user.id,
+            { client }
+          );
+
+        if (!globalSponsorship) {
+          throw new Error(
+            "Impossible d'attribuer le slot structurel du leader."
+          );
+        }
+      }
     }
 
     const transition =
