@@ -4,6 +4,12 @@ const { authenticate } = require("../../middlewares/auth.middleware");
 
 const router = express.Router();
 
+// État public du lancement V10.6
+router.get(
+  "/runtime-state",
+  authController.runtimeState
+);
+
 // Inscription
 router.post("/register", authController.register);
 

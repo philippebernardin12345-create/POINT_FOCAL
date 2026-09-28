@@ -834,6 +834,25 @@ async function resetPassword(payload) {
   };
 }
 
+async function getPublicRuntimeState() {
+  const runtimeState =
+    await v106Runtime.getRuntimeState();
+
+  if (!runtimeState) {
+    throw new Error(
+      "V106_RUNTIME_STATE_NOT_CONFIGURED"
+    );
+  }
+
+  return {
+    phase: runtimeState.phase,
+    leaderCount:
+      Number(runtimeState.leader_count || 0),
+    leaderThreshold:
+      Number(runtimeState.leader_threshold || 50)
+  };
+}
+
 module.exports = {
   register,
   login,
@@ -842,5 +861,6 @@ module.exports = {
   resendOtp,
   forgotPassword,
   resetPassword,
-  me
+  me,
+  getPublicRuntimeState
 };

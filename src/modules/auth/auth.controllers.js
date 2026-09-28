@@ -120,6 +120,31 @@ async function resetPassword(req, res) {
     );
   }
 }
+async function runtimeState(req, res) {
+  try {
+    const result =
+      await authService.getPublicRuntimeState();
+
+    return response.success(
+      res,
+      result,
+      "État runtime Point Focal",
+      200
+    );
+  } catch (err) {
+    console.error(
+      "========== RUNTIME STATE ERROR =========="
+    );
+    console.error(err);
+
+    return response.error(
+      res,
+      err.message || String(err),
+      500
+    );
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -128,5 +153,6 @@ module.exports = {
   resendOtp,
   forgotPassword,
   resetPassword,
-  me
+  me,
+  runtimeState
 };
