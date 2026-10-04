@@ -16,9 +16,7 @@ function loadV2WithRoot(root) {
     id: runtimePath,
     filename: runtimePath,
     loaded: true,
-    exports: {
-      resolveRootUser: async () => root
-    }
+    exports: { resolveRootUser: async () => root }
   };
   delete require.cache[servicePath];
   const service = require(servicePath);
@@ -33,7 +31,7 @@ function loadV2WithRoot(root) {
   };
 }
 
-function makeClient({ rootId, children = {}, confirmed = [], counts = {} }) {
+function makeClient({ children = {}, confirmed = [], counts = {} }) {
   const confirmedSet = new Set(confirmed.map(([u, o]) => `${u}:${o}`));
   return {
     async query(sql, params) {
@@ -50,7 +48,11 @@ function makeClient({ rootId, children = {}, confirmed = [], counts = {} }) {
           link_active: true
         })) };
       }
-      if (sql.includes("FROM user_opportunities") && sql.includes("COUNT(*)")) {
+      if (
+        sql.includes("FROM user_opportunities") &&
+        sql.includes("COUNT(DISTINCT uo.user_id)") &&
+        sql.includes("FROM rollup_logs")
+      ) {
         return { rows: [{ count: counts[`${params[0]}:${params[1]}`] || 0 }] };
       }
       throw new Error(`Unexpected SQL in S3 mock: ${sql}`);
@@ -59,32 +61,23 @@ function makeClient({ rootId, children = {}, confirmed = [], counts = {} }) {
 }
 
 test("S3 - aucun FIFO2 sans inactivité confirmée de la racine dans l'opportunité", async () => {
-  const root = { id: "root" };
-  const loaded = loadV2WithRoot(root);
+  const loaded = loadV2WithRoot({ id: "root" });
   try {
-    const client = makeClient({ rootId: root.id, children: { root: ["a"] } });
-    await assert.rejects(
-      loaded.service.getV2Parent("new", "oppA", { client }),
-      /FIFO2_ROOT_INACTIVITY_NOT_CONFIRMED/
-    );
+    const client = makeClient({ children: { root: ["a"] } });
+    await assert.rejects(loaded.service.getV2Parent("new", "oppA", { client }), /FIFO2_ROOT_INACTIVITY_NOT_CONFIRMED/);
   } finally { loaded.restore(); }
 });
 
 test("S3 - confirmation dans A ne rend pas la racine inactive dans B", async () => {
-  const root = { id: "root" };
-  const loaded = loadV2WithRoot(root);
+  const loaded = loadV2WithRoot({ id: "root" });
   try {
     const client = makeClient({ confirmed: [["root", "oppA"]] });
-    await assert.rejects(
-      loaded.service.getV2Parent("new", "oppB", { client }),
-      /FIFO2_ROOT_INACTIVITY_NOT_CONFIRMED/
-    );
+    await assert.rejects(loaded.service.getV2Parent("new", "oppB", { client }), /FIFO2_ROOT_INACTIVITY_NOT_CONFIRMED/);
   } finally { loaded.restore(); }
 });
 
 test("S3 - compte indisponible sauté mais descendance conservée", async () => {
-  const root = { id: "root" };
-  const loaded = loadV2WithRoot(root);
+  const loaded = loadV2WithRoot({ id: "root" });
   try {
     const client = makeClient({
       children: { root: ["a"], a: ["a1"] },
@@ -96,8 +89,7 @@ test("S3 - compte indisponible sauté mais descendance conservée", async () => 
 });
 
 test("S3 - capacité commune 2 : un parent déjà à 2 est sauté", async () => {
-  const root = { id: "root" };
-  const loaded = loadV2WithRoot(root);
+  const loaded = loadV2WithRoot({ id: "root" });
   try {
     const client = makeClient({
       children: { root: ["a", "b"] },
@@ -112,8 +104,7 @@ test("S3 - capacité commune 2 : un parent déjà à 2 est sauté", async () => 
 });
 
 test("S3 - FIFO2 ne remplace jamais root_user_id", async () => {
-  const root = { id: "root" };
-  const loaded = loadV2WithRoot(root);
+  const loaded = loadV2WithRoot({ id: "root" });
   try {
     const result = await loaded.service.rotateIfRootInactive({ client: makeClient({}) });
     assert.equal(result.rotated, false);
