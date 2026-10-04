@@ -1,0 +1,37 @@
+name: S1 Roll-Up FIFO2 Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - fix/s1-rollup-fifo2-consolidated
+
+permissions:
+  contents: read
+
+jobs:
+  s1-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check corrected services
+        run: |
+          node --check src/core/rollup.service.js
+          node --check src/core/v2-rotation.service.js
+          node --check src/tests/s3-rollup-fifo2.test.js
+
+      - name: Run S3 Roll-Up FIFO2 invariants
+        run: node --test src/tests/s3-rollup-fifo2.test.js
