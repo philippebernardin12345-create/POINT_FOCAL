@@ -33,17 +33,38 @@ async function isConfirmedInactive(client, userId, opportunityId) {
 
 async function countOpportunityChildren(client, parentId, opportunityId) {
   /*
-   * CAPACITE 2 JUMELEE : user_opportunities.sponsor_user_id est le parent
-   * effectif de l'opportunité, qu'il provienne du Roll-up ou de FIFO 2.
-   * Les deux mécanismes consomment donc le MEME compteur, jamais 2 + 2.
+   * CAPACITE 2 JUMELEE = Roll-up + FIFO 2, ensemble, au maximum 2.
+   *
+   * IMPORTANT : on ne compte PAS tous les enfants de user_opportunities.
+   * Un rattachement Follow Me/direct peut exister dans l'opportunite sans
+   * avoir ete produit par le mecanisme Roll-up/FIFO 2 et ne doit donc pas
+   * consommer cette capacite specifique.
+   *
+   * rollup_logs est le journal d'origine du placement :
+   * - sponsor_not_in_opportunity       => Roll-up normal
+   * - confirmed_root_inactivity_fifo2 => FIFO 2 jumelé au Roll-up
+   *
+   * Le DISTINCT protege le compteur contre un eventuel doublon historique
+   * de journalisation pour un meme utilisateur dans la meme opportunite.
    */
   const result = await client.query(
     `
-    SELECT COUNT(*)::int AS count
-    FROM user_opportunities
-    WHERE sponsor_user_id = $1
-      AND opportunity_id = $2
-      AND status = 'active'
+    SELECT COUNT(DISTINCT uo.user_id)::int AS count
+    FROM user_opportunities uo
+    WHERE uo.sponsor_user_id = $1
+      AND uo.opportunity_id = $2
+      AND uo.status = 'active'
+      AND EXISTS (
+        SELECT 1
+        FROM rollup_logs rl
+        WHERE rl.user_id = uo.user_id
+          AND rl.opportunity_id = uo.opportunity_id
+          AND rl.rollup_parent_id = uo.sponsor_user_id
+          AND rl.reason IN (
+            'sponsor_not_in_opportunity',
+            'confirmed_root_inactivity_fifo2'
+          )
+      )
     `,
     [parentId, opportunityId]
   );
@@ -62,10 +83,10 @@ async function getV2Parent(userId, opportunityId, options = {}) {
     }
 
     /*
-     * INVARIANT S1 : FIFO 2 est propre à l'opportunité.
-     * Il ne démarre que lorsque l'inactivité du Root DANS CETTE OPPORTUNITE
-     * a été confirmée. users.status n'est pas un signal suffisant.
-     * La racine structurelle globale n'est jamais remplacée.
+     * INVARIANT S1 : FIFO 2 est propre a l'opportunite.
+     * Il ne demarre que lorsque l'inactivite du Root DANS CETTE OPPORTUNITE
+     * a ete confirmee. users.status n'est pas un signal suffisant.
+     * La racine structurelle globale n'est jamais remplacee.
      */
     const rootInactive = await isConfirmedInactive(
       client,
@@ -79,7 +100,7 @@ async function getV2Parent(userId, opportunityId, options = {}) {
 
     /*
      * Parcours FIFO en largeur puis en profondeur : niveau par niveau.
-     * Un compte inactif/indisponible ne reçoit aucun placement, MAIS sa
+     * Un compte inactif/indisponible ne recoit aucun placement, MAIS sa
      * descendance reste dans la file afin que la recherche continue en
      * profondeur au lieu de couper toute sa branche.
      */
@@ -142,8 +163,8 @@ async function getV2Parent(userId, opportunityId, options = {}) {
 }
 
 /*
- * Compatibilité temporaire pour les appels historiques : aucune rotation
- * structurelle n'est désormais autorisée. Cette fonction ne modifie rien.
+ * Compatibilite temporaire pour les appels historiques : aucune rotation
+ * structurelle n'est desormais autorisee. Cette fonction ne modifie rien.
  */
 async function rotateIfRootInactive(options = {}) {
   const root = await v106Runtime.resolveRootUser(options);
