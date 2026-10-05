@@ -86,38 +86,61 @@ async function applyRollup(userId, opportunityId, options = {}) {
       ? await hasUserJoinedOpportunity(sponsorId, opportunityId, { client: dbClient })
       : false;
 
-    if (sponsorInOpportunity) {
+    /*
+     * Invariant S1 : un sponsor présent dans l'opportunité peut devenir
+     * indisponible dans CE business. Seule une confirmation automatique
+     * préalable autorise FIFO 2. reported/indeterminate/rejected ne suffisent pas.
+     */
+    const sponsorConfirmedInactive = sponsorId && sponsorInOpportunity
+      ? await fifo2.isConfirmedInactive(dbClient, sponsorId, opportunityId)
+      : false;
+
+    if (sponsorInOpportunity && !sponsorConfirmedInactive) {
       return {
         success: true, action: "follow_me", userId, opportunityId,
         sponsorId, rollupApplied: false
       };
     }
 
-    /*
-     * Roll-up normal -> racine structurelle.
-     * FIFO 2 ne remplace ce parent QUE si l'inactivité de la racine dans
-     * CETTE opportunité est confirmée. Un simple users.status ne suffit pas.
-     */
     let rollupParentId = root.id;
     let reason = "sponsor_not_in_opportunity";
+    let fifo2Applied = false;
 
-    const rootInactive = await fifo2.isConfirmedInactive(
-      dbClient,
-      root.id,
-      opportunityId
-    );
-
-    if (rootInactive) {
-      const fifo2Result = await fifo2.getV2Parent(userId, opportunityId, { client: dbClient });
+    if (sponsorConfirmedInactive) {
+      const fifo2Result = await fifo2.getV2Parent(userId, opportunityId, {
+        client: dbClient,
+        unavailableUserId: sponsorId
+      });
       rollupParentId = fifo2Result.parentId;
-      reason = "confirmed_root_inactivity_fifo2";
+      reason = "confirmed_account_inactivity_fifo2";
+      fifo2Applied = true;
+    } else {
+      /*
+       * Roll-Up normal : le sponsor structurel n'est pas dans l'opportunité.
+       * Si la racine elle-même a été confirmée indisponible dans ce business,
+       * le même mécanisme FIFO 2 s'applique à partir de cette racine.
+       */
+      const rootConfirmedInactive = await fifo2.isConfirmedInactive(
+        dbClient,
+        root.id,
+        opportunityId
+      );
+
+      if (rootConfirmedInactive) {
+        const fifo2Result = await fifo2.getV2Parent(userId, opportunityId, {
+          client: dbClient,
+          unavailableUserId: root.id
+        });
+        rollupParentId = fifo2Result.parentId;
+        reason = "confirmed_account_inactivity_fifo2";
+        fifo2Applied = true;
+      }
     }
 
     if (String(rollupParentId) === String(userId)) {
       throw new Error("Le parent de roll-up ne peut pas être l'utilisateur lui-même");
     }
 
-    /* Le parent choisi doit exister dans l'opportunité avant le placement. */
     if (!(await hasUserJoinedOpportunity(rollupParentId, opportunityId, { client: dbClient }))) {
       await addUserToOpportunity(rollupParentId, opportunityId, null, { client: dbClient });
     }
@@ -133,12 +156,13 @@ async function applyRollup(userId, opportunityId, options = {}) {
 
     return {
       success: true,
-      action: rootInactive ? "fifo2_rollup" : "rollup",
+      action: fifo2Applied ? "fifo2_rollup" : "rollup",
       userId,
       opportunityId,
       originalSponsorId: sponsorId,
       rollupParentId,
       rollupApplied: true,
+      fifo2Applied,
       structuralRootId: root.id,
       structuralRootUnchanged: true,
       data: result
@@ -181,7 +205,9 @@ async function isRollupNeeded(userId, opportunityId) {
     const user = await findUserById(userId);
     if (!user) return false;
     if (await isRoot(userId)) return false;
-    if (user.sponsor_id && await hasUserJoinedOpportunity(user.sponsor_id, opportunityId)) return false;
+    if (user.sponsor_id && await hasUserJoinedOpportunity(user.sponsor_id, opportunityId)) {
+      return await fifo2.isConfirmedInactive(null, user.sponsor_id, opportunityId);
+    }
     return true;
   } catch (error) {
     logger.error("[Rollup] Erreur isRollupNeeded:", error);
