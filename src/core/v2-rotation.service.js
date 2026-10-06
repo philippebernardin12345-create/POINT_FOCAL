@@ -112,6 +112,18 @@ async function getV2Parent(userId, opportunityId, options = {}) {
             childInactive
           ) continue;
 
+            /*
+             * S1 — capacité commune Roll-Up + FIFO 2.
+             * Sérialise les attributions concurrentes vers le même
+             * parent dans la même opportunité jusqu'au COMMIT/ROLLBACK.
+             */
+            await client.query(
+              `SELECT pg_advisory_xact_lock(
+                 hashtextextended($1::text || ':' || $2::text, 0)
+               )`,
+              [child.child_user_id, opportunityId]
+            );
+
           const count = await countOpportunityChildren(
             client,
             child.child_user_id,

@@ -170,95 +170,83 @@ async function registerUserLink({
           rootUser && String(rootUser.id) === String(userId);
 
         /*
-         * V2 : si le parcours Follow Me atteint le Root
-         * et que celui-ci est devenu inactif, la rotation
-         * FIFO est déclenchée automatiquement.
+         * S1 — Relais FIFO V1 / FIFO 2.
          *
-         * Le sponsor métier users.sponsor_id reste inchangé.
+         * Le déclencheur n'est PAS le statut global du Root.
+         * Il s'agit du compte Y utilisé comme sponsor dans CETTE
+         * opportunité, après confirmation automatique de son
+         * indisponibilité.
+         *
+         * ACTIF / reported / indeterminate / rejected :
+         * aucun FIFO 2.
+         *
+         * confirmed :
+         * applyRollup() délègue au FIFO 2 depuis Y et applique
+         * la capacité commune Roll-Up + FIFO 2 <= 2.
+         *
+         * users.sponsor_id et root_user_id restent inchangés.
          */
-        const sponsorIsRoot =
-          rootUser &&
+        const sponsorConfirmedInactive =
           effectiveSponsorId &&
-          String(effectiveSponsorId) === String(rootUser.id);
+          sponsorJoinedOpportunity &&
+          await v2Rotation.isConfirmedInactive(
+            client,
+            effectiveSponsorId,
+            opportunityId
+          );
 
-        const rootIsInactive =
-          rootUser &&
-          rootUser.status !== "active";
-
-        if (sponsorIsRoot && rootIsInactive && !isRootUser) {
-          v2Result = await v2Rotation.getV2Parent(
+        if (sponsorConfirmedInactive && !isRootUser) {
+          rollupResult = await applyRollup(
             userId,
             opportunityId,
             { client }
           );
 
-          if (!v2Result || !v2Result.parentId) {
+          if (
+            !rollupResult ||
+            rollupResult.action !== "fifo2_rollup" ||
+            !rollupResult.fifo2Applied
+          ) {
             throw new Error(
-              "Le Root est inactif mais aucun parent FIFO V2 n'est disponible"
+              "FIFO 2 requis après inactivité confirmée, mais placement non effectué"
             );
           }
 
-          if (String(v2Result.parentId) === String(userId)) {
-            throw new Error(
-              "Le parent Follow Me V2 ne peut pas être l'utilisateur lui-même"
-            );
-          }
+          v2Result = {
+            parentId: rollupResult.rollupParentId,
+            unavailableUserId: effectiveSponsorId
+          };
 
-          const v2ParentJoined =
-            await hasUserJoinedOpportunity(
-              v2Result.parentId,
-              opportunityId,
-              { client }
-            );
-
-          if (!v2ParentJoined) {
-            await addUserToOpportunity(
-              v2Result.parentId,
-              opportunityId,
-              null,
-              { client }
-            );
-          }
-
+          /*
+           * applyRollup() a déjà créé le placement.
+           * On complète uniquement le lien du nouvel utilisateur.
+           */
           result = await query(
             `
-            INSERT INTO user_opportunities (
-              user_id,
-              opportunity_id,
-              referral_link,
-              target_address,
-              payment_hash,
-              sponsor_user_id,
-              status,
-              joined_at,
-              updated_at
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW(), NOW())
-            RETURNING *
-            ON CONFLICT (user_id, opportunity_id)
-            DO UPDATE SET
-              referral_link = EXCLUDED.referral_link,
-              target_address = EXCLUDED.target_address,
-              payment_hash = EXCLUDED.payment_hash,
-              sponsor_user_id = EXCLUDED.sponsor_user_id,
-              status = 'active',
+            UPDATE user_opportunities
+            SET
+              referral_link = $1,
+              target_address = $2,
+              payment_hash = $3,
               updated_at = NOW()
+            WHERE user_id = $4
+              AND opportunity_id = $5
+              AND status = 'active'
             RETURNING *
             `,
             [
-              userId,
-              opportunityId,
               referralLink,
               targetAddress,
               paymentHash,
-              v2Result.parentId
+              userId,
+              opportunityId
             ],
             client
           );
 
           if (!result.rows[0]) {
             throw new Error(
-              "Le placement Follow Me V2 n'a pas été effectué"
+              "Le placement FIFO 2 a été effectué mais sa ligne est introuvable"
             );
           }
         } else if (!sponsorJoinedOpportunity && !isRootUser) {

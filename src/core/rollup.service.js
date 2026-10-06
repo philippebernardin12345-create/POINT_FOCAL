@@ -4,7 +4,7 @@
  */
 const { findUserById } = require("../modules/users/users.repository");
 const { getOpportunityById } = require("./opportunity.engine");
-const { query } = require("../config/db");
+const { query, withTransaction } = require("../config/db");
 const { logger } = require("../utils/logger");
 const v106Runtime = require("../db/v106-runtime");
 const fifo2 = require("./v2-rotation.service");
@@ -61,8 +61,10 @@ async function logRollupEvent(eventData, options = {}) {
   }
 }
 
-async function applyRollup(userId, opportunityId, options = {}) {
-  const dbClient = options.client;
+async function applyRollupInTransaction(userId, opportunityId, dbClient) {
+  if (!dbClient) {
+    throw new Error("ROLLUP_TRANSACTION_REQUIRED");
+  }
   try {
     const user = await findUserById(userId);
     if (!user) throw new Error("Utilisateur introuvable");
@@ -171,6 +173,33 @@ async function applyRollup(userId, opportunityId, options = {}) {
     logger.error("[Rollup] Erreur:", error);
     throw error;
   }
+}
+
+/*
+ * S3 — frontière transactionnelle Roll-Up / FIFO 2.
+ *
+ * - Si l'appelant possède déjà une transaction, on la réutilise.
+ * - Sinon applyRollup ouvre sa propre transaction.
+ *
+ * Ainsi le verrou advisory pris par FIFO 2 reste détenu jusqu'à
+ * l'enregistrement du placement et du rollup_log.
+ */
+async function applyRollup(userId, opportunityId, options = {}) {
+  if (options.client) {
+    return applyRollupInTransaction(
+      userId,
+      opportunityId,
+      options.client
+    );
+  }
+
+  return withTransaction(async (client) => {
+    return applyRollupInTransaction(
+      userId,
+      opportunityId,
+      client
+    );
+  });
 }
 
 async function getOpportunityParent(userId, opportunityId) {
