@@ -419,7 +419,7 @@ test("S4 - la transition clôt le marqueur des leaders pré-lancement", async ()
         is_leader: true,
         is_prelaunch_leader: true,
         email_confirmed: true,
-        status: "active"
+        status: index % 2 === 0 ? "active" : "ACTIVE"
       });
     }
 
