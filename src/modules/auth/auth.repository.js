@@ -413,8 +413,7 @@ async function activatePrelaunchLeadersIfLimitReached(options = {}) {
     WHERE is_leader = true
       AND is_prelaunch_leader = true
       AND email_confirmed = true
-      AND status = 'active'
-      AND link_active = false
+      AND lower(coalesce(status, '')) = 'active'
     RETURNING id
     `
   );
