@@ -10,13 +10,12 @@
 class OpportunityRegistry {
   constructor() {
     this.modules = new Map();
-    this.databaseSlugs = new Set();
   }
 
   /**
    * Enregistre un module d'opportunité
    */
-  register(slug, moduleConfig, source = "manual") {
+  register(slug, moduleConfig) {
     if (!slug || typeof slug !== "string") {
       throw new Error("Le slug du module est obligatoire.");
     }
@@ -29,11 +28,6 @@ class OpportunityRegistry {
       slug,
       ...moduleConfig
     });
-    if (source === "database") {
-      this.databaseSlugs.add(slug);
-    } else {
-      this.databaseSlugs.delete(slug);
-    }
 
     console.log(`[Registry] Module "${slug}" enregistré.`);
   }
@@ -107,17 +101,9 @@ class OpportunityRegistry {
 
     try {
       const activeOpportunities = await opportunityRepository.findAllActive();
-      const activeSlugs = new Set(activeOpportunities.map((opportunity) => opportunity.slug));
-
-      for (const slug of this.databaseSlugs) {
-        if (!activeSlugs.has(slug)) {
-          this.modules.delete(slug);
-          this.databaseSlugs.delete(slug);
-        }
-      }
 
       activeOpportunities.forEach((opportunity) => {
-        if (!this.has(opportunity.slug) || this.databaseSlugs.has(opportunity.slug)) {
+        if (!this.has(opportunity.slug)) {
           this.register(opportunity.slug, {
             id: opportunity.id,
             name: opportunity.name,
@@ -135,7 +121,7 @@ class OpportunityRegistry {
               rootSponsorLink: opportunity.root_sponsor_link || null,
             dependsOn: opportunity.depends_on || null,
             requiresUserLink: opportunity.requires_user_link !== false
-          }, "database");
+          });
         }
       });
 
