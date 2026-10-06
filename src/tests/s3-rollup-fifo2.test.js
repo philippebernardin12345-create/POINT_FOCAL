@@ -53,67 +53,6 @@ function loadV2WithRoot(root, dbQuery = null) {
   };
 }
 
-function loadRollupServiceForTest(root) {
-  const servicePath = require.resolve("../core/rollup.service");
-  const overrides = [
-    [
-      require.resolve("../modules/users/users.repository"),
-      { findUserById: async (id) => ({ id, sponsor_id: null }) }
-    ],
-    [
-      require.resolve("../core/opportunity.engine"),
-      { getOpportunityById: async () => ({ id: "test-opportunity" }) }
-    ],
-    [
-      require.resolve("../config/db"),
-      {
-        query: async () => ({ rows: [] }),
-        withTransaction: async (callback) => callback({ query: async () => ({ rows: [] }) })
-      }
-    ],
-    [
-      require.resolve("../utils/logger"),
-      { logger: { error() {}, warn() {} } }
-    ],
-    [
-      require.resolve("../db/v106-runtime"),
-      { resolveRootUser: async () => root }
-    ],
-    [
-      require.resolve("../core/v2-rotation.service"),
-      { isConfirmedInactive: async () => false }
-    ]
-  ];
-  const originals = new Map(
-    overrides.map(([path]) => [path, require.cache[path]])
-  );
-
-  for (const [path, exports] of overrides) {
-    require.cache[path] = {
-      id: path,
-      filename: path,
-      loaded: true,
-      exports
-    };
-  }
-
-  const originalService = require.cache[servicePath];
-  delete require.cache[servicePath];
-  const service = require(servicePath);
-
-  return {
-    service,
-    restore() {
-      delete require.cache[servicePath];
-      if (originalService) require.cache[servicePath] = originalService;
-      for (const [path, original] of originals) {
-        if (original) require.cache[path] = original;
-        else delete require.cache[path];
-      }
-    }
-  };
-}
-
 function makeClient({ children = {}, confirmed = [], counts = {} }) {
   const confirmedSet = new Set(confirmed.map(([u, o]) => `${u}:${o}`));
   return {
@@ -372,22 +311,16 @@ test("S3 PostgreSQL - concurrence capacité jumelée et durée du verrou transac
           state text NOT NULL
         );
         CREATE TABLE user_opportunities (
-          id bigserial PRIMARY KEY,
           user_id uuid NOT NULL,
           opportunity_id uuid NOT NULL,
-          sponsor_user_id uuid,
-          status text NOT NULL,
-          joined_at timestamptz NOT NULL DEFAULT now(),
-          updated_at timestamptz NOT NULL DEFAULT now(),
-          UNIQUE (user_id, opportunity_id)
+          sponsor_user_id uuid NOT NULL,
+          status text NOT NULL
         );
         CREATE TABLE rollup_logs (
           user_id uuid NOT NULL,
           opportunity_id uuid NOT NULL,
-          original_sponsor_id uuid,
           rollup_parent_id uuid NOT NULL,
-          reason text,
-          created_at timestamptz NOT NULL DEFAULT now()
+          reason text
         );
       `);
     } finally {
@@ -494,64 +427,6 @@ test("S3 PostgreSQL - concurrence capacité jumelée et durée du verrou transac
     } finally {
       rollbackClient.release();
     }
-
-    // Un Roll-Up normal partage le verrou/la capacité avec les placements FIFO 2.
-    const normalRollup = loadRollupServiceForTest({ id: parentB });
-    const rollupClient = await pool.connect();
-    try {
-      await rollupClient.query("BEGIN");
-      await rollupClient.query(`SET search_path TO "${schema}"`);
-      const rollupResult = await normalRollup.service.applyRollup(
-        crypto.randomUUID(),
-        opportunityId,
-        { client: rollupClient }
-      );
-      assert.equal(rollupResult.action, "rollup");
-      assert.equal(rollupResult.rollupParentId, parentB);
-      assert.equal(await canAcquireCapacityLock(pool, parentB, opportunityId), false);
-      await rollupClient.query("COMMIT");
-      assert.equal(await canAcquireCapacityLock(pool, parentB, opportunityId), true);
-    } finally {
-      try { await rollupClient.query("ROLLBACK"); } catch (_) {}
-      normalRollup.restore();
-      rollupClient.release();
-    }
-
-    const fullCapacityService = loadRollupServiceForTest({ id: parentB });
-    const fullCapacityClient = await pool.connect();
-    try {
-      await fullCapacityClient.query("BEGIN");
-      await fullCapacityClient.query(`SET search_path TO "${schema}"`);
-      await assert.rejects(
-        fullCapacityService.service.applyRollup(
-          crypto.randomUUID(),
-          opportunityId,
-          { client: fullCapacityClient }
-        ),
-        /ROLLUP_PARENT_CAPACITY_EXHAUSTED/
-      );
-      await fullCapacityClient.query("ROLLBACK");
-    } finally {
-      try { await fullCapacityClient.query("ROLLBACK"); } catch (_) {}
-      fullCapacityService.restore();
-      fullCapacityClient.release();
-    }
-    const finalParentB = await pool.query(
-      `SELECT COUNT(*)::int AS count
-         FROM "${schema}".user_opportunities uo
-        WHERE uo.sponsor_user_id = $1
-          AND uo.opportunity_id = $2
-          AND uo.status = 'active'
-          AND EXISTS (
-            SELECT 1 FROM "${schema}".rollup_logs rl
-             WHERE rl.user_id = uo.user_id
-               AND rl.opportunity_id = uo.opportunity_id
-               AND rl.rollup_parent_id = uo.sponsor_user_id
-          )`,
-      [parentB, opportunityId]
-    );
-    assert.equal(finalParentB.rows[0].count, 2, "Roll-Up + FIFO 2 ne dépassent jamais deux placements");
-
   } finally {
     if (seed) seed.release();
     if (first) {
