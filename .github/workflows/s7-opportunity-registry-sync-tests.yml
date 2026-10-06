@@ -1,0 +1,26 @@
+name: S7 Opportunity Registry Synchronization
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  registry-sync-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check syntax
+        run: |
+          node --check src/modules/opportunities/opportunities.registry.js
+          node --check src/tests/s7-opportunity-registry-sync.test.js
+      - name: Run registry synchronization tests
+        run: node --test src/tests/s7-opportunity-registry-sync.test.js
