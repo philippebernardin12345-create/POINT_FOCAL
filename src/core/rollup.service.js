@@ -61,6 +61,40 @@ async function logRollupEvent(eventData, options = {}) {
   }
 }
 
+async function lockRollupParentCapacity(client, parentId, opportunityId) {
+  await client.query(
+    `SELECT pg_advisory_xact_lock(
+       hashtextextended($1::text || ':' || $2::text, 0)
+     )`,
+    [parentId, opportunityId]
+  );
+
+  const result = await client.query(
+    `SELECT COUNT(DISTINCT uo.user_id)::int AS count
+       FROM user_opportunities uo
+      WHERE uo.sponsor_user_id = $1
+        AND uo.opportunity_id = $2
+        AND uo.status = 'active'
+        AND EXISTS (
+          SELECT 1
+            FROM rollup_logs rl
+           WHERE rl.user_id = uo.user_id
+             AND rl.opportunity_id = uo.opportunity_id
+             AND rl.rollup_parent_id = uo.sponsor_user_id
+             AND rl.reason IN (
+               'sponsor_not_in_opportunity',
+               'confirmed_root_inactivity_fifo2',
+               'confirmed_account_inactivity_fifo2'
+             )
+        )`,
+    [parentId, opportunityId]
+  );
+
+  if (Number(result.rows[0]?.count || 0) >= 2) {
+    throw new Error("ROLLUP_PARENT_CAPACITY_EXHAUSTED");
+  }
+}
+
 async function applyRollupInTransaction(userId, opportunityId, dbClient) {
   if (!dbClient) {
     throw new Error("ROLLUP_TRANSACTION_REQUIRED");
@@ -142,6 +176,9 @@ async function applyRollupInTransaction(userId, opportunityId, dbClient) {
     if (String(rollupParentId) === String(userId)) {
       throw new Error("Le parent de roll-up ne peut pas être l'utilisateur lui-même");
     }
+
+    // Roll-Up normal et FIFO 2 partagent le même verrou et le même plafond.
+    await lockRollupParentCapacity(dbClient, rollupParentId, opportunityId);
 
     if (!(await hasUserJoinedOpportunity(rollupParentId, opportunityId, { client: dbClient }))) {
       await addUserToOpportunity(rollupParentId, opportunityId, null, { client: dbClient });
