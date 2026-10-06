@@ -14,10 +14,12 @@ if (process.env.TEST_DATABASE_URL) {
  * métier sans dépendre d'une base distante.
  */
 
-function loadV2WithRoot(root) {
+function loadV2WithRoot(root, dbQuery = null) {
   const runtimePath = require.resolve("../db/v106-runtime");
+  const dbPath = require.resolve("../config/db");
   const servicePath = require.resolve("../core/v2-rotation.service");
   const originalRuntime = require.cache[runtimePath];
+  const originalDb = require.cache[dbPath];
 
   require.cache[runtimePath] = {
     id: runtimePath,
@@ -25,6 +27,17 @@ function loadV2WithRoot(root) {
     loaded: true,
     exports: { resolveRootUser: async () => root }
   };
+  if (dbQuery) {
+    require.cache[dbPath] = {
+      id: dbPath,
+      filename: dbPath,
+      loaded: true,
+      exports: {
+        query: dbQuery,
+        withTransaction: async (callback) => callback({ query: dbQuery })
+      }
+    };
+  }
   delete require.cache[servicePath];
   const service = require(servicePath);
 
@@ -34,6 +47,8 @@ function loadV2WithRoot(root) {
       delete require.cache[servicePath];
       if (originalRuntime) require.cache[runtimePath] = originalRuntime;
       else delete require.cache[runtimePath];
+      if (originalDb) require.cache[dbPath] = originalDb;
+      else delete require.cache[dbPath];
     }
   };
 }
@@ -119,6 +134,29 @@ test("S3 - un compte Y non-racine confirmé inactif déclenche FIFO2 depuis sa d
     assert.equal(result.unavailableUserId, "y");
     assert.equal(result.rootId, "root");
     assert.equal(result.structuralRootUnchanged, true);
+  } finally {
+    loaded.restore();
+  }
+});
+
+test("S3 - vérification d'inactivité sans client utilise la connexion DB par défaut", async () => {
+  let calls = 0;
+  const loaded = loadV2WithRoot(
+    { id: "root" },
+    async (sql, params) => {
+      calls += 1;
+      assert.match(sql, /opportunity_inactivity_confirmations/);
+      assert.deepEqual(params, ["y", "oppA"]);
+      return { rows: [{ ok: 1 }] };
+    }
+  );
+
+  try {
+    assert.equal(
+      await loaded.service.isConfirmedInactive(null, "y", "oppA"),
+      true
+    );
+    assert.equal(calls, 1);
   } finally {
     loaded.restore();
   }
