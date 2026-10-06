@@ -21,6 +21,7 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 const { runPendingMigrations } = require("../db/migration-runner");
 const runtime = require("../db/v106-runtime");
 const db = require("../config/db");
+const authRepository = require("../modules/auth/auth.repository");
 
 function createPool() {
   return new Pool({
@@ -384,6 +385,65 @@ test("Test 8 - 49 leaders: aucune transition", async () => {
   }
 });
 
+test("S4 - les comptes invalides ne comptent pas vers les 50 leaders", async () => {
+  const context = await setupDatabase();
+
+  try {
+    for (let index = 0; index < 49; index += 1) {
+      await insertUser(context.client, {
+        is_leader: true,
+        is_prelaunch_leader: true,
+        email_confirmed: true,
+        status: "active"
+      });
+    }
+
+    await insertUser(context.client, {
+      is_leader: false,
+      is_prelaunch_leader: true,
+      email_confirmed: true,
+      status: "active"
+    });
+    await insertUser(context.client, {
+      is_leader: true,
+      is_prelaunch_leader: false,
+      email_confirmed: true,
+      status: "active"
+    });
+    await insertUser(context.client, {
+      is_leader: true,
+      is_prelaunch_leader: true,
+      email_confirmed: false,
+      status: "active"
+    });
+    await insertUser(context.client, {
+      is_leader: true,
+      is_prelaunch_leader: true,
+      email_confirmed: true,
+      status: "suspended"
+    });
+
+    const state = await runtime.transitionPhaseToNormalOperation({
+      client: context.client
+    });
+    const events = await countRows(
+      context.client,
+      "v106_phase_transition_events"
+    );
+    const activeLinks = await context.client.query(
+      "SELECT COUNT(*)::int AS count FROM users WHERE link_active = true"
+    );
+
+    assert.equal(state.phase, "LEADER_LAUNCH");
+    assert.equal(state.leader_count, 49);
+    assert.equal(state.transitioned, false);
+    assert.equal(events, 0);
+    assert.equal(activeLinks.rows[0].count, 0);
+  } finally {
+    await context.teardown();
+  }
+});
+
 test("Test 9 - 50 leaders: NORMAL_OPERATION", async () => {
   const context = await setupDatabase();
 
@@ -404,6 +464,75 @@ test("Test 9 - 50 leaders: NORMAL_OPERATION", async () => {
     assert.equal(state.phase, "NORMAL_OPERATION");
     assert.equal(state.leader_count, 50);
     assert.equal(state.transitioned, true);
+  } finally {
+    await context.teardown();
+  }
+});
+
+test("S4 - la transition clôt le marqueur des leaders pré-lancement", async () => {
+  const context = await setupDatabase();
+
+  try {
+    const root = await insertUser(context.client, { status: "active" });
+    await runtime.setRootUser(root.id, { client: context.client });
+
+    const leaders = [];
+    for (let index = 0; index < 50; index += 1) {
+      leaders.push(await insertUser(context.client, {
+        sponsor_id: root.id,
+        is_leader: true,
+        is_prelaunch_leader: true,
+        email_confirmed: true,
+        status: index % 2 === 0 ? "active" : "ACTIVE"
+      }));
+    }
+
+    await runtime.assignGlobalSponsor(
+      root.id,
+      leaders[0].id,
+      { client: context.client }
+    );
+
+    const genealogyBefore = await context.client.query(
+      "SELECT sponsor_id::text AS sponsor_id FROM users WHERE id = $1",
+      [leaders[0].id]
+    );
+    const placementsBefore = await countRows(
+      context.client,
+      "v106_global_sponsorships"
+    );
+
+    const transition = await runtime.transitionPhaseToNormalOperation({
+      client: context.client
+    });
+    const activation =
+      await authRepository.activatePrelaunchLeadersIfLimitReached({
+        client: context.client
+      });
+
+    const activeLinks = await context.client.query(
+      "SELECT COUNT(*)::int AS count FROM users WHERE is_leader = true AND link_active = true"
+    );
+    const prelaunchMarkers = await context.client.query(
+      "SELECT COUNT(*)::int AS count FROM users WHERE is_leader = true AND is_prelaunch_leader = true"
+    );
+
+    assert.equal(transition.phase, "NORMAL_OPERATION");
+    assert.equal(transition.transitioned, true);
+    assert.equal(activeLinks.rows[0].count, 50);
+    assert.equal(activation.activatedCount, 50);
+    assert.equal(prelaunchMarkers.rows[0].count, 0);
+
+    const genealogyAfter = await context.client.query(
+      "SELECT sponsor_id::text AS sponsor_id FROM users WHERE id = $1",
+      [leaders[0].id]
+    );
+    const placementsAfter = await countRows(
+      context.client,
+      "v106_global_sponsorships"
+    );
+    assert.equal(genealogyAfter.rows[0].sponsor_id, genealogyBefore.rows[0].sponsor_id);
+    assert.equal(placementsAfter, placementsBefore);
   } finally {
     await context.teardown();
   }
