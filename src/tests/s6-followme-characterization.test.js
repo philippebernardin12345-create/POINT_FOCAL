@@ -29,7 +29,10 @@ function loadFollowMe({ joinedInOpportunity }) {
     }
   };
   const db = {
-    async query() { return { rows: [] }; },
+    async query(sql, params = [], client = null) {
+      if (client) return client.query(sql, params);
+      return { rows: [] };
+    },
     async withTransaction(callback) { return callback(dbClient); }
   };
   const mocks = [
