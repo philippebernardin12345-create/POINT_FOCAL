@@ -103,8 +103,7 @@ class OpportunityRegistry {
       const activeOpportunities = await opportunityRepository.findAllActive();
 
       activeOpportunities.forEach((opportunity) => {
-        if (!this.has(opportunity.slug)) {
-          this.register(opportunity.slug, {
+        this.register(opportunity.slug, {
             id: opportunity.id,
             name: opportunity.name,
             description: opportunity.description,
@@ -121,8 +120,7 @@ class OpportunityRegistry {
               rootSponsorLink: opportunity.root_sponsor_link || null,
             dependsOn: opportunity.depends_on || null,
             requiresUserLink: opportunity.requires_user_link !== false
-          });
-        }
+        });
       });
 
       console.log(`[Registry] ${this.modules.size} modules chargés depuis la DB.`);
