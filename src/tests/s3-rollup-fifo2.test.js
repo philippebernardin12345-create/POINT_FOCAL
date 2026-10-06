@@ -248,7 +248,13 @@ async function canAcquireCapacityLock(pool, parentId, opportunityId) {
   }
 }
 
-async function writePlacement(client, userId, opportunityId, parentId) {
+async function writePlacement(
+  client,
+  userId,
+  opportunityId,
+  parentId,
+  reason = "confirmed_account_inactivity_fifo2"
+) {
   await client.query(
     `INSERT INTO user_opportunities (user_id, opportunity_id, sponsor_user_id, status)
      VALUES ($1, $2, $3, 'active')`,
@@ -256,8 +262,8 @@ async function writePlacement(client, userId, opportunityId, parentId) {
   );
   await client.query(
     `INSERT INTO rollup_logs (user_id, opportunity_id, rollup_parent_id, reason)
-     VALUES ($1, $2, $3, 'confirmed_account_inactivity_fifo2')`,
-    [userId, opportunityId, parentId]
+     VALUES ($1, $2, $3, $4)`,
+    [userId, opportunityId, parentId, reason]
   );
 }
 
@@ -347,7 +353,13 @@ test("S3 PostgreSQL - concurrence capacité jumelée et durée du verrou transac
        VALUES ($1, $2, 'confirmed')`,
       [rootId, opportunityId]
     );
-    await writePlacement(seed, existingPlacement, opportunityId, parentA);
+    await writePlacement(
+      seed,
+      existingPlacement,
+      opportunityId,
+      parentA,
+      "sponsor_not_in_opportunity"
+    );
     seed.release();
     seed = null;
 
