@@ -15,7 +15,8 @@ async function getDirectChildren(client, parentId) {
 }
 
 async function isConfirmedInactive(client, userId, opportunityId) {
-  const result = await client.query(
+  const executeQuery = client ? client.query.bind(client) : db.query;
+  const result = await executeQuery(
     `SELECT 1
        FROM opportunity_inactivity_confirmations
       WHERE user_id = $1
