@@ -92,6 +92,41 @@ test("S7 - renvoie l'étape suivante dans l'ordre de priorité parmi les opportu
   assert.equal(selected.id, "step-b");
 });
 
+test("S7 - recharge les changements de disponibilité depuis la base", async () => {
+  registry.modules.clear();
+
+  const initialOpportunity = {
+    id: "opportunity-1",
+    slug: "opportunity-1",
+    name: "Opportunity 1",
+    status: "ACTIVE",
+    is_available: true,
+    priority: 10,
+    is_entry: true,
+    generates_link: false
+  };
+  const updatedOpportunity = {
+    ...initialOpportunity,
+    is_available: false,
+    priority: 1
+  };
+
+  await registry.loadFromDatabase({
+    async findAllActive() {
+      return [initialOpportunity];
+    }
+  });
+  await registry.loadFromDatabase({
+    async findAllActive() {
+      return [updatedOpportunity];
+    }
+  });
+
+  const selected = await engine.getEntryOpportunity();
+
+  assert.equal(selected, null);
+});
+
 test("S7 - sans opportunité courante reconnue, repart de la première disponible", async () => {
   loadOpportunities([
     opportunity({ slug: "step-b", id: "step-b", priority: 20 }),
