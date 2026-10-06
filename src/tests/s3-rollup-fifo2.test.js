@@ -377,6 +377,8 @@ test("S3 PostgreSQL - concurrence capacité jumelée et durée du verrou transac
           opportunity_id uuid NOT NULL,
           sponsor_user_id uuid,
           status text NOT NULL,
+          joined_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now(),
           UNIQUE (user_id, opportunity_id)
         );
         CREATE TABLE rollup_logs (
@@ -493,6 +495,7 @@ test("S3 PostgreSQL - concurrence capacité jumelée et durée du verrou transac
       await rollupClient.query("COMMIT");
       assert.equal(await canAcquireCapacityLock(pool, parentB, opportunityId), true);
     } finally {
+      try { await rollupClient.query("ROLLBACK"); } catch (_) {}
       normalRollup.restore();
       rollupClient.release();
     }
@@ -512,6 +515,7 @@ test("S3 PostgreSQL - concurrence capacité jumelée et durée du verrou transac
       );
       await fullCapacityClient.query("ROLLBACK");
     } finally {
+      try { await fullCapacityClient.query("ROLLBACK"); } catch (_) {}
       fullCapacityService.restore();
       fullCapacityClient.release();
     }
