@@ -478,6 +478,23 @@ test("S3 PostgreSQL - concurrence capacité jumelée et durée du verrou transac
     assert.equal(byParent.get(parentA), 2, "le premier parent doit finir à exactement 2");
     assert.equal(byParent.get(parentB), 1, "la transaction concurrente doit avancer au parent suivant");
 
+    // Un verrou xactuel doit également être libéré par ROLLBACK.
+    const rollbackClient = await pool.connect();
+    try {
+      await rollbackClient.query("BEGIN");
+      await rollbackClient.query(`SET search_path TO "${schema}"`);
+      const rollbackCandidate = await loaded.service.getV2Parent(crypto.randomUUID(), opportunityId, {
+        client: rollbackClient,
+        unavailableUserId: rootId
+      });
+      assert.equal(rollbackCandidate.parentId, parentB);
+      assert.equal(await canAcquireCapacityLock(pool, parentB, opportunityId), false);
+      await rollbackClient.query("ROLLBACK");
+      assert.equal(await canAcquireCapacityLock(pool, parentB, opportunityId), true);
+    } finally {
+      rollbackClient.release();
+    }
+
     // Un Roll-Up normal partage le verrou/la capacité avec les placements FIFO 2.
     const normalRollup = loadRollupServiceForTest({ id: parentB });
     const rollupClient = await pool.connect();
@@ -535,22 +552,6 @@ test("S3 PostgreSQL - concurrence capacité jumelée et durée du verrou transac
     );
     assert.equal(finalParentB.rows[0].count, 2, "Roll-Up + FIFO 2 ne dépassent jamais deux placements");
 
-    // Un verrou xactuel doit également être libéré par ROLLBACK.
-    const rollbackClient = await pool.connect();
-    try {
-      await rollbackClient.query("BEGIN");
-      await rollbackClient.query(`SET search_path TO "${schema}"`);
-      const rollbackCandidate = await loaded.service.getV2Parent(crypto.randomUUID(), opportunityId, {
-        client: rollbackClient,
-        unavailableUserId: rootId
-      });
-      assert.equal(rollbackCandidate.parentId, parentB);
-      assert.equal(await canAcquireCapacityLock(pool, parentB, opportunityId), false);
-      await rollbackClient.query("ROLLBACK");
-      assert.equal(await canAcquireCapacityLock(pool, parentB, opportunityId), true);
-    } finally {
-      rollbackClient.release();
-    }
   } finally {
     if (seed) seed.release();
     if (first) {
