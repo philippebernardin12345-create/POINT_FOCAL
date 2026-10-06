@@ -21,6 +21,7 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 const { runPendingMigrations } = require("../db/migration-runner");
 const runtime = require("../db/v106-runtime");
 const db = require("../config/db");
+const authRepository = require("../modules/auth/auth.repository");
 
 function createPool() {
   return new Pool({
@@ -404,6 +405,44 @@ test("Test 9 - 50 leaders: NORMAL_OPERATION", async () => {
     assert.equal(state.phase, "NORMAL_OPERATION");
     assert.equal(state.leader_count, 50);
     assert.equal(state.transitioned, true);
+  } finally {
+    await context.teardown();
+  }
+});
+
+test("S4 - la transition clôt le marqueur des leaders pré-lancement", async () => {
+  const context = await setupDatabase();
+
+  try {
+    for (let index = 0; index < 50; index += 1) {
+      await insertUser(context.client, {
+        is_leader: true,
+        is_prelaunch_leader: true,
+        email_confirmed: true,
+        status: "active"
+      });
+    }
+
+    const transition = await runtime.transitionPhaseToNormalOperation({
+      client: context.client
+    });
+    const activation =
+      await authRepository.activatePrelaunchLeadersIfLimitReached({
+        client: context.client
+      });
+
+    const activeLinks = await context.client.query(
+      "SELECT COUNT(*)::int AS count FROM users WHERE is_leader = true AND link_active = true"
+    );
+    const prelaunchMarkers = await context.client.query(
+      "SELECT COUNT(*)::int AS count FROM users WHERE is_leader = true AND is_prelaunch_leader = true"
+    );
+
+    assert.equal(transition.phase, "NORMAL_OPERATION");
+    assert.equal(transition.transitioned, true);
+    assert.equal(activeLinks.rows[0].count, 50);
+    assert.equal(activation.activatedCount, 50);
+    assert.equal(prelaunchMarkers.rows[0].count, 0);
   } finally {
     await context.teardown();
   }
