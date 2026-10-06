@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const path = require("node:path");
 
 function loadFollowMe({ joinedInOpportunity }) {
   const modulePaths = [
@@ -11,7 +12,7 @@ function loadFollowMe({ joinedInOpportunity }) {
     "./v2-rotation.service",
     "../db/v106-runtime",
     "../utils/validators"
-  ].map((path) => require.resolve(path, { paths: [__dirname + "/../core"] }));
+  ].map((request) => require.resolve(path.resolve(__dirname, "../core", request)));
   const originals = new Map(modulePaths.map((path) => [path, require.cache[path]]));
   const writes = [];
   const rollupCalls = [];
