@@ -48,7 +48,7 @@ function mockModule(request, exports) {
 mockModule("../modules/victory/victory.repository", repository);
 mockModule("../modules/opportunities/opportunities.service", opportunityService);
 mockModule("../modules/video/video.service", videoService);
-mockModule("../../core/opportunity.engine", opportunityEngine);
+mockModule("../core/opportunity.engine", opportunityEngine);
 
 const victoryService = require("../modules/victory/victory.service");
 
