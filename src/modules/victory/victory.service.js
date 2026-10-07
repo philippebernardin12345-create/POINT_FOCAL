@@ -91,8 +91,33 @@ function buildVictoryLink(identifier) {
   );
 }
 
-async function requireCompletedVideo(userId) {
-  if (!(await videoService.isVideoCompleted(userId))) {
+function hasActivePointFocalLink(user) {
+  const linkActive =
+    user &&
+    (
+      user.link_active === true ||
+      user.link_active === 1 ||
+      String(user.link_active).toLowerCase() === "true"
+    );
+
+  const invitationCode = String(
+    user?.invitation_code ?? ""
+  ).trim();
+
+  return Boolean(linkActive && invitationCode);
+}
+
+async function requireCompletedVideo(user) {
+  /*
+   * Un compte qui possède déjà un lien POINT FOCAL actif
+   * et son code d'invitation ne repasse pas la vidéo.
+   * Ces deux valeurs proviennent du profil chargé en base.
+   */
+  if (hasActivePointFocalLink(user)) {
+    return;
+  }
+
+  if (!(await videoService.isVideoCompleted(user.id))) {
     throw new Error(
       "La vidéo obligatoire de 200 secondes doit être validée avant de continuer."
     );
@@ -117,7 +142,7 @@ async function assignVictoryLink(userId, options = {}) {
     );
   }
 
-  await requireCompletedVideo(userId);
+  await requireCompletedVideo(userWithSponsor);
 
   if (
     userWithSponsor.victory_expired === true ||
@@ -284,7 +309,7 @@ async function saveVictoryPersonalLink(
     );
   }
 
-  await requireCompletedVideo(userId);
+  await requireCompletedVideo(user);
 
   if (
     user.victory_expired === true ||
