@@ -6,6 +6,8 @@ const opportunityService = require(
   "../opportunities/opportunities.service"
 );
 
+const videoService = require("../video/video.service");
+
 const { getEntryOpportunity } = require("../../core/opportunity.engine");
 
 function normalizeVictoryLink(victoryLink) {
@@ -89,6 +91,14 @@ function buildVictoryLink(identifier) {
   );
 }
 
+async function requireCompletedVideo(userId) {
+  if (!(await videoService.isVideoCompleted(userId))) {
+    throw new Error(
+      "La vidéo obligatoire de 200 secondes doit être validée avant de continuer."
+    );
+  }
+}
+
 async function assignVictoryLink(userId, options = {}) {
   if (!userId) {
     throw new Error(
@@ -106,6 +116,8 @@ async function assignVictoryLink(userId, options = {}) {
       "Utilisateur introuvable."
     );
   }
+
+  await requireCompletedVideo(userId);
 
   if (
     userWithSponsor.victory_expired === true ||
@@ -271,6 +283,8 @@ async function saveVictoryPersonalLink(
       "Utilisateur introuvable."
     );
   }
+
+  await requireCompletedVideo(userId);
 
   if (
     user.victory_expired === true ||

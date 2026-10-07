@@ -1,0 +1,28 @@
+name: Victory mandatory video gate
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  victory-video-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check syntax
+        run: |
+          node --check src/modules/video/video.service.js
+          node --check src/modules/victory/victory.repository.js
+          node --check src/modules/victory/victory.service.js
+          node --check src/tests/victory-video-gate.test.js
+      - name: Run video gate tests
+        run: node --test src/tests/victory-video-gate.test.js

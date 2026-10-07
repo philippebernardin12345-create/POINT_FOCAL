@@ -66,6 +66,16 @@ async function updateProgress(userId, watchedSeconds) {
   return formatVideoSession(session);
 }
 
+async function isVideoCompleted(userId) {
+  const session = await videoRepository.findVideoStateByUserId(userId);
+
+  return Boolean(
+    session &&
+    session.is_completed === true &&
+    Number(session.watched_seconds) >= VIDEO_REQUIRED_SECONDS
+  );
+}
+
 function formatVideoSession(session) {
   if (!session) return null;
 
@@ -87,5 +97,6 @@ function formatVideoSession(session) {
 module.exports = {
   VIDEO_REQUIRED_SECONDS,
   getOrCreateVideoSession,
-  updateProgress
+  updateProgress,
+  isVideoCompleted
 };
