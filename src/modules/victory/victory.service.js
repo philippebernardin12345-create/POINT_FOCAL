@@ -6,6 +6,8 @@ const opportunityService = require(
   "../opportunities/opportunities.service"
 );
 
+const videoService = require("../video/video.service");
+
 const { getEntryOpportunity } = require("../../core/opportunity.engine");
 
 function normalizeVictoryLink(victoryLink) {
@@ -104,6 +106,19 @@ async function assignVictoryLink(userId, options = {}) {
   if (!userWithSponsor) {
     throw new Error(
       "Utilisateur introuvable."
+    );
+  }
+
+  const hasActivePointFocalLink =
+    userWithSponsor.link_active === true &&
+    String(userWithSponsor.invitation_code || "").trim() !== "";
+
+  if (
+    !hasActivePointFocalLink &&
+    !(await videoService.isVideoCompleted(userId))
+  ) {
+    throw new Error(
+      "La vidéo obligatoire de 200 secondes doit être validée avant l’attribution du lien Victory Automatic."
     );
   }
 
