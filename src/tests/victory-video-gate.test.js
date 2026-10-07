@@ -19,21 +19,25 @@ const repository = {
       victory_expires_at: expiresAt
     };
   },
-  saveVictoryPersonalLink: async () => {
+  saveVictoryPersonalLink: async (userId, link) => {
     repository.writes += 1;
-    return null;
+    return { id: userId, victory_personal_link: link };
   },
   findUserByVictoryPersonalLink: async () => null
 };
 
 const opportunityService = {
   registerFollowMeLink: async () => {
-    throw new Error("registerFollowMeLink must not run in this test");
+    repository.writes += 1;
+    return { id: "assignment-1" };
   }
 };
 
 const videoService = { completed: false, isVideoCompleted: async () => videoService.completed };
-const opportunityEngine = { getEntryOpportunity: async () => null };
+const opportunityEngine = {
+  opportunity: null,
+  getEntryOpportunity: async () => opportunityEngine.opportunity
+};
 
 function mockModule(request, exports) {
   const filename = require.resolve(request);
@@ -56,13 +60,48 @@ function reset() {
   repository.user = null;
   repository.writes = 0;
   videoService.completed = false;
+  opportunityEngine.opportunity = null;
 }
 
-test("assignment rejects incomplete video even when the account link is active", async () => {
+test("assignment skips video for an existing active Point Focal link with invitation code", async () => {
   reset();
   repository.user = {
     id: "user-1",
     link_active: true,
+    invitation_code: "PF-LEADER",
+    sponsor_user_id: "sponsor-1",
+    sponsor_victory_link: "https://victoryautomatic.com/user/register/sponsor",
+    status: "active"
+  };
+
+  const result = await victoryService.assignVictoryLink("user-1");
+
+  assert.equal(result.source, "sponsor");
+  assert.equal(result.victoryParentIdentifier, "sponsor");
+  assert.equal(repository.writes, 2);
+});
+
+test("assignment still requires video when an active link has no invitation code", async () => {
+  reset();
+  repository.user = {
+    id: "user-1",
+    link_active: true,
+    invitation_code: " ",
+    status: "active"
+  };
+
+  await assert.rejects(
+    victoryService.assignVictoryLink("user-1"),
+    /vidéo obligatoire de 200 secondes/
+  );
+  assert.equal(repository.writes, 0);
+});
+
+test("assignment still requires video when the invitation code exists but the link is inactive", async () => {
+  reset();
+  repository.user = {
+    id: "user-1",
+    link_active: false,
     invitation_code: "PF-LEADER",
     status: "active"
   };
@@ -108,6 +147,31 @@ test("personal-link endpoint rejects incomplete video before any registration or
     /vidéo obligatoire de 200 secondes/
   );
   assert.equal(repository.writes, 0);
+});
+
+test("personal-link endpoint skips video only for an existing active Point Focal link with invitation code", async () => {
+  reset();
+  opportunityEngine.opportunity = { id: "opportunity-1" };
+  repository.user = {
+    id: "user-1",
+    status: "active",
+    link_active: true,
+    invitation_code: "PF-LEADER",
+    victory_started_at: new Date(),
+    victory_parent_identifier: "sponsor"
+  };
+
+  const result = await victoryService.saveVictoryPersonalLink(
+    "user-1",
+    "https://victoryautomatic.com/user/register/member"
+  );
+
+  assert.equal(
+    result.victoryPersonalLink,
+    "https://victoryautomatic.com/user/register/member"
+  );
+  assert.equal(result.opportunityId, "opportunity-1");
+  assert.equal(repository.writes, 2);
 });
 
 test("video service trusts only a completed server state with at least 200 seconds", async () => {
