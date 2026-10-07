@@ -16,6 +16,7 @@ async function findUserWithSponsor(userId) {
 u.victory_personal_link,
 u.victory_parent_identifier,
 u.link_active,
+u.invitation_code,
       sponsor.id AS sponsor_user_id,
       sponsor.email AS sponsor_email,
       sponsor.victory_personal_link AS sponsor_victory_link
