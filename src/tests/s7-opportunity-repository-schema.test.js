@@ -61,6 +61,7 @@ test("opportunity repository writes only schema-backed fields and maps availabil
 });
 
 test("opportunity repository rejects dependency fields absent from the schema", async () => {
+  statements.length = 0;
   await assert.rejects(
     repository.update("opportunity-1", { dependsOn: "previous-opportunity" }),
     /dependsOn/

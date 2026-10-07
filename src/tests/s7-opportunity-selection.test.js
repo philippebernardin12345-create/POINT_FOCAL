@@ -95,8 +95,8 @@ test("S7 - renvoie l'étape suivante selon position, même si priority classe au
 
 test("S7 - sans opportunité courante reconnue, repart de la première disponible", async () => {
   loadOpportunities([
-    opportunity({ slug: "step-b", id: "step-b", priority: 20 }),
-    opportunity({ slug: "step-a", id: "step-a", priority: 10 })
+    opportunity({ slug: "step-b", id: "step-b", priority: 1, position: 2 }),
+    opportunity({ slug: "step-a", id: "step-a", priority: 20, position: 1 })
   ]);
 
   const selected = await engine.getNextOpportunity("user-1", "unknown-step");
