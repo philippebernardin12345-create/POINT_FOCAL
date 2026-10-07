@@ -124,6 +124,24 @@ async function getNextOpportunity(userId, currentOpportunityId, options = {}) {
     };
     available.sort((a, b) => getPosition(a) - getPosition(b));
 
+    const seenPositions = new Set();
+    for (const opportunity of available) {
+      const position = getPosition(opportunity);
+      if (!Number.isFinite(position)) {
+        console.error(
+          `[OpportunityEngine] Position manquante pour l'opportunité "${opportunity.slug}".`
+        );
+        return null;
+      }
+      if (seenPositions.has(position)) {
+        console.error(
+          `[OpportunityEngine] Position ${position} dupliquée; le parcours est ambigu.`
+        );
+        return null;
+      }
+      seenPositions.add(position);
+    }
+
     // Trouver l'index de l'opportunité actuelle
     const currentIndex = available.findIndex(opp => opp.id === currentOpportunityId);
 
