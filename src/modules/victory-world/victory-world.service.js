@@ -1,6 +1,9 @@
 const repository =
   require("./victory-world.repository");
 const {
+  assertVictoryAutomaticEligible
+} = require("./victory-world-eligibility");
+const {
   getOpportunityBySlug,
   getNextOpportunity
 } = require("../../core/opportunity.engine");
@@ -239,6 +242,8 @@ async function assignSponsor(userId) {
     );
   }
 
+  assertVictoryAutomaticEligible(user);
+
   const assignment =
     await ensureAssignedSponsor(
       user
@@ -273,6 +278,8 @@ async function saveLink(
       "Utilisateur introuvable."
     );
   }
+
+  assertVictoryAutomaticEligible(user);
 
   if (
     user.victory_world_status ===
