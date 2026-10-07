@@ -113,8 +113,16 @@ async function getNextOpportunity(userId, currentOpportunityId, options = {}) {
       return isActive && isAvailable;
     });
 
-    // Trier par priorité
-    available.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+    // L'ordre du parcours est porté par position. priority ne classe que
+    // les candidates à l'opportunité d'entrée.
+    const getPosition = (opportunity) => {
+      if (opportunity.position === null || opportunity.position === undefined || opportunity.position === "") {
+        return Number.POSITIVE_INFINITY;
+      }
+      const position = Number(opportunity.position);
+      return Number.isFinite(position) ? position : Number.POSITIVE_INFINITY;
+    };
+    available.sort((a, b) => getPosition(a) - getPosition(b));
 
     // Trouver l'index de l'opportunité actuelle
     const currentIndex = available.findIndex(opp => opp.id === currentOpportunityId);

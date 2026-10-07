@@ -1,5 +1,23 @@
 const repository =
   require("./victory-world.repository");
+const {
+  getOpportunityBySlug,
+  getNextOpportunity
+} = require("../../core/opportunity.engine");
+
+async function getNextOpportunityForUser(userId) {
+  const completedOpportunity = getOpportunityBySlug("victory-world");
+  if (!completedOpportunity) return null;
+
+  const next = await getNextOpportunity(userId, completedOpportunity.id);
+  if (!next) return null;
+
+  return {
+    ...next,
+    entry_url: next.entryUrl || null,
+    opportunity_url: next.opportunityUrl || null
+  };
+}
 
 /* Validation du lien Victory World */
 
@@ -327,8 +345,7 @@ async function saveLink(
   }
 
     const nextOpportunity =
-      await repository
-        .findNextOpportunity(2);
+      await getNextOpportunityForUser(userId);
 
   return {
     success: true,
@@ -395,7 +412,7 @@ async function getStatus(userId) {
 
     const nextOpportunity =
       user.victory_world_status === "validated"
-        ? await repository.findNextOpportunity(2)
+        ? await getNextOpportunityForUser(userId)
         : null;
 
   return {

@@ -17,10 +17,12 @@ function dbOpportunity(overrides = {}) {
     slug: "opportunity-1",
     name: "Opportunity 1",
     status: "ACTIVE",
-    is_available: true,
+    position: 1,
     priority: 10,
     is_entry: true,
     generates_link: false,
+    entry_url: "https://example.test/entry",
+    opportunity_url: "https://example.test/opportunity",
     ...overrides
   };
 }
@@ -38,13 +40,16 @@ test.after(() => {
 test("S7 registry - met à jour les propriétés d'une opportunité lors d'un nouveau chargement DB", async () => {
   await registry.loadFromDatabase(repository([dbOpportunity()]));
   await registry.loadFromDatabase(repository([
-    dbOpportunity({ is_available: false, priority: 2 })
+    dbOpportunity({ position: 3, priority: 2, entry_url: null })
   ]));
 
   const updated = registry.get("opportunity-1");
 
-  assert.equal(updated.isAvailable, false);
+  assert.equal(updated.isAvailable, true);
+  assert.equal(updated.position, 3);
   assert.equal(updated.priority, 2);
+  assert.equal(updated.entryUrl, null);
+  assert.equal(updated.opportunityUrl, "https://example.test/opportunity");
 });
 
 test("S7 registry - retire les opportunités DB inactives sans supprimer les modules manuels", async () => {

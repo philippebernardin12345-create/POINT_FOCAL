@@ -160,34 +160,6 @@ async function saveVictoryWorldLink(
   return result.rows[0] || null;
 }
 
-async function findNextOpportunity(
-  currentPosition
-) {
-  const result = await db.query(
-    `
-    SELECT
-      id,
-      name,
-      slug,
-      position,
-      entry_url,
-      opportunity_url
-    FROM opportunities
-    WHERE
-      upper(coalesce(status, '')) = 'ACTIVE'
-      AND position > $1
-      AND (
-        NULLIF(TRIM(entry_url), '') IS NOT NULL
-        OR NULLIF(TRIM(opportunity_url), '') IS NOT NULL
-      )
-    ORDER BY position ASC
-    LIMIT 1
-    `,
-    [currentPosition]
-  );
-
-  return result.rows[0] || null;
-}
 
 module.exports = {
   findUserById,
@@ -195,6 +167,5 @@ module.exports = {
   findVictoryWorldRootLink,
   saveAssignedVictoryWorldLink,
   findUserByVictoryWorldLink,
-  saveVictoryWorldLink,
-  findNextOpportunity
+  saveVictoryWorldLink
 };

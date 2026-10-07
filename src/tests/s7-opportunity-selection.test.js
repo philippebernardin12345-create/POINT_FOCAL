@@ -35,6 +35,7 @@ function opportunity(overrides) {
     name: overrides.slug,
     status: "active",
     isAvailable: true,
+    position: 100,
     priority: 100,
     isEntry: false,
     canGeneratePointFocalLink: false,
@@ -78,13 +79,13 @@ test("S7 - choisit le générateur actif et disponible le plus prioritaire", asy
   assert.equal(selected.id, "generator-first");
 });
 
-test("S7 - renvoie l'étape suivante dans l'ordre de priorité parmi les opportunités disponibles", async () => {
+test("S7 - renvoie l'étape suivante selon position, même si priority classe autrement", async () => {
   loadOpportunities([
-    opportunity({ slug: "step-c", id: "step-c", priority: 30 }),
-    opportunity({ slug: "step-a", id: "step-a", priority: 10 }),
-    opportunity({ slug: "step-paused", id: "step-paused", priority: 15, status: "inactive" }),
-    opportunity({ slug: "step-b", id: "step-b", priority: 20 }),
-    opportunity({ slug: "step-unavailable", id: "step-unavailable", priority: 25, isAvailable: false })
+    opportunity({ slug: "step-c", id: "step-c", priority: 10, position: 3 }),
+    opportunity({ slug: "step-a", id: "step-a", priority: 30, position: 1 }),
+    opportunity({ slug: "step-paused", id: "step-paused", priority: 15, position: 2, status: "inactive" }),
+    opportunity({ slug: "step-b", id: "step-b", priority: 1, position: 2 }),
+    opportunity({ slug: "step-unavailable", id: "step-unavailable", priority: 25, position: 4, isAvailable: false })
   ]);
 
   const selected = await engine.getNextOpportunity("user-1", "step-a");
