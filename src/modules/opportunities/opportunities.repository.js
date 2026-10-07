@@ -14,7 +14,7 @@ async function findAll() {
     `
     SELECT *
     FROM opportunities
-    ORDER BY priority ASC, created_at ASC
+    ORDER BY position ASC, created_at ASC
     `
   );
 
@@ -30,7 +30,7 @@ async function findAllActive() {
     SELECT *
     FROM opportunities
     WHERE UPPER(status) = 'ACTIVE'
-    ORDER BY priority ASC, created_at ASC
+    ORDER BY position ASC, created_at ASC
     `
   );
 
@@ -71,135 +71,129 @@ async function findBySlug(slug) {
 
 
 /**
- * Crée une nouvelle opportunité
+ * Les disponibilités sont représentées par status dans le schéma réel.
+ * Les dépendances et les champs de provision ne sont pas persistés par
+ * opportunities; ils ne doivent donc pas être envoyés en SQL.
+ */
+const UNSUPPORTED_FIELDS = [
+  "dependsOn",
+  "requiresProvision",
+  "provisionAmount",
+  "provisionMessage",
+  "registrationUrl"
+];
+
+function assertSupportedFields(data = {}) {
+  const unsupported = UNSUPPORTED_FIELDS.filter((field) => data[field] !== undefined);
+  if (unsupported.length) {
+    throw new Error(`Champs opportunité non pris en charge par le schéma PostgreSQL : ${unsupported.join(", ")}`);
+  }
+}
+
+function opportunityStatus(data = {}, fallback = "draft") {
+  if (data.status !== undefined) return data.status;
+  if (data.isAvailable !== undefined) return data.isAvailable ? "active" : "inactive";
+  return fallback;
+}
+
+/**
+ * Crée une opportunité avec les colonnes présentes dans public.opportunities.
  */
 async function create(data) {
+  assertSupportedFields(data);
+
+  const fields = [];
+  const values = [];
+  const add = (column, value) => {
+    if (value !== undefined) {
+      fields.push(column);
+      values.push(value);
+    }
+  };
+
+  add("name", data.name);
+  add("slug", data.slug);
+  add("description", data.description ?? null);
+  add("status", opportunityStatus(data));
+  add("position", data.position);
+  add("priority", data.priority);
+  add("is_entry", data.isEntry);
+  add("generates_link", data.canGeneratePointFocalLink);
+  add("requires_user_link", data.requiresUserLink);
+  add("entry_mode", data.entryMode);
+  add("entry_url", data.entryUrl);
+  add("opportunity_url", data.opportunityUrl);
+  add("root_sponsor_link", data.rootSponsorLink);
+  add("root_user_id", data.rootUserId);
+  add("max_direct_referrals", data.maxDirectReferrals);
+  add("rollup_enabled", data.rollupEnabled);
+  add("type", data.type);
+  add("logo_url", data.logoUrl);
+
+  const placeholders = values.map((_, index) => `$${index + 1}`);
   const result = await query(
     `
     INSERT INTO opportunities (
-      name,
-      slug,
-      description,
-      status,
-      is_available,
-      priority,
-      is_entry,
-      generates_link,
-      requires_provision,
-      provision_amount,
-      provision_message,
-      registration_url,
-      depends_on,
+      ${fields.join(", ")},
       created_at,
       updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+    VALUES (${placeholders.join(", ")}, NOW(), NOW())
     RETURNING *
     `,
-    [
-      data.name,
-      data.slug,
-      data.description || null,
-      data.status || "draft",
-      data.isAvailable !== false,
-      data.priority || 1,
-      data.isEntry || false,
-      data.canGeneratePointFocalLink || false,
-      data.requiresProvision || false,
-      data.provisionAmount || null,
-      data.provisionMessage || null,
-      data.registrationUrl || null,
-      data.dependsOn || null
-    ]
+    values
   );
 
   return result.rows[0];
 }
 
 /**
- * Met à jour une opportunité
+ * Met à jour une opportunité avec les colonnes présentes dans public.opportunities.
  */
 async function update(id, data) {
-  const fields = [];
+  assertSupportedFields(data);
+
+  const assignments = [];
   const values = [];
   let paramIndex = 1;
+  const add = (column, value) => {
+    if (value !== undefined) {
+      assignments.push(`${column} = $${paramIndex++}`);
+      values.push(value);
+    }
+  };
 
-  if (data.name !== undefined) {
-    fields.push(`name = $${paramIndex++}`);
-    values.push(data.name);
-  }
+  add("name", data.name);
+  add("slug", data.slug);
+  add("description", data.description);
+  add("status", data.status !== undefined ? data.status :
+    data.isAvailable !== undefined ? opportunityStatus(data, undefined) : undefined);
+  add("position", data.position);
+  add("priority", data.priority);
+  add("is_entry", data.isEntry);
+  add("generates_link", data.canGeneratePointFocalLink);
+  add("requires_user_link", data.requiresUserLink);
+  add("entry_mode", data.entryMode);
+  add("entry_url", data.entryUrl);
+  add("opportunity_url", data.opportunityUrl);
+  add("root_sponsor_link", data.rootSponsorLink);
+  add("root_user_id", data.rootUserId);
+  add("max_direct_referrals", data.maxDirectReferrals);
+  add("rollup_enabled", data.rollupEnabled);
+  add("type", data.type);
+  add("logo_url", data.logoUrl);
 
-  if (data.slug !== undefined) {
-    fields.push(`slug = $${paramIndex++}`);
-    values.push(data.slug);
-  }
-
-  if (data.description !== undefined) {
-    fields.push(`description = $${paramIndex++}`);
-    values.push(data.description);
-  }
-
-  if (data.status !== undefined) {
-    fields.push(`status = $${paramIndex++}`);
-    values.push(data.status);
-  }
-
-  if (data.isAvailable !== undefined) {
-    fields.push(`is_available = $${paramIndex++}`);
-    values.push(data.isAvailable);
-  }
-
-  if (data.priority !== undefined) {
-    fields.push(`priority = $${paramIndex++}`);
-    values.push(data.priority);
-  }
-
-  if (data.isEntry !== undefined) {
-    fields.push(`is_entry = $${paramIndex++}`);
-    values.push(data.isEntry);
-  }
-
-  if (data.canGeneratePointFocalLink !== undefined) {
-    fields.push(`generates_link = $${paramIndex++}`);
-    values.push(data.canGeneratePointFocalLink);
-  }
-
-  if (data.requiresProvision !== undefined) {
-    fields.push(`requires_provision = $${paramIndex++}`);
-    values.push(data.requiresProvision);
-  }
-
-  if (data.provisionAmount !== undefined) {
-    fields.push(`provision_amount = $${paramIndex++}`);
-    values.push(data.provisionAmount);
-  }
-
-  if (data.provisionMessage !== undefined) {
-    fields.push(`provision_message = $${paramIndex++}`);
-    values.push(data.provisionMessage);
-  }
-
-  if (data.registrationUrl !== undefined) {
-    fields.push(`registration_url = $${paramIndex++}`);
-    values.push(data.registrationUrl);
-  }
-
-  if (data.dependsOn !== undefined) {
-    fields.push(`depends_on = $${paramIndex++}`);
-    values.push(data.dependsOn);
-  }
-
-  if (fields.length === 0) {
+  if (assignments.length === 0) {
     throw new Error("Aucune donnée à mettre à jour");
   }
 
-  fields.push(`updated_at = NOW()`);
+  assignments.push("updated_at = NOW()");
   values.push(id);
 
   const result = await query(
     `
     UPDATE opportunities
-    SET ${fields.join(", ")}
+    SET ${assignments.join(", ")}
     WHERE id = $${paramIndex}
     RETURNING *
     `,

@@ -124,17 +124,21 @@ class OpportunityRegistry {
             description: opportunity.description,
             status: opportunity.status,
             isActive: String(opportunity.status).toUpperCase() === "ACTIVE",
-            isAvailable: opportunity.is_available !== false,
-            priority: opportunity.priority || 1,
-            isEntry: opportunity.is_entry || false,
+            isAvailable: String(opportunity.status).toUpperCase() === "ACTIVE",
+            position: opportunity.position === null ||
+              opportunity.position === undefined ||
+              opportunity.position === "" ||
+              !Number.isFinite(Number(opportunity.position))
+              ? null
+              : Number(opportunity.position),
+            priority: Number(opportunity.priority ?? 1),
+            isEntry: opportunity.is_entry === true,
             canGeneratePointFocalLink: opportunity.generates_link === true,
-            requiresProvision: opportunity.requires_provision || false,
-            provisionAmount: opportunity.provision_amount || null,
-            provisionMessage: opportunity.provision_message || null,
-            registrationUrl: opportunity.registration_url || null,
-              rootSponsorLink: opportunity.root_sponsor_link || null,
-            dependsOn: opportunity.depends_on || null,
-            requiresUserLink: opportunity.requires_user_link !== false
+            entryUrl: opportunity.entry_url || null,
+            opportunityUrl: opportunity.opportunity_url || null,
+            rootSponsorLink: opportunity.root_sponsor_link || null,
+            requiresUserLink: opportunity.requires_user_link !== false,
+            createdAt: opportunity.created_at || null
           }, "database");
         }
       });
