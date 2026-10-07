@@ -7,7 +7,6 @@ async function findUserWithSponsor(userId) {
       u.id,
       u.email,
       u.status,
-      u.invitation_code,
       u.sponsor_id,
       u.victory_assigned_at,
       u.victory_started_at,
