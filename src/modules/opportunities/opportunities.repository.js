@@ -71,6 +71,39 @@ async function findBySlug(slug) {
 
 
 /**
+ * Returns active opportunities with this user's membership state.
+ * Only columns present in the production opportunity schema are selected.
+ */
+async function findActiveForUser(userId) {
+  const result = await query(
+    `
+    SELECT
+      o.id,
+      o.name,
+      o.slug,
+      o.status,
+      o.position,
+      o.priority,
+      o.is_entry,
+      o.generates_link,
+      o.requires_user_link,
+      o.rollup_enabled,
+      uo.status AS user_opportunity_status,
+      uo.joined_at AS user_joined_at
+    FROM opportunities o
+    LEFT JOIN user_opportunities uo
+      ON uo.opportunity_id = o.id
+     AND uo.user_id = $1
+    WHERE UPPER(o.status) = 'ACTIVE'
+    ORDER BY o.position ASC NULLS LAST, o.priority ASC, o.id ASC
+    `,
+    [userId]
+  );
+
+  return result.rows;
+}
+
+/**
  * Les disponibilités sont représentées par status dans le schéma réel.
  * Les dépendances et les champs de provision ne sont pas persistés par
  * opportunities; ils ne doivent donc pas être envoyés en SQL.
@@ -222,6 +255,7 @@ async function remove(id) {
 module.exports = {
   findAll,
   findAllActive,
+  findActiveForUser,
   findById,
   findBySlug,
   create,
