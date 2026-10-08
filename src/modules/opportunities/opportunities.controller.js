@@ -37,6 +37,19 @@ async function getActive(req, res) {
 }
 
 /**
+ * Returns active opportunities with the authenticated user's membership state.
+ */
+async function getMyProgress(req, res) {
+  try {
+    const opportunities = await opportunitiesService.getUserProgress(req.user.id);
+    return success(res, { opportunities }, "Progression des opportunités récupérée");
+  } catch (err) {
+    logger.error("[Opportunities] Erreur getMyProgress:", err);
+    return error(res, err.message || "Erreur lors de la récupération de la progression");
+  }
+}
+
+/**
  * Récupère l'opportunité d'entrée dynamique
  */
 async function getEntry(req, res) {
@@ -153,6 +166,7 @@ async function registerFollowMeLink(req, res) {
 module.exports = {
   getAll,
   getActive,
+  getMyProgress,
   getEntry,
   getGenerator,
   getNext,

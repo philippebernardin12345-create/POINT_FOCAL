@@ -5,6 +5,7 @@
  */
 
 const registry = require("./opportunities.registry");
+const opportunitiesRepository = require("./opportunities.repository");
 const {
   getEntryOpportunity: engineGetEntryOpportunity,
   getGeneratorOpportunity: engineGetGeneratorOpportunity,
@@ -30,6 +31,13 @@ async function getActiveOpportunities() {
   return getAvailableOpportunities();
 }
 
+
+/**
+ * Returns the active opportunity sequence and the authenticated user's states.
+ */
+async function getUserProgress(userId) {
+  return opportunitiesRepository.findActiveForUser(userId);
+}
 
 /**
  * Enregistre le lien Follow Me pour une opportunité
@@ -98,6 +106,7 @@ async function getProvisionRequirements(opportunityId) {
 module.exports = {
   getAllOpportunities,
   getActiveOpportunities,
+  getUserProgress,
   getEntryOpportunity: engineGetEntryOpportunity,
   getGeneratorOpportunity: engineGetGeneratorOpportunity,
   getNextOpportunity: engineGetNextOpportunity,

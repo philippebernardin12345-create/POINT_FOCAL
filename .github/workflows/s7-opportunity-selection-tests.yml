@@ -21,10 +21,14 @@ jobs:
       - name: Check syntax
         run: |
           node --check src/core/opportunity.engine.js
+          node --check src/modules/opportunities/opportunities.service.js
+          node --check src/modules/opportunities/opportunities.controller.js
+          node --check src/modules/opportunities/opportunities.routes.js
           node --check src/modules/opportunities/opportunities.repository.js
           node --check src/modules/opportunities/opportunities.registry.js
           node --check src/modules/victory-world/victory-world.repository.js
           node --check src/modules/victory-world/victory-world.service.js
           node --check src/tests/s7-opportunity-selection.test.js
+          node --check src/tests/s7-opportunity-user-progress.test.js
       - name: Run opportunity selection characterization tests
-        run: node --test src/tests/s7-opportunity-selection.test.js
+        run: node --test src/tests/s7-opportunity-selection.test.js src/tests/s7-opportunity-user-progress.test.js
