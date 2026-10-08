@@ -1,0 +1,53 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+const dbPath = require.resolve("../config/db");
+const repositoryPath = require.resolve("../modules/opportunities/opportunities.repository");
+const originalDb = require.cache[dbPath];
+const originalRepository = require.cache[repositoryPath];
+const rows = [
+  {
+    id: "opportunity-1",
+    name: "First",
+    position: 1,
+    user_opportunity_status: "active"
+  }
+];
+let calls = [];
+
+require.cache[dbPath] = {
+  id: dbPath,
+  filename: dbPath,
+  loaded: true,
+  exports: {
+    query: async (sql, params) => {
+      calls.push({ sql, params });
+      return { rows };
+    }
+  }
+};
+delete require.cache[repositoryPath];
+
+const repository = require("../modules/opportunities/opportunities.repository");
+
+test("S7 - returns active opportunities with only the requested user's membership state", async () => {
+  calls = [];
+
+  const result = await repository.findActiveForUser("user-42");
+
+  assert.deepEqual(result, rows);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].params, ["user-42"]);
+  assert.match(calls[0].sql, /LEFT JOIN user_opportunities uo/i);
+  assert.match(calls[0].sql, /uo\.user_id = \$1/i);
+  assert.match(calls[0].sql, /UPPER\(o\.status\) = 'ACTIVE'/i);
+  assert.match(calls[0].sql, /uo\.status AS user_opportunity_status/i);
+  assert.match(calls[0].sql, /ORDER BY o\.position ASC NULLS LAST/i);
+});
+
+test.after(() => {
+  delete require.cache[repositoryPath];
+  if (originalRepository) require.cache[repositoryPath] = originalRepository;
+  if (originalDb) require.cache[dbPath] = originalDb;
+  else delete require.cache[dbPath];
+});
