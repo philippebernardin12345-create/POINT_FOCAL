@@ -21,6 +21,9 @@ jobs:
       - name: Check syntax
         run: |
           node --check src/core/opportunity.engine.js
+          node --check src/modules/opportunities/opportunities.service.js
+          node --check src/modules/opportunities/opportunities.controller.js
+          node --check src/modules/opportunities/opportunities.routes.js
           node --check src/modules/opportunities/opportunities.repository.js
           node --check src/modules/opportunities/opportunities.registry.js
           node --check src/modules/victory-world/victory-world.repository.js
