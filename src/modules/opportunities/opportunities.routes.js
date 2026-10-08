@@ -11,6 +11,7 @@ const inactivityController = require("./opportunity-inactivity.controller");
 
 router.get("/", opportunitiesController.getAll);
 router.get("/active", opportunitiesController.getActive);
+router.get("/my-progress", authenticate, opportunitiesController.getMyProgress);
 router.get("/entry", authenticate, opportunitiesController.getEntry);
 router.get("/generator", authenticate, opportunitiesController.getGenerator);
 router.get("/next", authenticate, opportunitiesController.getNext);
