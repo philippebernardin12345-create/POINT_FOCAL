@@ -1,8 +1,17 @@
 function checkVictoryAutomaticEligibility(user, now = new Date()) {
-  if (!user || !user.victory_personal_link) {
+  const linkActive =
+    user &&
+    (
+      user.link_active === true ||
+      user.link_active === 1 ||
+      String(user.link_active).toLowerCase() === "true"
+    );
+  const invitationCode = String(user?.invitation_code ?? "").trim();
+
+  if (!user || !user.victory_personal_link || !linkActive || !invitationCode) {
     return {
       eligible: false,
-      reason: "Victory Automatic doit être complété avant de poursuivre vers Victory World."
+      reason: "Victory Automatic doit être complété et le lien Point Focal activé avant de poursuivre vers Victory World."
     };
   }
 
