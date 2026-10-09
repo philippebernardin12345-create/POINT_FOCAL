@@ -42,7 +42,7 @@ async function getUserProgress(userId) {
 /**
  * Enregistre le lien Follow Me pour une opportunité
  */
-async function registerFollowMeLink({ userId, opportunityId, referralLink, targetAddress = null, paymentHash = null, sponsorId = null }) {
+async function registerFollowMeLink({ userId, opportunityId, referralLink, targetAddress = null, paymentHash = null, sponsorId = null }, options = {}) {
   try {
     // Vérifier que l'opportunité existe
     const opportunity = await engineGetOpportunityById(opportunityId);
@@ -64,7 +64,7 @@ async function registerFollowMeLink({ userId, opportunityId, referralLink, targe
       targetAddress,
       paymentHash,
       sponsorId
-    });
+    }, options);
 
     return result;
   } catch (error) {
