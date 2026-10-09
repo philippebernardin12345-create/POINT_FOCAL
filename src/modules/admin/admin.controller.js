@@ -56,11 +56,16 @@ async function getUsers(req, res) {
 
     const result = await adminService.getUsers(page, limit, search);
 
-    return success(res, result.users, "Utilisateurs récupérés avec succès", {
-      page,
-      limit,
-      total: result.total,
-      pages: Math.ceil(result.total / limit)
+    return res.status(200).json({
+      success: true,
+      message: "Utilisateurs récupérés avec succès",
+      data: result.users,
+      pagination: {
+        page,
+        limit,
+        total: result.total,
+        pages: Math.ceil(result.total / limit)
+      }
     });
 
   } catch (error) {
