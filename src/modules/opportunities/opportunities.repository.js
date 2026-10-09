@@ -89,7 +89,7 @@ async function findActiveForUser(userId) {
       o.requires_user_link,
       o.rollup_enabled,
       CASE
-        WHEN o.slug IN ('victory-automatic', 'victory-world')
+        WHEN o.slug = 'victory-automatic'
           AND NOT (
             COALESCE(u.link_active, false) = true
             AND NULLIF(BTRIM(u.invitation_code), '') IS NOT NULL
@@ -99,7 +99,7 @@ async function findActiveForUser(userId) {
         ELSE uo.status
       END AS user_opportunity_status,
       CASE
-        WHEN o.slug IN ('victory-automatic', 'victory-world')
+        WHEN o.slug = 'victory-automatic'
           AND NOT (
             COALESCE(u.link_active, false) = true
             AND NULLIF(BTRIM(u.invitation_code), '') IS NOT NULL
