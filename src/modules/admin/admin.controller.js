@@ -20,13 +20,13 @@ async function login(req, res) {
       return validationError(res, "Email et mot de passe obligatoires");
     }
 
-    const result = await adminService.login(email, password);
+    const result = await adminService.login(req.body);
 
     return success(res, result, "Connexion administrateur réussie");
 
-  } catch (error) {
-    logger.error("[Admin] Erreur login:", error);
-    return error(res, error.message || "Erreur de connexion");
+  } catch (err) {
+    logger.error("[Admin] Erreur login:", err);
+    return error(res, err.message || "Erreur de connexion");
   }
 }
 
