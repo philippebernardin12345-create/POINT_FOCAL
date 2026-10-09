@@ -1,7 +1,8 @@
 const repository =
   require("./victory-world.repository");
 const {
-  assertVictoryAutomaticEligible
+  assertVictoryAutomaticEligible,
+  checkVictoryAutomaticEligibility
 } = require("./victory-world-eligibility");
 const {
   getOpportunityBySlug,
@@ -400,6 +401,9 @@ async function getStatus(userId) {
     );
   }
 
+  const victoryAutomaticEligibility =
+    checkVictoryAutomaticEligibility(user);
+
   const assignedLink =
     user.victory_world_assigned_link;
 
@@ -424,6 +428,8 @@ async function getStatus(userId) {
 
   return {
     success: true,
+    victoryAutomaticEligible: victoryAutomaticEligibility.eligible,
+    eligibilityMessage: victoryAutomaticEligibility.reason,
 
     assignedLink,
 

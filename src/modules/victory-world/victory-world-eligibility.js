@@ -1,8 +1,34 @@
 function checkVictoryAutomaticEligibility(user, now = new Date()) {
-  if (!user || !user.victory_personal_link) {
+  const linkActive =
+    user &&
+    (
+      user.link_active === true ||
+      user.link_active === 1 ||
+      String(user.link_active).toLowerCase() === "true"
+    );
+  const invitationCode = String(user?.invitation_code ?? "").trim();
+
+  const worldStatus = String(user?.victory_world_status || "").toLowerCase();
+  const alreadyAdmittedToVictoryWorld = Boolean(
+    user?.victory_world_assigned_link ||
+    user?.victory_world_link ||
+    user?.has_victory_world_membership === true ||
+    String(user?.has_victory_world_membership).toLowerCase() === "true" ||
+    worldStatus === "validated"
+  );
+
+  if (
+    !alreadyAdmittedToVictoryWorld &&
+    (
+      !user ||
+      !user.victory_personal_link ||
+      !linkActive ||
+      !invitationCode
+    )
+  ) {
     return {
       eligible: false,
-      reason: "Victory Automatic doit être complété avant de poursuivre vers Victory World."
+      reason: "Terminez et faites valider Victory Automatic avant de poursuivre vers Victory World."
     };
   }
 

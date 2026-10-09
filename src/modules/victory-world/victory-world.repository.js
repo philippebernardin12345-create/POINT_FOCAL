@@ -11,6 +11,8 @@ async function findUserById(userId) {
         is_root,
         status,
       victory_personal_link,
+      link_active,
+      invitation_code,
       victory_expired,
       victory_expires_at,
       victory_world_link,
@@ -19,7 +21,15 @@ async function findUserById(userId) {
       victory_world_paid_at,
       victory_world_started_at,
       victory_world_assigned_link,
-      victory_world_target_address
+      victory_world_target_address,
+      EXISTS (
+        SELECT 1
+        FROM user_opportunities uo
+        JOIN opportunities o ON o.id = uo.opportunity_id
+        WHERE uo.user_id = users.id
+          AND uo.status = 'active'
+          AND o.slug = 'victory-world'
+      ) AS has_victory_world_membership
     FROM users
     WHERE id = $1
     LIMIT 1

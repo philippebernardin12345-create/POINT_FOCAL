@@ -150,8 +150,25 @@ async function getNextOpportunity(userId, currentOpportunityId, options = {}) {
       return available[0] || null;
     }
 
-    // Retourner l'opportunité suivante (ou null si c'était la dernière)
-    return available[currentIndex + 1] || null;
+    // Victory World ne devient disponible qu’après validation effective
+    // de Victory Automatic (activation du lien PF et code attribué).
+    const nextOpportunity = available[currentIndex + 1] || null;
+    if (nextOpportunity?.slug === "victory-world") {
+      const linkActive =
+        user.link_active === true ||
+        user.link_active === 1 ||
+        String(user.link_active).toLowerCase() === "true";
+      const hasInvitationCode =
+        Boolean(String(user.invitation_code || "").trim());
+      const hasVictoryPersonalLink =
+        Boolean(String(user.victory_personal_link || "").trim());
+
+      if (!linkActive || !hasInvitationCode || !hasVictoryPersonalLink) {
+        return null;
+      }
+    }
+
+    return nextOpportunity;
 
   } catch (error) {
     console.error('[OpportunityEngine] Erreur getNextOpportunity:', error);

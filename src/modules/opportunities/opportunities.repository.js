@@ -88,9 +88,29 @@ async function findActiveForUser(userId) {
       o.generates_link,
       o.requires_user_link,
       o.rollup_enabled,
-      uo.status AS user_opportunity_status,
-      uo.joined_at AS user_joined_at
+      CASE
+        WHEN o.slug = 'victory-automatic'
+          AND NOT (
+            COALESCE(u.link_active, false) = true
+            AND NULLIF(BTRIM(u.invitation_code), '') IS NOT NULL
+            AND NULLIF(BTRIM(u.victory_personal_link), '') IS NOT NULL
+          )
+          THEN NULL
+        ELSE uo.status
+      END AS user_opportunity_status,
+      CASE
+        WHEN o.slug = 'victory-automatic'
+          AND NOT (
+            COALESCE(u.link_active, false) = true
+            AND NULLIF(BTRIM(u.invitation_code), '') IS NOT NULL
+            AND NULLIF(BTRIM(u.victory_personal_link), '') IS NOT NULL
+          )
+          THEN NULL
+        ELSE uo.joined_at
+      END AS user_joined_at
     FROM opportunities o
+    LEFT JOIN users u
+      ON u.id = $1
     LEFT JOIN user_opportunities uo
       ON uo.opportunity_id = o.id
      AND uo.user_id = $1
