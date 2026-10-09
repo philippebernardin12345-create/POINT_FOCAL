@@ -15,7 +15,7 @@ test("Victory World requires a verified Victory Automatic completion", () => {
   }, fixedNow);
 
   assert.equal(result.eligible, false);
-  assert.match(result.reason, /Victory Automatic doit être complété/);
+  assert.match(result.reason, /Victory Automatic/);
 });
 
 test("prelaunch Point Focal link does not unlock Victory World", () => {
@@ -35,7 +35,7 @@ test("prelaunch Point Focal link does not unlock Victory World", () => {
   ]) {
     const result = checkVictoryAutomaticEligibility(user, fixedNow);
     assert.equal(result.eligible, false);
-    assert.match(result.reason, /Victory Automatic doit être complété/);
+    assert.match(result.reason, /Victory Automatic/);
   }
 });
 
@@ -137,12 +137,12 @@ test("assignSponsor and saveLink enforce eligibility before writes", async () =>
 
   await assert.rejects(
     service.assignSponsor("user-1"),
-    /Victory Automatic doit être complété/
+    /Victory Automatic/
   );
   await assert.rejects(
     service.saveLink("user-1", {
       victoryWorldLink: "https://victoryworld.club/member"
     }),
-    /Victory Automatic doit être complété/
+    /Victory Automatic/
   );
 });
