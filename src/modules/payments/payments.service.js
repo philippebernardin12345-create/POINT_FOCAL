@@ -1,4 +1,5 @@
 const repository = require("./payments.repository");
+const opportunityService = require("../opportunities/opportunities.service");
 const { withTransaction } = require("../../config/db");
 const { generateUniqueInvitationCodes } = require("../../utils/codeGenerator");
 
@@ -491,6 +492,33 @@ async function autoTrigger(
       if (!savedVictoryLink) {
         throw new Error(
           "Impossible d’enregistrer le lien Victory Automatic personnel."
+        );
+      }
+
+      const victoryAutomatic =
+        await opportunityService.getOpportunityBySlug("victory-automatic");
+
+      if (!victoryAutomatic || !victoryAutomatic.id) {
+        throw new Error(
+          "L’opportunité Victory Automatic est introuvable."
+        );
+      }
+
+      const membership =
+        await opportunityService.registerFollowMeLink(
+          {
+            userId,
+            opportunityId: victoryAutomatic.id,
+            referralLink: normalizedVictoryLink,
+            targetAddress: normalizedTargetAddress,
+            paymentHash: normalizedTxHash
+          },
+          { client }
+        );
+
+      if (!membership || membership.success !== true) {
+        throw new Error(
+          "Impossible d’enregistrer l’adhésion Victory Automatic."
         );
       }
 
