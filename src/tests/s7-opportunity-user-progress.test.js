@@ -36,7 +36,7 @@ delete require.cache[repositoryPath];
 
 const repository = require("../modules/opportunities/opportunities.repository");
 
-test("S7 - preserves recorded opportunity memberships during prelaunch link inactivity", async () => {
+test("S7 - preserves recorded memberships and recognizes validated VA payments during prelaunch", async () => {
   calls = [];
 
   const result = await repository.findActiveForUser("user-42");
