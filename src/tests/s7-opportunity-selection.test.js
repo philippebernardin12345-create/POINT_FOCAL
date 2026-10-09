@@ -13,13 +13,15 @@ require.cache[userRepositoryPath] = {
   loaded: true,
   exports: {
     async findUserById(id) {
-      return { id };
+      return { id, ...mockUserState };
     }
   }
 };
 
 delete require.cache[enginePath];
 const engine = require("../core/opportunity.engine");
+
+let mockUserState = {};
 
 function loadOpportunities(opportunities) {
   registry.modules.clear();
@@ -93,6 +95,36 @@ test("S7 - renvoie l'étape suivante selon position, même si priority classe au
   assert.equal(selected.id, "step-b");
 });
 
+
+test("S7 - does not expose Victory World before Victory Automatic activates the PF link", async () => {
+  mockUserState = {
+    link_active: false,
+    invitation_code: null,
+    victory_personal_link: "https://victoryautomatic.com/user/register/member"
+  };
+  loadOpportunities([
+    opportunity({ slug: "victory-automatic", id: "va", position: 1 }),
+    opportunity({ slug: "victory-world", id: "vw", position: 2 })
+  ]);
+
+  const selected = await engine.getNextOpportunity("user-1", "va");
+  assert.equal(selected, null);
+});
+
+test("S7 - exposes Victory World after Victory Automatic is validated", async () => {
+  mockUserState = {
+    link_active: true,
+    invitation_code: "ABCD1000",
+    victory_personal_link: "https://victoryautomatic.com/user/register/member"
+  };
+  loadOpportunities([
+    opportunity({ slug: "victory-automatic", id: "va", position: 1 }),
+    opportunity({ slug: "victory-world", id: "vw", position: 2 })
+  ]);
+
+  const selected = await engine.getNextOpportunity("user-1", "va");
+  assert.equal(selected.id, "vw");
+});
 
 test("S7 - refuse un parcours ambigu lorsque deux opportunités actives partagent une position", async () => {
   loadOpportunities([
