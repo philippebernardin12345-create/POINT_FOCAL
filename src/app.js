@@ -23,9 +23,15 @@ const app = express();
 app.use(helmet());
 
 // ─── Sécurité : CORS ────────────────────────────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
+const configuredOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean)
   : ["http://localhost:3000", "http://localhost:5000"];
+const allowedOrigins = Array.from(new Set([
+  ...configuredOrigins,
+  "https://admin.pointfocalapp.com",
+  "https://pointfocalapp.com",
+  "https://www.pointfocalapp.com"
+]));
 
 app.use(
   cors({

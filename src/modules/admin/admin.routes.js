@@ -7,7 +7,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { authenticate, requireAdmin } = require("../../middlewares/auth.middleware");
+const { authenticateAdmin } = require("../../middlewares/admin-auth.middleware");
 const adminController = require("./admin.controller");
 
 /**
@@ -19,12 +19,13 @@ const adminController = require("./admin.controller");
  * - password: string
  */
 router.post("/login", adminController.login);
+router.post("/prelaunch-invites", authenticateAdmin, adminController.createPrelaunchInvite);
 
 /**
  * GET /api/admin/dashboard
  * Statistiques du dashboard admin
  */
-router.get("/dashboard", authenticate, requireAdmin, adminController.getDashboardStats);
+router.get("/dashboard", authenticateAdmin, adminController.getDashboardStats);
 
 /**
  * GET /api/admin/users
@@ -35,13 +36,13 @@ router.get("/dashboard", authenticate, requireAdmin, adminController.getDashboar
  * - limit: number (défaut: 20)
  * - search: string (optionnel)
  */
-router.get("/users", authenticate, requireAdmin, adminController.getUsers);
+router.get("/users", authenticateAdmin, adminController.getUsers);
 
 /**
  * GET /api/admin/users/:userId
  * Détails d'un utilisateur
  */
-router.get("/users/:userId", authenticate, requireAdmin, adminController.getUserDetails);
+router.get("/users/:userId", authenticateAdmin, adminController.getUserDetails);
 
 /**
  * PUT /api/admin/users/:userId/status
@@ -50,13 +51,13 @@ router.get("/users/:userId", authenticate, requireAdmin, adminController.getUser
  * Body:
  * - status: string (active, blocked, suspended, pending)
  */
-router.put("/users/:userId/status", authenticate, requireAdmin, adminController.updateUserStatus);
+router.put("/users/:userId/status", authenticateAdmin, adminController.updateUserStatus);
 
 /**
  * GET /api/admin/opportunities
  * Liste des opportunités
  */
-router.get("/opportunities", authenticate, requireAdmin, adminController.getOpportunities);
+router.get("/opportunities", authenticateAdmin, adminController.getOpportunities);
 
 /**
  * POST /api/admin/opportunities
@@ -77,37 +78,37 @@ router.get("/opportunities", authenticate, requireAdmin, adminController.getOppo
  * - registrationUrl: string (optionnel)
  * - dependsOn: string (optionnel)
  */
-router.post("/opportunities", authenticate, requireAdmin, adminController.createOpportunity);
+router.post("/opportunities", authenticateAdmin, adminController.createOpportunity);
 
 /**
  * PUT /api/admin/opportunities/:opportunityId
  * Met à jour une opportunité
  */
-router.put("/opportunities/:opportunityId", authenticate, requireAdmin, adminController.updateOpportunity);
+router.put("/opportunities/:opportunityId", authenticateAdmin, adminController.updateOpportunity);
 
 /**
  * DELETE /api/admin/opportunities/:opportunityId
  * Supprime une opportunité
  */
-router.delete("/opportunities/:opportunityId", authenticate, requireAdmin, adminController.deleteOpportunity);
+router.delete("/opportunities/:opportunityId", authenticateAdmin, adminController.deleteOpportunity);
 
 /**
  * GET /api/admin/leaders
  * Liste des leaders
  */
-router.get("/leaders", authenticate, requireAdmin, adminController.getLeaders);
+router.get("/leaders", authenticateAdmin, adminController.getLeaders);
 
 /**
  * GET /api/admin/leaders/count
  * Compte les leaders
  */
-router.get("/leaders/count", authenticate, requireAdmin, adminController.countLeaders);
+router.get("/leaders/count", authenticateAdmin, adminController.countLeaders);
 
 /**
  * GET /api/admin/payments
  * Liste des paiements
  */
-router.get("/payments", authenticate, requireAdmin, adminController.getPayments);
+router.get("/payments", authenticateAdmin, adminController.getPayments);
 
 /**
  * POST /api/admin/announcements
@@ -118,7 +119,7 @@ router.get("/payments", authenticate, requireAdmin, adminController.getPayments)
  * - message: string
  * - language: string (optionnel)
  */
-router.post("/announcements", authenticate, requireAdmin, adminController.sendAnnouncement);
+router.post("/announcements", authenticateAdmin, adminController.sendAnnouncement);
 
 /**
  * POST /api/admin/emergency/stop
@@ -128,18 +129,18 @@ router.post("/announcements", authenticate, requireAdmin, adminController.sendAn
  * - reason: string
  * - duration: number (minutes, optionnel)
  */
-router.post("/emergency/stop", authenticate, requireAdmin, adminController.emergencyStop);
+router.post("/emergency/stop", authenticateAdmin, adminController.emergencyStop);
 
 /**
  * POST /api/admin/emergency/resume
  * Reprise après arrêt d'urgence
  */
-router.post("/emergency/resume", authenticate, requireAdmin, adminController.emergencyResume);
+router.post("/emergency/resume", authenticateAdmin, adminController.emergencyResume);
 
 /**
  * GET /api/admin/emergency/status
  * Statut de l'arrêt d'urgence
  */
-router.get("/emergency/status", authenticate, requireAdmin, adminController.emergencyStatus);
+router.get("/emergency/status", authenticateAdmin, adminController.emergencyStatus);
 
 module.exports = router;

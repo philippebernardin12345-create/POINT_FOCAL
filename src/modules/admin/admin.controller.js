@@ -5,6 +5,7 @@
  */
 
 const adminService = require("./admin.service");
+const authService = require("../auth/auth.service");
 const { success, error, unauthorized, forbidden, notFound, validationError } = require("../../utils/response");
 const { logger } = require("../../utils/logger");
 
@@ -19,13 +20,13 @@ async function login(req, res) {
       return validationError(res, "Email et mot de passe obligatoires");
     }
 
-    const result = await adminService.login(email, password);
+    const result = await adminService.login(req.body);
 
     return success(res, result, "Connexion administrateur réussie");
 
-  } catch (error) {
-    logger.error("[Admin] Erreur login:", error);
-    return error(res, error.message || "Erreur de connexion");
+  } catch (err) {
+    logger.error("[Admin] Erreur login:", err);
+    return error(res, err.message || "Erreur de connexion");
   }
 }
 
@@ -325,8 +326,19 @@ async function emergencyStatus(req, res) {
   }
 }
 
+async function createPrelaunchInvite(req, res) {
+  try {
+    const result = await authService.createPrelaunchInviteForAdmin();
+    return success(res, result, result.message, 201);
+  } catch (err) {
+    logger.error("[Admin] Erreur createPrelaunchInvite:", err);
+    return error(res, err.message || "Impossible de créer le lien d’invitation.", err.status || 400);
+  }
+}
+
 module.exports = {
   login,
+  createPrelaunchInvite,
   getDashboardStats,
   getUsers,
   getUserDetails,
