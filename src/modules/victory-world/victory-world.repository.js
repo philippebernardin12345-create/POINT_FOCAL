@@ -11,6 +11,8 @@ async function findUserById(userId) {
         is_root,
         status,
       victory_personal_link,
+      link_active,
+      invitation_code,
       victory_expired,
       victory_expires_at,
       victory_world_link,
