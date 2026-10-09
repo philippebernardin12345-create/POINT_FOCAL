@@ -30,7 +30,7 @@ async function getDashboardStats() {
   const opportunitiesResult = await db.query(
     `
     SELECT COUNT(*)::int AS total
-    FROM campaigns
+    FROM opportunities
     `
   );
 

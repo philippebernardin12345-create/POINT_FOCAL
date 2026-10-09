@@ -6,7 +6,7 @@
 
 const adminService = require("./admin.service");
 const authService = require("../auth/auth.service");
-const { success, error, unauthorized, forbidden, notFound, validationError } = require("../../utils/response");
+const { success, error: sendError, unauthorized, forbidden, notFound, validationError } = require("../../utils/response");
 const { logger } = require("../../utils/logger");
 
 /**
@@ -26,7 +26,7 @@ async function login(req, res) {
 
   } catch (err) {
     logger.error("[Admin] Erreur login:", err);
-    return error(res, err.message || "Erreur de connexion");
+    return sendError(res, err.message || "Erreur de connexion");
   }
 }
 
@@ -41,7 +41,7 @@ async function getDashboardStats(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur getDashboardStats:", error);
-    return error(res, error.message || "Erreur lors de la récupération des statistiques");
+    return sendError(res, error.message || "Erreur lors de la récupération des statistiques");
   }
 }
 
@@ -65,7 +65,7 @@ async function getUsers(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur getUsers:", error);
-    return error(res, error.message || "Erreur lors de la récupération des utilisateurs");
+    return sendError(res, error.message || "Erreur lors de la récupération des utilisateurs");
   }
 }
 
@@ -86,7 +86,7 @@ async function getUserDetails(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur getUserDetails:", error);
-    return error(res, error.message || "Erreur lors de la récupération de l'utilisateur");
+    return sendError(res, error.message || "Erreur lors de la récupération de l'utilisateur");
   }
 }
 
@@ -118,7 +118,7 @@ async function updateUserStatus(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur updateUserStatus:", error);
-    return error(res, error.message || "Erreur lors de la mise à jour du statut");
+    return sendError(res, error.message || "Erreur lors de la mise à jour du statut");
   }
 }
 
@@ -133,7 +133,7 @@ async function getOpportunities(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur getOpportunities:", error);
-    return error(res, error.message || "Erreur lors de la récupération des opportunités");
+    return sendError(res, error.message || "Erreur lors de la récupération des opportunités");
   }
 }
 
@@ -159,7 +159,7 @@ async function createOpportunity(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur createOpportunity:", error);
-    return error(res, error.message || "Erreur lors de la création de l'opportunité");
+    return sendError(res, error.message || "Erreur lors de la création de l'opportunité");
   }
 }
 
@@ -181,7 +181,7 @@ async function updateOpportunity(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur updateOpportunity:", error);
-    return error(res, error.message || "Erreur lors de la mise à jour de l'opportunité");
+    return sendError(res, error.message || "Erreur lors de la mise à jour de l'opportunité");
   }
 }
 
@@ -202,7 +202,7 @@ async function deleteOpportunity(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur deleteOpportunity:", error);
-    return error(res, error.message || "Erreur lors de la suppression de l'opportunité");
+    return sendError(res, error.message || "Erreur lors de la suppression de l'opportunité");
   }
 }
 
@@ -217,7 +217,7 @@ async function getLeaders(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur getLeaders:", error);
-    return error(res, error.message || "Erreur lors de la récupération des leaders");
+    return sendError(res, error.message || "Erreur lors de la récupération des leaders");
   }
 }
 
@@ -232,7 +232,7 @@ async function countLeaders(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur countLeaders:", error);
-    return error(res, error.message || "Erreur lors du comptage des leaders");
+    return sendError(res, error.message || "Erreur lors du comptage des leaders");
   }
 }
 
@@ -247,7 +247,7 @@ async function getPayments(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur getPayments:", error);
-    return error(res, error.message || "Erreur lors de la récupération des paiements");
+    return sendError(res, error.message || "Erreur lors de la récupération des paiements");
   }
 }
 
@@ -268,7 +268,7 @@ async function sendAnnouncement(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur sendAnnouncement:", error);
-    return error(res, error.message || "Erreur lors de l'envoi de l'annonce");
+    return sendError(res, error.message || "Erreur lors de l'envoi de l'annonce");
   }
 }
 
@@ -290,7 +290,7 @@ async function emergencyStop(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur emergencyStop:", error);
-    return error(res, error.message || "Erreur lors de l'activation de l'arrêt d'urgence");
+    return sendError(res, error.message || "Erreur lors de l'activation de l'arrêt d'urgence");
   }
 }
 
@@ -307,7 +307,7 @@ async function emergencyResume(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur emergencyResume:", error);
-    return error(res, error.message || "Erreur lors de la reprise après arrêt d'urgence");
+    return sendError(res, error.message || "Erreur lors de la reprise après arrêt d'urgence");
   }
 }
 
@@ -322,7 +322,7 @@ async function emergencyStatus(req, res) {
 
   } catch (error) {
     logger.error("[Admin] Erreur emergencyStatus:", error);
-    return error(res, error.message || "Erreur lors de la récupération du statut");
+    return sendError(res, error.message || "Erreur lors de la récupération du statut");
   }
 }
 
@@ -332,7 +332,7 @@ async function createPrelaunchInvite(req, res) {
     return success(res, result, result.message, 201);
   } catch (err) {
     logger.error("[Admin] Erreur createPrelaunchInvite:", err);
-    return error(res, err.message || "Impossible de créer le lien d’invitation.", err.status || 400);
+    return sendError(res, err.message || "Impossible de créer le lien d’invitation.", err.status || 400);
   }
 }
 

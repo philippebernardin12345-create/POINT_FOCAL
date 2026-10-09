@@ -1,8 +1,9 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const repository =
-  require("./admin.repository");
+const repository = require("./admin.repository");
+const opportunitiesRepository = require("../opportunities/opportunities.repository");
+const opportunitiesRegistry = require("../opportunities/opportunities.registry");
 
 
 // ============================================================
@@ -128,6 +129,25 @@ async function dashboard() {
   return repository.getDashboardStats();
 }
 
+async function getDashboardStats() {
+  return dashboard();
+}
+
+async function getUsers(page = 1, limit = 20, search = "") {
+  const allUsers = await repository.getUsers();
+  const normalizedSearch = String(search || "").trim().toLowerCase();
+  const filtered = normalizedSearch
+    ? allUsers.filter((user) =>
+        [user.email, user.whatsapp, user.id]
+          .some((value) => String(value || "").toLowerCase().includes(normalizedSearch))
+      )
+    : allUsers;
+  const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
+  const safeLimit = Math.min(100, Math.max(1, Number.parseInt(limit, 10) || 20));
+  const start = (safePage - 1) * safeLimit;
+  return { users: filtered.slice(start, start + safeLimit), total: filtered.length };
+}
+
 
 // ============================================================
 // LISTE DES UTILISATEURS
@@ -165,7 +185,7 @@ async function settings() {
 // ============================================================
 
 async function getOpportunities() {
-  return repository.getOpportunities();
+  return opportunitiesRepository.findAll();
 }
 
 // ============================================================
@@ -173,193 +193,98 @@ async function getOpportunities() {
 // ============================================================
 
 async function createOpportunity(payload) {
-  const name = String(
-    payload?.name || ""
-  ).trim();
+  const name = String(payload?.name || "").trim();
+  const slug = String(payload?.slug || "").trim().toLowerCase();
+  const status = String(payload?.status || "DRAFT").trim().toUpperCase();
+  const position = Number(payload?.position);
+  const priority = Number(payload?.priority);
 
-  const description = String(
-    payload?.description || ""
-  ).trim();
-const opportunityUrl = String(
-  payload?.opportunityUrl || ""
-).trim();
-
-  const status = String(
-    payload?.status || "inactive"
-  )
-    .trim()
-    .toLowerCase();
-
-  const defaultLanguage = String(
-    payload?.defaultLanguage || "fr"
-  )
-    .trim()
-    .toLowerCase();
-
-  const prelaunchEnabled =
-    payload?.prelaunchEnabled === true;
-
-  const publicOpen =
-    payload?.publicOpen === true;
-
-  if (!name) {
-    throw new Error(
-      "Le nom de l’opportunité est obligatoire."
-    );
+  if (!name) throw new Error("Le nom de l’opportunité est obligatoire.");
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    throw new Error("Le slug doit contenir des lettres minuscules, chiffres et tirets.");
+  }
+  if (!["ACTIVE", "INACTIVE", "DRAFT"].includes(status)) {
+    throw new Error("Le statut de l’opportunité est invalide.");
+  }
+  if (!Number.isInteger(position) || position < 1) {
+    throw new Error("La position doit être un entier supérieur ou égal à 1.");
+  }
+  if (!Number.isInteger(priority) || priority < 1) {
+    throw new Error("La priorité doit être un entier supérieur ou égal à 1.");
   }
 
-  const allowedStatuses = [
-    "active",
-    "inactive",
-    "draft"
-  ];
-
-  if (!allowedStatuses.includes(status)) {
-    throw new Error(
-      "Le statut de l’opportunité est invalide."
-    );
-  }
-
-  const allowedLanguages = [
-    "fr",
-    "en",
-    "es",
-    "pt",
-    "ar",
-    "hi"
-  ];
-
-  if (
-    !allowedLanguages.includes(
-      defaultLanguage
-    )
-  ) {
-    throw new Error(
-      "La langue par défaut est invalide."
-    );
-  }
-
-  
-return repository.createOpportunity({
-  name,
-  description,
-  opportunityUrl,
-  status,
-  prelaunchEnabled,
-  publicOpen,
-  defaultLanguage
-});
+  const opportunity = await opportunitiesRepository.create({
+    name,
+    slug,
+    status,
+    position,
+    priority,
+    isEntry: payload?.isEntry === true,
+    canGeneratePointFocalLink: payload?.canGeneratePointFocalLink === true,
+    requiresUserLink: payload?.requiresUserLink === true,
+    rollupEnabled: payload?.rollupEnabled === true
+  });
+  await opportunitiesRegistry.loadFromDatabase(opportunitiesRepository);
+  return opportunity;
 }
 // ============================================================
 // MODIFIER UNE OPPORTUNITÉ
 // ============================================================
 
-async function updateOpportunity(
-  opportunityId,
-  payload
-) {
-  const id = Number(
-    opportunityId
-  );
+async function updateOpportunity(opportunityId, payload) {
+  const id = String(opportunityId || "").trim();
+  if (!id) throw new Error("Identifiant de l’opportunité invalide.");
 
-  if (
-    !Number.isInteger(id) ||
-    id <= 0
-  ) {
-    throw new Error(
-      "Identifiant de l’opportunité invalide."
-    );
+  const updates = {};
+  for (const field of ["name", "slug"]) {
+    if (payload?.[field] !== undefined) updates[field] = String(payload[field]).trim();
   }
-
-  const name = String(
-    payload?.name || ""
-  ).trim();
-
-  const description = String(
-    payload?.description || ""
-  ).trim();
-
-  const opportunityUrl = String(
-    payload?.opportunityUrl || ""
-  ).trim();
-
-  const status = String(
-    payload?.status || "inactive"
-  )
-    .trim()
-    .toLowerCase();
-
-  const defaultLanguage = String(
-    payload?.defaultLanguage || "fr"
-  )
-    .trim()
-    .toLowerCase();
-
-  const prelaunchEnabled =
-    payload?.prelaunchEnabled === true;
-
-  const publicOpen =
-    payload?.publicOpen === true;
-
-  if (!name) {
-    throw new Error(
-      "Le nom de l’opportunité est obligatoire."
-    );
-  }
-
-  const allowedStatuses = [
-    "active",
-    "inactive",
-    "draft"
-  ];
-
-  if (
-    !allowedStatuses.includes(
-      status
-    )
-  ) {
-    throw new Error(
-      "Le statut de l’opportunité est invalide."
-    );
-  }
-
-  const allowedLanguages = [
-    "fr",
-    "en",
-    "es",
-    "pt",
-    "ar",
-    "hi"
-  ];
-
-  if (
-    !allowedLanguages.includes(
-      defaultLanguage
-    )
-  ) {
-    throw new Error(
-      "La langue par défaut est invalide."
-    );
-  }
-
-    return repository.updateOpportunity(
-    id,
-    {
-      name,
-      description,
-      opportunityUrl,
-      status,
-      prelaunchEnabled,
-      publicOpen,
-      defaultLanguage
+  if (payload?.status !== undefined) {
+    const status = String(payload.status).trim().toUpperCase();
+    if (!["ACTIVE", "INACTIVE", "DRAFT"].includes(status)) {
+      throw new Error("Le statut de l’opportunité est invalide.");
     }
-  );
+    updates.status = status;
+  }
+  for (const field of ["position", "priority"]) {
+    if (payload?.[field] !== undefined) {
+      const value = Number(payload[field]);
+      if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`Le champ ${field} doit être un entier supérieur ou égal à 1.`);
+      }
+      updates[field] = value;
+    }
+  }
+  for (const [field, type] of [
+    ["isEntry", "isEntry"],
+    ["canGeneratePointFocalLink", "canGeneratePointFocalLink"],
+    ["requiresUserLink", "requiresUserLink"],
+    ["rollupEnabled", "rollupEnabled"]
+  ]) {
+    if (payload?.[field] !== undefined) {
+      if (typeof payload[field] !== "boolean") {
+        throw new Error(`Le champ ${field} doit être booléen.`);
+      }
+      updates[type] = payload[field];
+    }
+  }
+  if (updates.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(updates.slug)) {
+    throw new Error("Le slug doit contenir des lettres minuscules, chiffres et tirets.");
+  }
+  if (updates.name === "") throw new Error("Le nom de l’opportunité est obligatoire.");
+  if (Object.keys(updates).length === 0) throw new Error("Aucune donnée à mettre à jour.");
+
+  const opportunity = await opportunitiesRepository.update(id, updates);
+  if (opportunity) await opportunitiesRegistry.loadFromDatabase(opportunitiesRepository);
+  return opportunity;
 }
 
 module.exports = {
   login,
   dashboard,
+  getDashboardStats,
   users,
+  getUsers,
   settings,
   getOpportunities,
   createOpportunity,
