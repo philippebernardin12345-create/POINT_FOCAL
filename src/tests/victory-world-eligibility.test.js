@@ -49,6 +49,15 @@ test("an already admitted Victory World account keeps access without a new payme
   assert.deepEqual(result, { eligible: true, reason: null });
 });
 
+test("preserves a Victory World membership already stored in user_opportunities", () => {
+  const result = checkVictoryAutomaticEligibility({
+    status: "active",
+    has_victory_world_membership: true
+  }, fixedNow);
+
+  assert.deepEqual(result, { eligible: true, reason: null });
+});
+
 test("Victory World rejects an expired Victory Automatic account", () => {
   for (const user of [
     {
