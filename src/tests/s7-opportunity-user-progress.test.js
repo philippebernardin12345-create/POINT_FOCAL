@@ -41,7 +41,9 @@ test("S7 - returns active opportunities with only the requested user's membershi
   assert.match(calls[0].sql, /LEFT JOIN user_opportunities uo/i);
   assert.match(calls[0].sql, /uo\.user_id = \$1/i);
   assert.match(calls[0].sql, /UPPER\(o\.status\) = 'ACTIVE'/i);
-  assert.match(calls[0].sql, /uo\.status AS user_opportunity_status/i);
+  assert.match(calls[0].sql, /CASE[\s\S]*user_opportunity_status/i);
+  assert.match(calls[0].sql, /LEFT JOIN users u/i);
+  assert.match(calls[0].sql, /u\.link_active/i);
   assert.match(calls[0].sql, /ORDER BY o\.position ASC NULLS LAST/i);
 });
 
