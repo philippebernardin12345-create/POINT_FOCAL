@@ -85,6 +85,7 @@ async function createUser(user, options = {}) {
     INSERT INTO users (
       email,
       whatsapp,
+      country_code,
       password_hash,
       language,
       status,
@@ -106,16 +107,18 @@ async function createUser(user, options = {}) {
       $6,
       $7,
       $8,
-      false,
       $9,
+      false,
       $10,
       $11,
+      $12,
       false
     )
     RETURNING
       id,
       email,
       whatsapp,
+      country_code,
       language,
       status,
       sponsor_id,
@@ -131,6 +134,7 @@ async function createUser(user, options = {}) {
     [
       user.email,
       user.whatsapp,
+      user.countryCode || null,
       user.passwordHash,
       user.language,
       user.status,

@@ -212,6 +212,14 @@ async function createOpportunity(payload) {
   if (!Number.isInteger(priority) || priority < 1) {
     throw new Error("La priorité doit être un entier supérieur ou égal à 1.");
   }
+  const opportunityUrl = String(payload?.opportunityUrl || "").trim();
+  if (opportunityUrl) {
+    let parsedUrl;
+    try { parsedUrl = new URL(opportunityUrl); } catch {}
+    if (!parsedUrl || parsedUrl.protocol !== "https:") {
+      throw new Error("Le lien de l’opportunité doit être une URL HTTPS valide.");
+    }
+  }
 
   const opportunity = await opportunitiesRepository.create({
     name,
@@ -219,6 +227,7 @@ async function createOpportunity(payload) {
     status,
     position,
     priority,
+    opportunityUrl: opportunityUrl || undefined,
     isEntry: payload?.isEntry === true,
     canGeneratePointFocalLink: payload?.canGeneratePointFocalLink === true,
     requiresUserLink: payload?.requiresUserLink === true,
@@ -238,6 +247,17 @@ async function updateOpportunity(opportunityId, payload) {
   const updates = {};
   for (const field of ["name", "slug"]) {
     if (payload?.[field] !== undefined) updates[field] = String(payload[field]).trim();
+  }
+  if (payload?.opportunityUrl !== undefined) {
+    const opportunityUrl = String(payload.opportunityUrl || "").trim();
+    if (opportunityUrl) {
+      let parsedUrl;
+      try { parsedUrl = new URL(opportunityUrl); } catch {}
+      if (!parsedUrl || parsedUrl.protocol !== "https:") {
+        throw new Error("Le lien de l’opportunité doit être une URL HTTPS valide.");
+      }
+    }
+    updates.opportunityUrl = opportunityUrl || null;
   }
   if (payload?.status !== undefined) {
     const status = String(payload.status).trim().toUpperCase();
@@ -279,6 +299,14 @@ async function updateOpportunity(opportunityId, payload) {
   return opportunity;
 }
 
+async function deleteOpportunity(opportunityId) {
+  const id = String(opportunityId || "").trim();
+  if (!id) throw new Error("Identifiant de l’opportunité invalide.");
+  const deleted = await opportunitiesRepository.remove(id);
+  if (deleted) await opportunitiesRegistry.loadFromDatabase(opportunitiesRepository);
+  return deleted;
+}
+
 module.exports = {
   login,
   dashboard,
@@ -288,5 +316,6 @@ module.exports = {
   settings,
   getOpportunities,
   createOpportunity,
-  updateOpportunity
+  updateOpportunity,
+  deleteOpportunity
 };

@@ -20,6 +20,7 @@ async function register(payload) {
   const {
     email,
     whatsapp,
+    countryCode,
     password,
     confirmPassword,
     invitationCode,
@@ -29,6 +30,9 @@ async function register(payload) {
 
   const normalizedEmail =
     String(email || "").trim().toLowerCase();
+  const normalizedCountryCode = /^[A-Z]{2}$/.test(String(countryCode || "").trim().toUpperCase())
+    ? String(countryCode).trim().toUpperCase()
+    : null;
 
   const providedSponsorCode =
     String(
@@ -201,6 +205,7 @@ async function register(payload) {
         {
           email: normalizedEmail,
           whatsapp,
+          countryCode: normalizedCountryCode,
           passwordHash,
           language,
           status: "pending",
@@ -703,10 +708,16 @@ async function me(userId) {
     );
   }
 
+  const sponsor = user.sponsor_id
+    ? await authRepository.findUserById(user.sponsor_id)
+    : null;
+
   return {
     id: user.id,
     email: user.email,
     whatsapp: user.whatsapp,
+    countryCode: user.country_code || null,
+    sponsorEmail: sponsor?.email || null,
     language: user.language,
     status: user.status,
 

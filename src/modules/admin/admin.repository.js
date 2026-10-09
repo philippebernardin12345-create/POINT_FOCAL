@@ -34,6 +34,34 @@ async function getDashboardStats() {
     `
   );
 
+  const usersByCountryResult = await db.query(
+    `
+    SELECT
+      COALESCE(NULLIF(UPPER(TRIM(country_code)), ''), 'UN') AS country_code,
+      COUNT(*)::int AS users,
+      COUNT(*) FILTER (WHERE is_leader = true)::int AS leaders
+    FROM users
+    GROUP BY 1
+    ORDER BY users DESC, country_code ASC
+    `
+  );
+
+  const leadersPerformanceResult = await db.query(
+    `
+    SELECT
+      leader.id,
+      leader.email,
+      leader.country_code,
+      COUNT(member.id)::int AS direct_members,
+      COUNT(member.id) FILTER (WHERE LOWER(COALESCE(member.status, '')) = 'active')::int AS active_direct_members
+    FROM users AS leader
+    LEFT JOIN users AS member ON member.sponsor_id = leader.id
+    WHERE leader.is_leader = true
+    GROUP BY leader.id, leader.email, leader.country_code
+    ORDER BY direct_members DESC, leader.created_at ASC
+    `
+  );
+
   return {
     users:
       usersResult.rows[0]?.total || 0,
@@ -45,7 +73,9 @@ async function getDashboardStats() {
       paymentsResult.rows[0]?.total || 0,
 
     opportunities:
-      opportunitiesResult.rows[0]?.total || 0
+      opportunitiesResult.rows[0]?.total || 0,
+    usersByCountry: usersByCountryResult.rows,
+    leadersPerformance: leadersPerformanceResult.rows
   };
 }
 
@@ -57,13 +87,17 @@ async function getUsers() {
   const result = await db.query(
     `
     SELECT
-      id,
-      email,
-      whatsapp,
-      is_leader,
-      created_at
-    FROM users
-    ORDER BY id DESC
+      member.id,
+      member.email,
+      member.whatsapp,
+      member.country_code,
+      member.sponsor_id,
+      sponsor.email AS sponsor_email,
+      member.is_leader,
+      member.created_at
+    FROM users AS member
+    LEFT JOIN users AS sponsor ON sponsor.id = member.sponsor_id
+    ORDER BY member.id DESC
     `
   );
 
