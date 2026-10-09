@@ -39,6 +39,16 @@ test("prelaunch Point Focal link does not unlock Victory World", () => {
   }
 });
 
+test("an already admitted Victory World account keeps access without a new payment check", () => {
+  const result = checkVictoryAutomaticEligibility({
+    status: "active",
+    victory_world_status: "validated",
+    victory_world_link: "https://victoryworld.club/member"
+  }, fixedNow);
+
+  assert.deepEqual(result, { eligible: true, reason: null });
+});
+
 test("Victory World rejects an expired Victory Automatic account", () => {
   for (const user of [
     {
