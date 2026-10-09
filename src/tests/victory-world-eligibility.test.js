@@ -8,7 +8,7 @@ const {
 
 const fixedNow = new Date("2026-10-07T10:00:00.000Z");
 
-test("Victory World requires a completed Victory Automatic personal link", () => {
+test("Victory World requires a verified Victory Automatic completion", () => {
   const result = checkVictoryAutomaticEligibility({
     status: "active",
     victory_personal_link: null
@@ -16,6 +16,27 @@ test("Victory World requires a completed Victory Automatic personal link", () =>
 
   assert.equal(result.eligible, false);
   assert.match(result.reason, /Victory Automatic doit être complété/);
+});
+
+test("prelaunch Point Focal link does not unlock Victory World", () => {
+  for (const user of [
+    {
+      status: "active",
+      victory_personal_link: "https://victoryautomatic.com/user/register/member",
+      link_active: false,
+      invitation_code: "ABCD1000"
+    },
+    {
+      status: "active",
+      victory_personal_link: "https://victoryautomatic.com/user/register/member",
+      link_active: true,
+      invitation_code: null
+    }
+  ]) {
+    const result = checkVictoryAutomaticEligibility(user, fixedNow);
+    assert.equal(result.eligible, false);
+    assert.match(result.reason, /Victory Automatic doit être complété/);
+  }
 });
 
 test("Victory World rejects an expired Victory Automatic account", () => {
@@ -45,6 +66,8 @@ test("Victory World accepts a completed, non-expired Victory Automatic account",
   const result = checkVictoryAutomaticEligibility({
     status: "active",
     victory_personal_link: "https://victoryautomatic.com/user/register/member",
+    link_active: true,
+    invitation_code: "ABCD1000",
     victory_expired: false,
     victory_expires_at: "2026-10-08T09:59:59.000Z"
   }, fixedNow);
