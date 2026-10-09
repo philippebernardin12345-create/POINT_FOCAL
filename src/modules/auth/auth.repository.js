@@ -146,6 +146,52 @@ async function createUser(user, options = {}) {
   return result.rows[0];
 }
 
+async function createPrelaunchInvite(tokenHash, createdBy) {
+  const result = await db.query(
+    `
+    INSERT INTO prelaunch_registration_invites (token_hash, created_by)
+    VALUES ($1, $2)
+    RETURNING id, created_at
+    `,
+    [tokenHash, createdBy]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function findAvailablePrelaunchInvite(tokenHash, options = {}) {
+  const client = options.client;
+  const result = await (client || db).query(
+    `
+    SELECT id
+    FROM prelaunch_registration_invites
+    WHERE token_hash = $1
+      AND claimed_at IS NULL
+    FOR UPDATE
+    `,
+    [tokenHash]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function claimPrelaunchInvite(tokenHash, userId, options = {}) {
+  const client = options.client;
+  const result = await (client || db).query(
+    `
+    UPDATE prelaunch_registration_invites
+    SET claimed_by = $2,
+        claimed_at = NOW()
+    WHERE token_hash = $1
+      AND claimed_at IS NULL
+    RETURNING id
+    `,
+    [tokenHash, userId]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function saveEmailOtp(userId, otp, expiresAt) {
   const result = await db.query(
     `UPDATE users
@@ -548,6 +594,9 @@ module.exports = {
   findUserByEmail,
   findUserById,
   findUserByInvitationCode,
+  createPrelaunchInvite,
+  findAvailablePrelaunchInvite,
+  claimPrelaunchInvite,
   getActiveCampaign,
   findRootUser,
   createUser,

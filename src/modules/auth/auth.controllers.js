@@ -12,6 +12,21 @@ async function register(req, res) {
   }
 }
 
+async function createPrelaunchInvite(req, res) {
+  try {
+    const result = await authService.createPrelaunchInvite(req.user.id);
+    return response.success(res, result, result.message, 201);
+  } catch (err) {
+    console.error("========== PRELAUNCH INVITE ERROR ==========");
+    console.error(err);
+    return response.error(
+      res,
+      err.message || String(err),
+      err.status || 400
+    );
+  }
+}
+
 async function login(req, res) {
   try {
     const result = await authService.login(req.body);
@@ -147,6 +162,7 @@ async function runtimeState(req, res) {
 
 module.exports = {
   register,
+  createPrelaunchInvite,
   login,
   confirmEmail,
   confirmOtp,

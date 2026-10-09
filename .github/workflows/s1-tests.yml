@@ -27,6 +27,15 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Check authentication invite syntax
+        run: |
+          node --check src/modules/auth/auth.service.js
+          node --check src/modules/auth/auth.repository.js
+          node --check src/modules/auth/auth.controllers.js
+          node --check src/modules/auth/auth.routes.js
+          node --check src/tests/s5-fifo1-register.test.js
+      - name: Run registration and prelaunch invitation tests
+        run: node --test src/tests/s5-fifo1-register.test.js
       - name: Syntax check S1 services and tests
         run: |
           node --check src/core/rollup.service.js

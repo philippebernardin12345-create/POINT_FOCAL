@@ -13,6 +13,13 @@ router.get(
 // Inscription
 router.post("/register", authController.register);
 
+// Création d’un lien à usage unique par le compte racine pendant LEADER_LAUNCH
+router.post(
+  "/prelaunch-invites",
+  authenticate,
+  authController.createPrelaunchInvite
+);
+
 // Connexion
 router.post("/login", authController.login);
 

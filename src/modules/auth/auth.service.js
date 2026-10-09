@@ -38,13 +38,13 @@ async function register(payload) {
     )
       .trim()
       .toUpperCase();
+  const prelaunchInviteToken =
+    String(payload.prelaunchInviteToken || "").trim();
 
   /*
-    Le code d'invitation n'est plus obligatoire.
-
-    - Code présent : parrain réel.
-    - Code absent : attribution FIFO.
-    - Aucun candidat FIFO : racine.
+    Pendant LEADER_LAUNCH, une invitation distincte du code
+    de parrain est obligatoire. Les comptes déjà créés ne sont
+    pas concernés : ce contrôle ne s'applique qu'à register().
   */
   if (
     !normalizedEmail ||
@@ -103,48 +103,67 @@ async function register(payload) {
       concurrentes sur le FIFO et les slots.
     */
 
-    if (providedSponsorCode) {
+    const runtimeState =
+      await v106Runtime.getRuntimeState({ client });
 
+    if (!runtimeState) {
+      throw new Error("V106_RUNTIME_STATE_NOT_CONFIGURED");
+    }
+
+    let prelaunchInviteHash = null;
+
+    if (runtimeState.phase === "LEADER_LAUNCH") {
+      if (!prelaunchInviteToken) {
+        throw new Error("Une invitation de prélancement est requise.");
+      }
+
+      prelaunchInviteHash = crypto
+        .createHash("sha256")
+        .update(prelaunchInviteToken)
+        .digest("hex");
+
+      const availableInvite =
+        await authRepository.findAvailablePrelaunchInvite(
+          prelaunchInviteHash,
+          { client }
+        );
+
+      if (!availableInvite) {
+        throw new Error("Invitation invalide ou déjà utilisée.");
+      }
+
+      sponsor = await v106Runtime.resolveRootUser({ client });
+
+      if (!sponsor) {
+        throw new Error("ROOT_USER_NOT_CONFIGURED");
+      }
+
+      sponsorAssignment = "root";
+    } else if (providedSponsorCode) {
       sponsor =
         await authRepository.findUserByInvitationCode(
           providedSponsorCode,
           { client }
         );
 
-      /*
-        Le code racine doit résoudre vers
-        le véritable compte racine V10.6.
-      */
       if (
         !sponsor &&
         providedSponsorCode === ROOT_INVITATION_CODE
       ) {
         sponsor =
-          await v106Runtime.resolveRootUser({
-            client
-          });
+          await v106Runtime.resolveRootUser({ client });
 
         if (!sponsor) {
-          throw new Error(
-            "ROOT_USER_NOT_CONFIGURED"
-          );
+          throw new Error("ROOT_USER_NOT_CONFIGURED");
         }
 
         sponsorAssignment = "root";
       }
 
       if (!sponsor) {
-        throw new Error(
-          "Code d'invitation invalide."
-        );
+        throw new Error("Code d'invitation invalide.");
       }
 
-      /*
-        Un code personnel ne peut parrainer que si son
-        lien Point Focal est réellement actif.
-
-        Exception : ABCD1000 est le code bootstrap racine.
-      */
       if (
         providedSponsorCode !== ROOT_INVITATION_CODE &&
         sponsor.link_active !== true
@@ -153,51 +172,29 @@ async function register(payload) {
           "Ce lien Point Focal n'est pas encore actif."
         );
       }
+    } else {
+      /*
+        NORMAL_OPERATION :
+        FIFO déterministe, avec verrouillage du candidat
+        dans la transaction.
+      */
+      sponsor =
+        await authRepository.findOldestAvailableSponsorForFifo({
+          client
+        });
 
+      if (sponsor) {
+        sponsorAssignment = "fifo";
       } else {
-        /*
-          V10.7 :
-          Pendant LEADER_LAUNCH, toute inscription sans code
-          est rattachée directement à la racine afin de constituer
-          les 50 leaders.
+        sponsor = await v106Runtime.resolveRootUser({ client });
 
-          Le FIFO normal démarre uniquement en NORMAL_OPERATION.
-        */
-        const runtimeState = await v106Runtime.getRuntimeState({ client });
-
-        if (!runtimeState) {
-          throw new Error("V106_RUNTIME_STATE_NOT_CONFIGURED");
+        if (!sponsor) {
+          throw new Error("ROOT_USER_NOT_CONFIGURED");
         }
 
-        if (runtimeState.phase === "LEADER_LAUNCH") {
-          sponsor = await v106Runtime.resolveRootUser({ client });
-
-          if (!sponsor) {
-            throw new Error("ROOT_USER_NOT_CONFIGURED");
-          }
-
-          sponsorAssignment = "root";
-        } else {
-          /*
-            NORMAL_OPERATION :
-            FIFO déterministe, avec verrouillage
-            du candidat dans la transaction.
-          */
-          sponsor = await authRepository.findOldestAvailableSponsorForFifo({ client });
-
-          if (sponsor) {
-            sponsorAssignment = "fifo";
-          } else {
-            sponsor = await v106Runtime.resolveRootUser({ client });
-
-            if (!sponsor) {
-              throw new Error("ROOT_USER_NOT_CONFIGURED");
-            }
-
-            sponsorAssignment = "root";
-          }
-        }
+        sponsorAssignment = "root";
       }
+    }
 
     const createdUser =
       await authRepository.createUser(
@@ -223,6 +220,19 @@ async function register(payload) {
       );
     }
 
+    if (prelaunchInviteHash) {
+      const claimedInvite =
+        await authRepository.claimPrelaunchInvite(
+          prelaunchInviteHash,
+          createdUser.id,
+          { client }
+        );
+
+      if (!claimedInvite) {
+        throw new Error("Invitation invalide ou déjà utilisée.");
+      }
+    }
+
     /*
       S2 :
       Pendant LEADER_LAUNCH, un candidat rattaché à la racine
@@ -234,9 +244,6 @@ async function register(payload) {
 
       En NORMAL_OPERATION, le comportement historique est conservé.
     */
-    const runtimeState =
-      await v106Runtime.getRuntimeState({ client });
-
     const deferRootStructuralSlot =
       runtimeState?.phase === "LEADER_LAUNCH" &&
       runtimeState?.root_user_id &&
@@ -316,6 +323,38 @@ async function register(payload) {
       "Un code OTP a été envoyé à votre email."
   };
 }
+async function createPrelaunchInvite(userId) {
+  const user = await authRepository.findUserById(userId);
+
+  if (!user || user.is_root !== true) {
+    const error = new Error("Seul le compte racine peut créer une invitation.");
+    error.status = 403;
+    throw error;
+  }
+
+  const runtimeState = await v106Runtime.getRuntimeState();
+
+  if (!runtimeState || runtimeState.phase !== "LEADER_LAUNCH") {
+    const error = new Error("Les invitations de prélancement ne sont pas actives.");
+    error.status = 409;
+    throw error;
+  }
+
+  const token = crypto.randomBytes(32).toString("base64url");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+  await authRepository.createPrelaunchInvite(tokenHash, user.id);
+
+  const frontendUrl = (
+    process.env.FRONTEND_URL || "https://pointfocalapp.com"
+  ).replace(/\/$/, "");
+
+  return {
+    invitationUrl: `${frontendUrl}/register.html?invite=${encodeURIComponent(token)}`,
+    message: "Lien d'invitation créé. Il ne pourra servir qu'une seule fois."
+  };
+}
+
 async function login(payload) {
   const totalStart = Date.now();
 
@@ -855,6 +894,7 @@ async function getPublicRuntimeState() {
 
 module.exports = {
   register,
+  createPrelaunchInvite,
   login,
   confirmEmail,
   confirmOtp,
