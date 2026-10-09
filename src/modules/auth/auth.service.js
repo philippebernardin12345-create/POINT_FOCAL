@@ -355,6 +355,18 @@ async function createPrelaunchInvite(userId) {
   };
 }
 
+async function createPrelaunchInviteForAdmin() {
+  const rootUser = await authRepository.findRootUser();
+
+  if (!rootUser || rootUser.is_root !== true) {
+    const error = new Error("Compte racine introuvable.");
+    error.status = 503;
+    throw error;
+  }
+
+  return createPrelaunchInvite(rootUser.id);
+}
+
 async function login(payload) {
   const totalStart = Date.now();
 
@@ -895,6 +907,7 @@ async function getPublicRuntimeState() {
 module.exports = {
   register,
   createPrelaunchInvite,
+  createPrelaunchInviteForAdmin,
   login,
   confirmEmail,
   confirmOtp,
