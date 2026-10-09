@@ -12,6 +12,8 @@ function checkVictoryAutomaticEligibility(user, now = new Date()) {
   const alreadyAdmittedToVictoryWorld = Boolean(
     user?.victory_world_assigned_link ||
     user?.victory_world_link ||
+    user?.has_victory_world_membership === true ||
+    String(user?.has_victory_world_membership).toLowerCase() === "true" ||
     worldStatus === "validated"
   );
 
