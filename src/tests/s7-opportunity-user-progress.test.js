@@ -7,9 +7,15 @@ const originalDb = require.cache[dbPath];
 const originalRepository = require.cache[repositoryPath];
 const rows = [
   {
-    id: "opportunity-1",
-    name: "First",
+    id: "victory-automatic",
+    name: "Victory Automatic",
     position: 1,
+    user_opportunity_status: "active"
+  },
+  {
+    id: "victory-world",
+    name: "Victory World",
+    position: 2,
     user_opportunity_status: "active"
   }
 ];
@@ -30,7 +36,7 @@ delete require.cache[repositoryPath];
 
 const repository = require("../modules/opportunities/opportunities.repository");
 
-test("S7 - returns active opportunities with only the requested user's membership state", async () => {
+test("S7 - preserves recorded opportunity memberships during prelaunch link inactivity", async () => {
   calls = [];
 
   const result = await repository.findActiveForUser("user-42");
