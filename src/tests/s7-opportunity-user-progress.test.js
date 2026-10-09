@@ -47,9 +47,8 @@ test("S7 - preserves recorded memberships and recognizes validated VA payments d
   assert.match(calls[0].sql, /LEFT JOIN user_opportunities uo/i);
   assert.match(calls[0].sql, /uo\.user_id = \$1/i);
   assert.match(calls[0].sql, /UPPER\(o\.status\) = 'ACTIVE'/i);
-  assert.match(calls[0].sql, /uo\.status AS user_opportunity_status/i);
+  assert.match(calls[0].sql, /CASE[\s\S]*EXISTS[\s\S]*FROM payments p[\s\S]*p\.user_id = \$1[\s\S]*THEN 'active'[\s\S]*ELSE uo\.status/i);
   assert.match(calls[0].sql, /uo\.joined_at AS user_joined_at/i);
-  assert.doesNotMatch(calls[0].sql, /CASE[\s\S]*o\.slug = 'victory-automatic'/i);
   assert.doesNotMatch(calls[0].sql, /u\.link_active|u\.invitation_code/i);
   assert.doesNotMatch(calls[0].sql, /o\.slug IN \('victory-automatic', 'victory-world'\)/i);
   assert.match(calls[0].sql, /ORDER BY o\.position ASC NULLS LAST/i);
