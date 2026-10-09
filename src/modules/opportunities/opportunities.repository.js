@@ -89,7 +89,16 @@ async function findActiveForUser(userId) {
       o.requires_user_link,
       o.rollup_enabled,
       -- Membership records remain visible while personal links are inactive during prelaunch.
-      uo.status AS user_opportunity_status,
+      CASE
+        WHEN o.slug = 'victory-automatic'
+          AND EXISTS (
+            SELECT 1
+            FROM payments p
+            WHERE p.user_id = $1
+          )
+          THEN 'active'
+        ELSE uo.status
+      END AS user_opportunity_status,
       uo.joined_at AS user_joined_at
     FROM opportunities o
     LEFT JOIN user_opportunities uo
