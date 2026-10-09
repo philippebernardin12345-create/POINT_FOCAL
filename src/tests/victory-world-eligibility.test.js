@@ -44,15 +44,21 @@ test("Victory World rejects an expired Victory Automatic account", () => {
     {
       status: "active",
       victory_personal_link: "https://victoryautomatic.com/user/register/member",
+      link_active: true,
+      invitation_code: "ABCD1000",
       victory_expired: true
     },
     {
       status: "EXPIRED",
-      victory_personal_link: "https://victoryautomatic.com/user/register/member"
+      victory_personal_link: "https://victoryautomatic.com/user/register/member",
+      link_active: true,
+      invitation_code: "ABCD1000"
     },
     {
       status: "active",
       victory_personal_link: "https://victoryautomatic.com/user/register/member",
+      link_active: true,
+      invitation_code: "ABCD1000",
       victory_expires_at: "2026-10-07T09:59:59.000Z"
     }
   ]) {
