@@ -33,9 +33,16 @@ jobs:
           node --check src/modules/auth/auth.repository.js
           node --check src/modules/auth/auth.controllers.js
           node --check src/modules/auth/auth.routes.js
+          node --check src/modules/admin/admin.routes.js
+          node --check src/modules/admin/admin.controller.js
+          node --check src/middlewares/admin-auth.middleware.js
+          node --check src/utils/admin-token.js
           node --check src/tests/s5-fifo1-register.test.js
+          node --check src/tests/admin-token.test.js
       - name: Run registration and prelaunch invitation tests
         run: node --test src/tests/s5-fifo1-register.test.js
+      - name: Run admin token validation tests
+        run: node --test src/tests/admin-token.test.js
       - name: Syntax check S1 services and tests
         run: |
           node --check src/core/rollup.service.js
