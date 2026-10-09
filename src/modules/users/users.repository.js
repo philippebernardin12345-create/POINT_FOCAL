@@ -23,6 +23,7 @@ async function findUserById(userId) {
       sponsor_id,
       campaign_id,
       invitation_code,
+      victory_personal_link,
       is_root,
       is_leader,
       is_prelaunch_leader,
